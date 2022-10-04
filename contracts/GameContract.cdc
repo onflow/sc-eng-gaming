@@ -36,8 +36,8 @@ pub contract GameContract {
 
 		pub fun withdraw(): @NFT
 
-			// can only be called by the game admin to submit moves for both players
-			pub fun submitMoves(moves: GameMoves) {
+		// can only be called by the game admin to submit moves for both players
+		pub fun submitMoves(moves: GameMoves) {
 					
 			// Resolve any Game logic necessary to figure out a winner
 
