@@ -1,3 +1,6 @@
+import ScoreNFT from "./ScoreNFT.cdc"
+import GamingMetadataViews from "./GamingMetadataViews.cdc"
+
 pub contract RockPaperScissorsGame {
 
 	// Simple enum to identify match winner
@@ -11,23 +14,23 @@ pub contract RockPaperScissorsGame {
 	/// Moves that are allowed for this game
 	pub let allowableMoves: [String]
 	/// Field that stores win/loss records for every NFT that has played this game
-	pub let winLossRecords: {UInt64: MetadataViews.WinLoss}
-	/// Maintain matches in a mapping
-	access(contract) let matches: @{UInt64: Match}
+	pub let winLossRecords: {UInt64: GamingMetadataViews.WinLoss}
+  /// Maintain matches in a mapping
+	access(contract) let matches: @{UInt64: RockPaperScissorsGame.Match}
 
 	// Relevant events to watch
 	pub event PlayerOneDeposited(game: String, matchID: UInt64)
 	pub event PlayerTwoDeposited(game: String, matchID: UInt64)
-	pub event MatchOver(game: String, matchID: UInt64, winner: RockPaperScissorsGame.Winner)
+	pub event MatchOver(game: String, matchID: UInt64)
 
 	/// Struct used to submit & resolve player moves according to the
 	/// rules of Rock Paper Scissors
 	pub struct Moves {
 		pub let playerOneMove: String
 		pub let playerTwoMove: String
-		access(self) let winner: GameContract.Winner?
+		access(self) var winner: RockPaperScissorsGame.Winner?
 
-		pub fun resolveMoves(): GameContract.Winner {
+		pub fun resolveMoves(): RockPaperScissorsGame.Winner? {
 			// return winner if already decided
 			if self.winner != nil {
 				return self.winner
@@ -35,54 +38,56 @@ pub contract RockPaperScissorsGame {
 
 			// Check playerOneMove agains playerTwoMove to decide winner with
 			// guarantees that they are not equal as enforced in init pre
-			switch moves.playerOneMove {
+			switch self.playerOneMove {
 				// playerOne played rock
-				case GameContract.allowableMoves[0]:
-					if moves.playerTwoMove == GameContract.allowableMoves[1] {
+				case RockPaperScissorsGame.allowableMoves[0]:
+					if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[1] {
 						// playerTwo played paper -> playerTwo wins
-						self.winner = GameContract.Winner.playerTwo
+						self.winner = RockPaperScissorsGame.Winner.playerTwo
 						return self.winner
-					} else if {
+					} else if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[2] {
 						// playerTwo played scissors -> playerOne wins
-						self.winner = GameContract.Winner.playerOne
+						self.winner = RockPaperScissorsGame.Winner.playerOne
 						return self.winner
 					}
 				// playerOne played paper
-				case GameContract.allowableMoves[1]:
-					if moves.playerTwoMove == GameContract.allowableMoves[0] {
+				case RockPaperScissorsGame.allowableMoves[1]:
+					if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[0] {
 						// playerTwo played rock -> playerOne wins
-						self.winner = GameContract.Winner.playerOne
+						self.winner = RockPaperScissorsGame.Winner.playerOne
 						return self.winner
-					} else if moves.playerTwoMove == GameContract.allowableMoves[2] {
+					} else if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[2] {
 						// playerTwo played scissors -> playerTwo wins
-						self.winner = GameContract.Winner.playerTwo
+						self.winner = RockPaperScissorsGame.Winner.playerTwo
 						return self.winner
 					}
 				// playerOne played scissors
-				case GameContract.allowableMoves[2]:
-					if moves.playerTwoMove == GameContract.allowableMoves[0] {
+				case RockPaperScissorsGame.allowableMoves[2]:
+					if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[0] {
 						// playerTwo played rock -> playerTwo wins
-						self.winner = GameContract.Winner.playerTwo
+						self.winner = RockPaperScissorsGame.Winner.playerTwo
 						return self.winner
-					} else if moves.playerTwoMove == GameContract.allowableMoves[1] {
+					} else if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[1] {
 						// playerTwo played paper -> playerOne wins
-						self.winner = GameContract.Winner.playerOne
+						self.winner = RockPaperScissorsGame.Winner.playerOne
 						return self.winner
 					}
 			}
+
+			return nil
 		}
 
 		// Set variables on construction, ensuring provided moves are legal
 		init(playerOneMove: String, playerTwoMove: String) {
 			// Ensure that the moves are allowed & that they are not the same
 			pre {
-				GameContract.allowableMoves.contains(playerOneMove) &&
-				GameContract.allowableMoves.contains(playerTwoMove): "Provided moves are not legal for this game!"
+				RockPaperScissorsGame.allowableMoves.contains(playerOneMove) &&
+				RockPaperScissorsGame.allowableMoves.contains(playerTwoMove): "Provided moves are not legal for this game!"
 				playerOneMove != playerTwoMove: "No ties allowed, try again!"
 			}
 			self.playerOneMove = playerOneMove
 			self.playerTwoMove = playerTwoMove
-			self.winner == nil
+			self.winner = nil
 		}
 	}
 
@@ -90,21 +95,18 @@ pub contract RockPaperScissorsGame {
 		pub let id: UInt64
 		pub fun submitMoves(moves: RockPaperScissorsGame.Moves)
 		pub fun returnAssetsToOwners()
-		pub fun getMatchID(): UInt64
 	}
 
 	pub resource interface PlayerOne {
 		pub let id: UInt64
-		pub fun depositPlayerOne(nft: @NFT, receiver: Capability<{NonFungibleToken.Receiver}>)
+		pub fun depositPlayerOne(nft: @ScoreNFT.NFT, receiver: Capability<&AnyResource{NonFungibleToken.Receiver}>)
 		pub fun returnAssetsToOwners()
-		pub fun getMatchID(): UInt64
 	}
 
 	pub resource interface PlayerTwo {
 		pub let id: UInt64
-		pub fun depositPlayerTwo(nft: @NFT, receiver: Capability<{NonFungibleToken.Receiver}>)
+		pub fun depositPlayerTwo(nft: @ScoreNFT.NFT, receiver: Capability<&AnyResource{NonFungibleToken.Receiver}>)
 		pub fun returnAssetsToOwners()
-		pub fun getMatchID(): UInt64
 	}
 
 	/// Resource defining a Match as a single round of Rock Paper Scissors
@@ -112,48 +114,57 @@ pub contract RockPaperScissorsGame {
 	pub resource Match: MatchAdmin, PlayerOne, PlayerTwo {
 
 		pub let id: UInt64
-		pub let createdTimestamp: UInt64
-		pub let timeout: UInt64
+		pub let createdTimestamp: UFix64
+		pub let timeout: UFix64
 
 		// Defines whether match is still in play or not
 		access(self) var inPlay: Bool
 		
-		pub var playerOneNFT: @ExampleNFT.NFT?
-		pub var playerOneReceiver: Capability<{NonFungibleToken.Receiver}>?
+		pub var playerOneNFT: @ScoreNFT.NFT?
+		pub var playerOneReceiver: Capability<&AnyResource{NonFungibleToken.Receiver}>?
 
-		pub var playerTwoNFT: @ExampleNFT.NFT?
-		pub var playerTwoReceiver: Capability<{NonFungibleToken.Receiver}>?
+		pub var playerTwoNFT: @ScoreNFT.NFT?
+		pub var playerTwoReceiver: Capability<&AnyResource{NonFungibleToken.Receiver}>?
 
-		pub fun depositPlayerOne(nft: @NFT, receiver: Capability<{NonFungibleToken.Receiver}>) {
+		pub fun depositPlayerOne(nft: @ScoreNFT.NFT, receiver: Capability<&AnyResource{NonFungibleToken.Receiver}>) {
 			pre {
 				self.playerOneNFT == nil && self.playerOneReceiver == nil: "Match is already in play!"
 				self.inPlay == true: "Match is over!"
 			}
-			post {
-				self.playerOneNFT == nft && self.playerOneReceiver == receiver: "Deposit to Match unsuccessful!"
-			}
-			// if nft doesn't already have a winLossRetriever, add it
-			// then store it in player one
+
+			// If nft doesn't already have a winLossRetriever, add it
 			nft.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retriever: RockPaperScissorsGame.retrieveWinLoss)
-			self.playerOneNFT <- nft
+			// Construct WinLoss Metadata if none exists
+			if RockPaperScissorsGame.winLossRecords[nft.id] == nil {
+				RockPaperScissorsGame.winLossRecords[nft.id] = GamingMetadataViews.WinLoss(
+					game: RockPaperScissorsGame.name,
+					nftID: nft.id
+				)
+			}
+			// Then store player's NFT & Receiver
+			self.playerOneNFT <-! nft
 			self.playerOneReceiver = receiver
 			emit PlayerOneDeposited(game: RockPaperScissorsGame.name, matchID: self.id)
 		}
 		
 
-		pub fun depositPlayerTwoNFT(nft: @NFT, receiver: Capability<{NonFungibleToken.Receiver}>) {
+		pub fun depositPlayerTwoNFT(nft: @ScoreNFT.NFT, receiver: Capability<&AnyResource{NonFungibleToken.Receiver}>) {
 			pre {
 				self.playerTwoNFT == nil && self.playerTwoReceiver == nil: "Match is already in play!"
 				self.inPlay == true: "Match is over!"
 			}
-			post {
-				self.playerTwoNFT == nft && self.playerTwoReceiver == receiver: "Deposit to Match unsuccessful!"
-			}
 
-			// if nft doesn't already have a winLossRetriever, add it
-			// then store it in player One or player two
+			// If nft doesn't already have a winLossRetriever, add it
 			nft.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retriever: RockPaperScissorsGame.retrieveWinLoss)
-			self.playerTwoNFT <- nft
+			// Construct WinLoss Metadata if none exists
+			if RockPaperScissorsGame.winLossRecords[nft.id] == nil {
+				RockPaperScissorsGame.winLossRecords[nft.id] = GamingMetadataViews.WinLoss(
+					game: RockPaperScissorsGame.name,
+					nftID: nft.id
+				)
+			}
+			// Then store player's NFT & Receiver
+			self.playerTwoNFT <-! nft
 			self.playerTwoReceiver = receiver
 			emit PlayerTwoDeposited(game: RockPaperScissorsGame.name, matchID: self.id)
 		}
@@ -164,18 +175,18 @@ pub contract RockPaperScissorsGame {
 				self.inPlay == false: "Cannot return NFTs while Match is still in play!"
 			}
 			// return the NFTs to their owners
-			if playerOneNFT != nil {
-				self.playerOneReceiver.borrow()!.deposit(nft: self.playerOneNFT)
+			if self.playerOneNFT != nil {
+				self.playerOneReceiver!.borrow()!.deposit(token: <-self.playerOneNFT as! @NonFungibleToken.NFT)
 			}
-			if playerTwoNFT != nil {
-				self.playerTwoReceiver.borrow()!.deposit(nft: self.playerTwoNFT)
+			if self.playerTwoNFT != nil {
+				self.playerTwoReceiver!.borrow()!.deposit(token: <-self.playerTwoNFT as! @NonFungibleToken.NFT)
 			}
 		}
 
 		// can only be called by the game admin to submit moves for both players
 		pub fun submitMoves(moves: RockPaperScissorsGame.Moves) {
 			pre {
-				self.playerOneNFT != nil && self.player != nil: "Both players must escrow NFTs before play begins!"
+				self.playerOneNFT != nil && self.playerTwoNFT != nil: "Both players must escrow NFTs before play begins!"
 			}
 
 			// Resolve any Game logic necessary to figure out a winner
@@ -185,11 +196,11 @@ pub contract RockPaperScissorsGame {
 			// TODO: Implement these in the contract
 			RockPaperScissorsGame.updateWinLossRecord(
 				id: self.playerOneNFT.id,
-				win: winner == GameContract.Winner.playerOne
+				win: winner == RockPaperScissorsGame.Winner.playerOne
 			)
 			RockPaperScissorsGame.updateWinLossRecord(
 				id: self.playerTwoNFT.id,
-				win: winner == GameContract.Winner.playerTwo
+				win: winner == RockPaperScissorsGame.Winner.playerTwo
 			)
 
 			// Finally, end match & return assets
@@ -197,18 +208,18 @@ pub contract RockPaperScissorsGame {
 			self.playerOneReceiver.borrow()!.deposit(self.playerOneNFT)
 			self.playerTwoReceiver.borrow()!.deposit(self.playerTwoNFT)
 
-			emit MatchOver(game: RockPaperScissorsGame.name, matchID: self.id, winner: winner)
+			emit MatchOver(game: RockPaperScissorsGame.name, matchID: self.id)
 		}
 
-		pub fun getMatchID(): UInt64 {
-			return self.id
-		}
-
-		init(matchTimeout: UInt64) {
+		init(matchTimeout: UFix64) {
 			self.id = self.uuid
-			self.inPlay == true
+			self.inPlay = true
 			self.createdTimestamp = getCurrentBlock().timestamp
 			self.timeout = matchTimeout
+			self.playerOneNFT <- nil
+			self.playerOneReceiver = nil
+			self.playerTwoNFT <- nil
+			self.playerTwoReceiver = nil
 		}
 
 		destroy() {
@@ -217,7 +228,6 @@ pub contract RockPaperScissorsGame {
 				getCurrentBlock().timestamp >= self.createdTimestamp + self.timeout ||
 				self.inPlay == false: "Cannot destroy while Match is still in play!"
 			}
-			destroy self
 		}
 	}
 
@@ -233,12 +243,12 @@ pub contract RockPaperScissorsGame {
 
 	/// Function to create a new match and return a wrapper resource with which to
 	/// administer the match
-	pub fun createNewMatch(matchTimeout: UInt64): @MatchAdminWrapper {
+	pub fun createNewMatch(matchTimeout: UFix64): @MatchAdminWrapper? {
 		// Create the new match & preserve its ID
-		let newMatch = create <- Match(matchTimeout: matchTimeout)
+		let newMatch <- create Match(matchTimeout: matchTimeout)
 		let newMatchID = newMatch.id
 		// Add the match to the matches mapping
-		self.matches[newMatchID]! <- newMatch
+		self.matches[newMatchID] <-! newMatch
 		
 		// Protect against uncommon nil case
 		if let newMatchAdminRef = &self.matches[newMatchID] as &AnyResource{MatchAdmin}? {
@@ -267,22 +277,24 @@ pub contract RockPaperScissorsGame {
 	}
 
 	// Retriever for winloss data to be added to deposited NFTs metadata retrievers
-	pub fun retrieveWinLoss(id: UInt64): MetadataViews.WinLoss {
+	pub fun retrieveWinLoss(id: UInt64): GamingMetadataViews.WinLoss? {
 		return self.winLossRecords[id]
 	}
 
 	// Method to update winloss data for each NFT
 	access(contract) fun updateWinLossRecord(id: UInt64, win: Bool) {
 		if win {
-			self.winLossRecords[id].addWin()
+			self.winLossRecords[id]!.addWin()
 		} else {
-			self.winLossRecords[id].addLoss()
+			self.winLossRecords[id]!.addLoss()
 		}
 	}
 
 	init() {
 		self.allowableMoves = ["rock", "paper", "scissors"]
 		self.matches <- {}
+		self.name = "RockPaperScissors"
+		self.winLossRecords = {}
 	}
 }
  

@@ -1,13 +1,33 @@
 {
+	"contracts": {
+		"MetadataViews": "./contracts/utility/MetadataViews.cdc",
+		"NonFungibleToken": "./contracts/utility/NonFungibleToken.cdc",
+		"FungibleToken": "./contracts/utility/FungibleToken.cdc",
+		"GamingMetadataViews": "./contracts/GamingMetadataViews.cdc",
+		"ScoreNFT": "./contracts/ScoreNFT.cdc",
+		"RockPaperScissorsGame": "./contracts/RockPaperScissorsGame.cdc"
+	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
 		"mainnet": "access.mainnet.nodes.onflow.org:9000",
 		"testnet": "access.devnet.nodes.onflow.org:9000"
-	},
+	}
 	"accounts": {
 		"emulator-account": {
 			"address": "f8d6e0586b0a20c7",
 			"key": "83c4da8100a5bb0086fd0835e0b48dbdf507ca4aa15dab56edccee06c82eb110"
+		}
+	},
+	"deployments": {
+		"emulator": {
+			"emulator-account": [
+				"MetadataViews",
+				"NonFungibleToken",
+				"FungibleToken",
+				"GamingMetadataViews",
+				"ScoreNFT",
+				"RockPaperScissorsGame"
+			]
 		}
 	}
 }
