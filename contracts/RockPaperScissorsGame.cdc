@@ -1,5 +1,6 @@
 import ScoreNFT from "./ScoreNFT.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
+import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 
 pub contract RockPaperScissorsGame {
 
@@ -15,8 +16,12 @@ pub contract RockPaperScissorsGame {
 	pub let allowableMoves: [String]
 	/// Field that stores win/loss records for every NFT that has played this game
 	pub let winLossRecords: {UInt64: GamingMetadataViews.WinLoss}
-  /// Maintain matches in a mapping
-	access(contract) let matches: @{UInt64: RockPaperScissorsGame.Match}
+
+	/// Set canonical paths
+	pub let MatchStoragePath: StoragePath
+	pub let MatchPrivatePath: PrivatePath
+	pub let EscrowCollectionStoragePath: StoragePath
+	pub let EscrowCollectionPrivatePath: PrivatePath
 
 	// Relevant events to watch
 	pub event PlayerOneDeposited(game: String, matchID: UInt64)
@@ -99,13 +104,13 @@ pub contract RockPaperScissorsGame {
 
 	pub resource interface PlayerOne {
 		pub let id: UInt64
-		pub fun depositPlayerOne(nft: @ScoreNFT.NFT, receiver: Capability<&AnyResource{NonFungibleToken.Receiver}>)
+		pub fun escrowPlayerOne(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>)
 		pub fun returnAssetsToOwners()
 	}
 
 	pub resource interface PlayerTwo {
 		pub let id: UInt64
-		pub fun depositPlayerTwo(nft: @ScoreNFT.NFT, receiver: Capability<&AnyResource{NonFungibleToken.Receiver}>)
+		pub fun escrowPlayerTwo(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>)
 		pub fun returnAssetsToOwners()
 	}
 
@@ -118,17 +123,33 @@ pub contract RockPaperScissorsGame {
 		pub let timeout: UFix64
 
 		// Defines whether match is still in play or not
-		access(self) var inPlay: Bool
-		
-		pub var playerOneNFT: @ScoreNFT.NFT?
-		pub var playerOneReceiver: Capability<&AnyResource{NonFungibleToken.Receiver}>?
+		pub var inPlay: Bool
 
-		pub var playerTwoNFT: @ScoreNFT.NFT?
-		pub var playerTwoReceiver: Capability<&AnyResource{NonFungibleToken.Receiver}>?
+		// ScoreNFT Capability to custody NFTs during gameplay
+		pub let escrowCollection: Capability<&ScoreNFT.Collection>
+		// We'll track each players' NFTs by their IDs
+		pub var playerOneNFTID: UInt64?
+		pub var playerTwoNFTID: UInt64?
+		// Keep Receiver Capabilities to easily return NFTs
+		pub var playerOneReceiver: Capability<&{NonFungibleToken.Receiver}>?
+		pub var playerTwoReceiver: Capability<&{NonFungibleToken.Receiver}>?
 
-		pub fun depositPlayerOne(nft: @ScoreNFT.NFT, receiver: Capability<&AnyResource{NonFungibleToken.Receiver}>) {
+		init(matchTimeout: UFix64) {
+			self.id = self.uuid
+			self.inPlay = true
+			self.createdTimestamp = getCurrentBlock().timestamp
+			self.timeout = matchTimeout
+			self.escrowCollection = RockPaperScissorsGame.createEscrowCollection(matchID: self.id)
+			self.playerOneNFTID = nil
+			self.playerTwoNFTID = nil
+			self.playerOneReceiver = nil
+			self.playerTwoReceiver = nil
+		}
+
+		// Dedicated 
+		pub fun escrowPlayerOne(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>) {
 			pre {
-				self.playerOneNFT == nil && self.playerOneReceiver == nil: "Match is already in play!"
+				self.playerOneNFTID == nil && self.playerOneReceiver == nil: "Player1 has already escrowed!"
 				self.inPlay == true: "Match is over!"
 			}
 
@@ -142,15 +163,18 @@ pub contract RockPaperScissorsGame {
 				)
 			}
 			// Then store player's NFT & Receiver
-			self.playerOneNFT <-! nft
+			let token <- nft as! @NonFungibleToken.NFT
+			self.playerOneNFTID = token.id
+			let escrowRef = self.escrowCollection.borrow()!
+			escrowRef.deposit(token: <-token)
 			self.playerOneReceiver = receiver
 			emit PlayerOneDeposited(game: RockPaperScissorsGame.name, matchID: self.id)
 		}
 		
 
-		pub fun depositPlayerTwoNFT(nft: @ScoreNFT.NFT, receiver: Capability<&AnyResource{NonFungibleToken.Receiver}>) {
+		pub fun escrowPlayerTwo(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>) {
 			pre {
-				self.playerTwoNFT == nil && self.playerTwoReceiver == nil: "Match is already in play!"
+				self.playerTwoNFTID == nil && self.playerTwoReceiver == nil: "Player2 has already deposited!"
 				self.inPlay == true: "Match is over!"
 			}
 
@@ -164,7 +188,10 @@ pub contract RockPaperScissorsGame {
 				)
 			}
 			// Then store player's NFT & Receiver
-			self.playerTwoNFT <-! nft
+			let token <- nft as! @NonFungibleToken.NFT
+			self.playerTwoNFTID = token.id
+			let escrowRef = self.escrowCollection.borrow()!
+			escrowRef.deposit(token: <-token)
 			self.playerTwoReceiver = receiver
 			emit PlayerTwoDeposited(game: RockPaperScissorsGame.name, matchID: self.id)
 		}
@@ -174,19 +201,25 @@ pub contract RockPaperScissorsGame {
 				getCurrentBlock().timestamp >= self.createdTimestamp + self.timeout ||
 				self.inPlay == false: "Cannot return NFTs while Match is still in play!"
 			}
+			let escrowRef = self.escrowCollection.borrow()!
 			// return the NFTs to their owners
-			if self.playerOneNFT != nil {
-				self.playerOneReceiver!.borrow()!.deposit(token: <-self.playerOneNFT as! @NonFungibleToken.NFT)
+			if self.playerOneNFTID != nil {
+				let nft <- escrowRef.withdraw(withdrawID: self.playerOneNFTID!)
+				self.playerOneReceiver!.borrow()!.deposit(token: <-nft)
+				self.playerOneNFTID = nil
 			}
-			if self.playerTwoNFT != nil {
-				self.playerTwoReceiver!.borrow()!.deposit(token: <-self.playerTwoNFT as! @NonFungibleToken.NFT)
+			if self.playerTwoNFTID != nil {
+				let nft <- escrowRef.withdraw(withdrawID: self.playerTwoNFTID!)
+				self.playerTwoReceiver!.borrow()!.deposit(token: <-nft)
+				self.playerTwoNFTID = nil
 			}
 		}
 
 		// can only be called by the game admin to submit moves for both players
 		pub fun submitMoves(moves: RockPaperScissorsGame.Moves) {
 			pre {
-				self.playerOneNFT != nil && self.playerTwoNFT != nil: "Both players must escrow NFTs before play begins!"
+				self.escrowCollection.borrow()!.getIDs().length == 2:
+					"Both players must escrow NFTs before play begins!"
 			}
 
 			// Resolve any Game logic necessary to figure out a winner
@@ -195,85 +228,107 @@ pub contract RockPaperScissorsGame {
 			// Then update the win loss records for both the players
 			// TODO: Implement these in the contract
 			RockPaperScissorsGame.updateWinLossRecord(
-				id: self.playerOneNFT.id,
+				id: self.playerOneNFTID!,
 				win: winner == RockPaperScissorsGame.Winner.playerOne
 			)
 			RockPaperScissorsGame.updateWinLossRecord(
-				id: self.playerTwoNFT.id,
+				id: self.playerTwoNFTID!,
 				win: winner == RockPaperScissorsGame.Winner.playerTwo
 			)
 
 			// Finally, end match & return assets
 			self.inPlay = false
-			self.playerOneReceiver.borrow()!.deposit(self.playerOneNFT)
-			self.playerTwoReceiver.borrow()!.deposit(self.playerTwoNFT)
+			self.returnAssetsToOwners()
 
 			emit MatchOver(game: RockPaperScissorsGame.name, matchID: self.id)
 		}
 
-		init(matchTimeout: UFix64) {
-			self.id = self.uuid
-			self.inPlay = true
-			self.createdTimestamp = getCurrentBlock().timestamp
-			self.timeout = matchTimeout
-			self.playerOneNFT <- nil
-			self.playerOneReceiver = nil
-			self.playerTwoNFT <- nil
-			self.playerTwoReceiver = nil
-		}
-
 		destroy() {
 			pre {
-				self.playerOneNFT == nil && self.playerTwoNFT == nil: "Cannot destroy while NFTs in escrow!"
+				self.escrowCollection.borrow()!.getIDs().length == 0:
+					"Cannot destroy while NFTs in escrow!"
 				getCurrentBlock().timestamp >= self.createdTimestamp + self.timeout ||
-				self.inPlay == false: "Cannot destroy while Match is still in play!"
+				self.inPlay == false: 
+					"Cannot destroy while Match is still in play!"
 			}
 		}
 	}
 
-	/// Wrapper resource allowing the MatchAdmin to preserve reference to the nested
-	/// Match resource in the wrappers mapping
-	pub resource MatchAdminWrapper {
-		pub let matchAdminRef: &AnyResource{MatchAdmin}
 
-		init(_ ref: &AnyResource{MatchAdmin}) {
-			self.matchAdminRef = ref
+	/** --- Wrappers for each party's capabilities --- */
+	pub resource MatchAdminWrapper {
+		pub let matchAdminCap: Capability<&{MatchAdmin}>
+		init(_ admin: Capability<&{MatchAdmin}>) {
+			self.matchAdminCap = admin
 		}
 	}
 
-	/// Function to create a new match and return a wrapper resource with which to
-	/// administer the match
-	pub fun createNewMatch(matchTimeout: UFix64): @MatchAdminWrapper? {
+	pub resource PlayerOneWrapper {
+		pub let playerOneCap: Capability<&{PlayerOne}>
+		init(_ p1: Capability<&{PlayerOne}>) {
+			self.playerOneCap = p1
+		}
+	}
+
+	pub resource PlayerTwoWrapper {
+		pub let playerTwoCap: Capability<&{PlayerTwo}>
+		init(_ p2: Capability<&{PlayerTwo}>) {
+			self.playerTwoCap = p2
+		}
+	}
+
+	/** --- Contract helper functions --- */
+
+	/// Function to create a new match and return the MatchAdmin Capability
+	pub fun createNewMatch(matchTimeout: UFix64): Capability<&{MatchAdmin}> {
 		// Create the new match & preserve its ID
 		let newMatch <- create Match(matchTimeout: matchTimeout)
 		let newMatchID = newMatch.id
-		// Add the match to the matches mapping
-		self.matches[newMatchID] <-! newMatch
 		
-		// Protect against uncommon nil case
-		if let newMatchAdminRef = &self.matches[newMatchID] as &AnyResource{MatchAdmin}? {
-			// Return the wrapper resource
-			return <- create MatchAdminWrapper(newMatchAdminRef)
+		// Construct Match specific paths
+		let matchPrivatePath = PrivatePath(identifier: self.MatchPrivatePath.toString().concat(newMatchID.toString()))!
+		let matchStoragePath = StoragePath(identifier: self.MatchStoragePath.toString().concat(newMatchID.toString()))!
+		
+		// Save the match to this account
+		self.account.save(<-newMatch, to: matchStoragePath)
+
+		// Link each Capability to private
+		self.account.link<&{MatchAdmin, PlayerOne, PlayerTwo}>(matchPrivatePath, target: matchStoragePath)
+		
+		return self.account.getCapability<&{MatchAdmin}>(self.MatchPrivatePath)!
+	}
+
+	access(contract) fun createEscrowCollection(matchID: UInt64): Capability<&ScoreNFT.Collection> {
+		// Derive path
+		let escrowCollectionStoragePath = StoragePath(identifier: self.EscrowCollectionStoragePath.toString().concat(matchID.toString()))!
+		let escrowCollectionPrivatePath = PrivatePath(identifier: self.EscrowCollectionPrivatePath.toString().concat(matchID.toString()))!
+		// Create the collection
+		let collection <- ScoreNFT.createEmptyCollection()
+		// Save & link
+		self.account.save(<-collection, to: escrowCollectionStoragePath)
+		self.account.link<&ScoreNFT.Collection>(escrowCollectionPrivatePath, target: escrowCollectionStoragePath)
+		// Return Capability
+		return self.account.getCapability<&ScoreNFT.Collection>(escrowCollectionPrivatePath)
+	}
+
+	/// Returns the PlayerOne Capability for a given match
+	pub fun getPlayerOne(matchID: UInt64): @PlayerOneWrapper? {
+		let playerOnePrivatePath = PrivatePath(identifier:self.MatchPrivatePath.toString().concat(matchID.toString()))!
+		let playerOneCap = self.account.getCapability<&{PlayerOne}>(playerOnePrivatePath)
+		if playerOneCap != nil {
+			return <- create PlayerOneWrapper(playerOneCap)
 		}
 		return nil
 	}
 
-	/// Get a reference to the PlayerOne resource
-	pub fun getPlayerOne(matchID: UInt64): &AnyResource{PlayerOne}? {
-		post {
-			result == nil || result?.id == matchID:
-				"Cannot borrow PlayerTwo reference: the ID of the returned reference is incorrect"
+	/// Returns the PlayerTwo Capability for a given match
+	pub fun getPlayerTwo(matchID: UInt64): @PlayerTwoWrapper? {
+		let playerTwoPrivatePath = PrivatePath(identifier:self.MatchPrivatePath.toString().concat(matchID.toString()))!
+		let playerTwoCap = self.account.getCapability<&{PlayerTwo}>(playerTwoPrivatePath)
+		if playerTwoCap != nil {
+			return <- create PlayerTwoWrapper(playerTwoCap)
 		}
-		return &self.matches[matchID] as &AnyResource{PlayerOne}?
-	}
-
-	/// Get a reference to the PlayerTwo resource
-	pub fun getPlayerTwo(matchID: UInt64): &AnyResource{PlayerTwo}? {
-		post {
-			result == nil || result?.id == matchID:
-				"Cannot borrow PlayerTwo reference: the ID of the returned reference is incorrect"
-		}
-		return &self.matches[matchID] as &AnyResource{PlayerTwo}?
+		return nil
 	}
 
 	// Retriever for winloss data to be added to deposited NFTs metadata retrievers
@@ -291,8 +346,12 @@ pub contract RockPaperScissorsGame {
 	}
 
 	init() {
+		self.MatchStoragePath = /storage/Match
+		self.MatchPrivatePath = /private/Match
+		self.EscrowCollectionStoragePath = /storage/EscrowCollection
+		self.EscrowCollectionPrivatePath = /private/EscrowCollection
+
 		self.allowableMoves = ["rock", "paper", "scissors"]
-		self.matches <- {}
 		self.name = "RockPaperScissors"
 		self.winLossRecords = {}
 	}
