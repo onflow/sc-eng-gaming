@@ -156,12 +156,13 @@ pub contract RockPaperScissorsGame {
 	}
 
 	/** --- Receivers for each party's capabilities --- */
+
 	/// Resource to allow creation of matches & maintain Capabilities for each
 	/// New matches can be created & are stored to the game contract's account to make
 	/// escrow of assets as safe as possible
 	pub resource GameAdmin {
+
 		pub let id: UInt64
-		// pub let matchAdminActionsCapabilities: {UInt64: Capability<&{MatchAdminActions}>}
 		pub let matchAdminActionsCapabilities: {UInt64: Capability<&{MatchAdminActions}>}
 		
 		init() {
@@ -169,7 +170,7 @@ pub contract RockPaperScissorsGame {
 			self.matchAdminActionsCapabilities = {}
 		}
 		
-		pub fun createMatch(matchTimeout: UFix64) {
+		pub fun createMatch(matchTimeout: UFix64): UInt64 {
 			// Create the new match & preserve its ID
 			let newMatch <- create Match(matchTimeout: matchTimeout)
 			let newMatchID = newMatch.id
@@ -191,9 +192,11 @@ pub contract RockPaperScissorsGame {
 			)
 
 			emit NewMatchCreated(game: RockPaperScissorsGame.name, matchID: newMatchID)
+
+			return newMatchID
 		}
 
-		pub fun addPlayerToMatch(matchID: UInt64, gamePlayerCapability: Capability<&AnyResource{GamePlayerPublic}>) {
+		pub fun addPlayerToMatch(matchID: UInt64, gamePlayerRef: &AnyResource{GamePlayerPublic}) {
 			// Derive match's private path from matchID
 			let matchPrivatePath = PrivatePath(identifier: RockPaperScissorsGame.MatchPrivateBasePathString.concat(matchID.toString()))!
 			// Get the capability
@@ -203,7 +206,7 @@ pub contract RockPaperScissorsGame {
 				message: "Not able to retrieve MatchPlayerActions Capability for given matchID"
 			)
 			// Add it to the player's matchPlayerCapabilities
-			gamePlayerCapability.borrow()!.addMatchPlayerActionsCapability(matchID: matchID, matchPlayerActionsCap)
+			gamePlayerRef.addMatchPlayerActionsCapability(matchID: matchID, matchPlayerActionsCap)
 		}
 		
 		/// Allows GameAdmin to delete capabilities from their mapping to free up space used by old matches
@@ -264,15 +267,17 @@ pub contract RockPaperScissorsGame {
 		}
 	}
 
+	/** --- Contract helper functions --- */
+
+	/// Return a GameAdmin resource
 	pub fun createGameAdmin(): @GameAdmin {
 		return <- create GameAdmin()
 	}
 
-	pub fun createPlayer (): @GamePlayer {
+	/// Return a GamePlayer resource
+	pub fun createGamePlayer (): @GamePlayer {
 		return <- create GamePlayer()
 	}
-
-	/** --- Contract helper functions --- */
 
 	/// Retriever for winloss data to be added to deposited NFTs metadata retrievers
 	pub fun retrieveWinLoss(id: UInt64): GamingMetadataViews.WinLoss? {
