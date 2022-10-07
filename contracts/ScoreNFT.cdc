@@ -11,12 +11,13 @@ import GamingMetadataViews from "./GamingMetadataViews.cdc"
 // into can add their win/loss retriever function to it
 // and games can implement their escrow mechanics in any way they want
 // instead of having to be constrained to what is in here
-pub contract ScoreNFT {
+pub contract ScoreNFT: NonFungibleToken {
 
 	pub var totalSupply: UInt64
 	pub let CollectionStoragePath: StoragePath
 	pub let CollectionPublicPath: PublicPath
 
+	pub event ContractInitialized()
 	pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
 
@@ -32,26 +33,21 @@ pub contract ScoreNFT {
 
 		/// When a user deposits their NFT into a game session,
 		/// the game can add their retriever to the NFT
-		pub fun addWinLossRetriever(gameName: String, retriever: ((UInt64): GamingMetadataViews.WinLoss)) {
+		pub fun addWinLossRetriever(gameName: String, retriever: ((UInt64): GamingMetadataViews.WinLoss?)) {
 			// make sure the name is not already in use
-			pre {
-				self.winLossRetrievers[gameName] == nil: "Retriever already exists for this game!"
+			if self.winLossRetrievers[gameName] != nil {
+				self.winLossRetrievers[gameName] = retriever
 			}
-
-			self.winLossRetrievers[gameName] = retriever
 		}
 
 		pub fun getViews(): [Type] {
-			return [Type<GamingMetadataViews.WinLoss>()]
+			return [Type<GamingMetadataViews.WinLossView>()]
 		}
 
 		pub fun resolveView(_ view: Type): AnyStruct? {
 			switch view {
 				case Type<GamingMetadataViews.WinLossView>():
-					return GamingMetadataViews.WinLossView(
-						id: self.id,
-						self.winLossRetrievers
-					)
+					return GamingMetadataViews.WinLossView(self.winLossRetrievers)
 				default:
 					return nil
 			}
@@ -151,5 +147,7 @@ pub contract ScoreNFT {
 		self.totalSupply = 0
 		self.CollectionStoragePath = /storage/ScoreNFTCollection
 		self.CollectionPublicPath = /public/ScoreNFTCollection
+
+		emit ContractInitialized()
 	}
 }
