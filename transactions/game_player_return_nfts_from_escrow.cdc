@@ -1,4 +1,4 @@
-import RockPaperScissorsGame from 0x05
+import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
 
 /// ReturnsNFTs from escrow to their owners' Receiver
 transaction(matchID: UInt64) {
