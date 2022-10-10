@@ -1,6 +1,6 @@
-import NonFungibleToken from "./utility/NonFungibleToken.cdc"
-import ScoreNFT from "./contracts/ScoreNFT.cdc"
-import RockPaperScissorsGame from "./contracts/RockPaperScissorsGame.cdc"
+import NonFungibleToken from "../contracts/utility/NonFungibleToken.cdc"
+import ScoreNFT from "../contracts/ScoreNFT.cdc"
+import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
 
 /// Transaction that sets up GamePlayer resource in signing account
 /// and exposes GamePlayerPublic capability so matches can be added
