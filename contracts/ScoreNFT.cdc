@@ -24,7 +24,7 @@ pub contract ScoreNFT: NonFungibleToken {
 	pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
 		pub let id: UInt64
 		/// maps the name of the game to its win/loss retriever function
-		pub let winLossRetrievers: {String: ((UInt64): GamingMetadataViews.WinLoss?)}
+		pub let winLossRetrievers: {String: ((UInt64): GamingMetadataViews.WinLoss)}
 
 		init() {
 			self.id = self.uuid
@@ -33,7 +33,7 @@ pub contract ScoreNFT: NonFungibleToken {
 
 		/// When a user deposits their NFT into a game session,
 		/// the game can add their retriever to the NFT
-		pub fun addWinLossRetriever(gameName: String, retriever: ((UInt64): GamingMetadataViews.WinLoss?)) {
+		pub fun addWinLossRetriever(gameName: String, retriever: ((UInt64): GamingMetadataViews.WinLoss)) {
 			// make sure the name is not already in use
 			if self.winLossRetrievers[gameName] != nil {
 				self.winLossRetrievers[gameName] = retriever
