@@ -22,7 +22,7 @@ transaction(matchID: UInt64, withdrawID: UInt64) {
         self.matchPlayerActionsRef = matchPlayerActionsCap.borrow()!
         
         // Get the Receiver Capability
-        // TODO: Might want to check that capability exists
+        // TODO: Want to check that capability exists
         self.receiverCap = acct
             .getCapability<&{NonFungibleToken.Receiver}>(
                 ScoreNFT.CollectionPublicPath
