@@ -14,7 +14,6 @@ pub fun main(address: Address, id: UInt64): GamingMetadataViews.WinLoss {
         ?? panic("Could not borrow a reference to the collection")
 
     let viewResolver = resolverCollectionRef.borrowViewResolver(id: id)
-        
 
     let wlView = GamingMetadataViews.getWinLossView(viewResolver : viewResolver) ?? 
         panic("Can not borrow WinLossView from NFT")
