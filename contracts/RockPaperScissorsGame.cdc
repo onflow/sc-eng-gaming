@@ -263,7 +263,7 @@ pub contract RockPaperScissorsGame {
 		}
 		
 		/// Allows for GamePlayer to sign up for a match that already exists
-		pub fun signUpForMatch(matchID: UInt64, _ cap: Capability<&{MatchPlayerActions}>) {
+		pub fun signUpForMatch(matchID: UInt64) {
 			// Derive path to capability
 			let matchPrivatePath = PrivatePath(identifier: RockPaperScissorsGame.MatchPrivateBasePathString.concat(matchID.toString()))!
 			// Get the Capability
