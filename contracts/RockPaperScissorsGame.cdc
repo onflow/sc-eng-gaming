@@ -38,7 +38,7 @@ pub contract RockPaperScissorsGame {
 	pub event PlayerSignedUpForMatch(game: String, matchID: UInt64, playerID: UInt64)
 	pub event PlayerAddedToMatch(game: String, matchID: UInt64, playerID: UInt64)
 	pub event PlayerNFTEscrowed(game: String, matchID: UInt64, matchNFTsEscrowed: Int)
-	pub event MatchOver(game: String, matchID: UInt64, winningNFTID: UInt64?)
+	pub event MatchOver(game: String, matchID: UInt64, winningNFTID: UInt64?, returnedNFTIDs: [UInt64])
 
 	/** --- Interfaces for each party --- */
 	pub resource interface MatchAdminActions {
@@ -146,9 +146,9 @@ pub contract RockPaperScissorsGame {
 			}
 			// Finally, end match & return assets
 			self.inPlay = false
-			self.returnPlayerNFTs()
+			let returnedNFTIDs = self.returnPlayerNFTs()
 
-			emit MatchOver(game: RockPaperScissorsGame.name, matchID: self.id, winningNFTID: winningID)
+			emit MatchOver(game: RockPaperScissorsGame.name, matchID: self.id, winningNFTID: winningID, returnedNFTIDs: returnedNFTIDs)
 		}
 		
 		// Custom destroyer to prevent destroying escrowed NFTs
@@ -309,34 +309,30 @@ pub contract RockPaperScissorsGame {
 		pre {
 			moves.length == 2: "RockPaperScissors requires two moves"
 		}
-		log(moves)
 		
 		let player1 = moves.keys[0]
 		let player2 = moves.keys[1]
 
-		// Not a tie, so compare
-		if moves[player1] != moves[player2] {
-			// Choose one move to compare against other
-			switch moves[player1] {
-				case RockPaperScissorsGame.Moves.rock:
-					if moves[player2] == RockPaperScissorsGame.Moves.paper {
-						return player2
-					} else if moves[player2] == RockPaperScissorsGame.Moves.scissors {
-						return player1
-					}
-				case RockPaperScissorsGame.Moves.paper:
-					if moves[player2] == RockPaperScissorsGame.Moves.rock {
-						return player1
-					} else if moves[player2] == RockPaperScissorsGame.Moves.scissors {
-						return player2
-					}
-				case RockPaperScissorsGame.Moves.scissors:
-					if moves[player2] == RockPaperScissorsGame.Moves.rock {
-						return player2
-					} else if moves[player2] == RockPaperScissorsGame.Moves.paper {
-						return player1
-					}
-			}
+		// Choose one move to compare against other
+		switch moves[player1]! {
+			case RockPaperScissorsGame.Moves.rock:
+				if moves[player2] == RockPaperScissorsGame.Moves.paper {
+					return player2
+				} else if moves[player2] == RockPaperScissorsGame.Moves.scissors {
+					return player1
+				}
+			case RockPaperScissorsGame.Moves.paper:
+				if moves[player2] == RockPaperScissorsGame.Moves.rock {
+					return player1
+				} else if moves[player2] == RockPaperScissorsGame.Moves.scissors {
+					return player2
+				}
+			case RockPaperScissorsGame.Moves.scissors:
+				if moves[player2] == RockPaperScissorsGame.Moves.rock {
+					return player2
+				} else if moves[player2] == RockPaperScissorsGame.Moves.paper {
+					return player1
+				}
 		}
 
 		// If they played the same move, it's a tie -> return nil
