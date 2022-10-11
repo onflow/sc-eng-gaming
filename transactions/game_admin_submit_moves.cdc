@@ -47,11 +47,13 @@ transaction(matchID: UInt64, nftID1: UInt64, move1: Int, nftID2: UInt64, move2: 
                 panic("That wasn't a legal move for player 2")
         }
 
+        log(self.moves)
+
 
     }
 
     execute {
         // Submit moves for the game
-        self.matchAdminActionsRef.submitMoves(moves: moves)
+        self.matchAdminActionsRef.submitMoves(moves: self.moves)
     }
 }
