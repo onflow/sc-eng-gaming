@@ -18,7 +18,12 @@ transaction {
         acct.save(<-collection, to: ScoreNFT.CollectionStoragePath)
 
         // create a public capability for the collection
-        acct.link<&{NonFungibleToken.CollectionPublic, ScoreNFT.ScoreNFTCollectionPublic, MetadataViews.ResolverCollection}>(
+        acct.link<&{
+            NonFungibleToken.Receiver,
+            NonFungibleToken.CollectionPublic,
+            ScoreNFT.ScoreNFTCollectionPublic,
+            MetadataViews.ResolverCollection
+        }>(
             ScoreNFT.CollectionPublicPath,
             target: ScoreNFT.CollectionStoragePath
         )
