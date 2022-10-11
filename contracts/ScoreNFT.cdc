@@ -35,8 +35,8 @@ pub contract ScoreNFT: NonFungibleToken {
 		/// the game can add their retriever to the NFT
 		pub fun addWinLossRetriever(gameName: String, retriever: AnyStruct) {
 			// make sure the name is not already in use
-			if self.winLossRetrievers[gameName] != nil {
-				self.winLossRetrievers[gameName] = retriever
+			if self.winLossRetrievers[gameName] == nil {
+				self.winLossRetrievers.insert(key: gameName, retriever)
 			}
 		}
 
@@ -137,7 +137,7 @@ pub contract ScoreNFT: NonFungibleToken {
         return <- newCollection
     }
 
-	// TODO: Make a Minter resource
+	// TODO: We may want to make a minter resource, but this will do for now
 	pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}) {
 		self.totalSupply = self.totalSupply + UInt64(1)
 		let newNFT <- create NFT() as! @NonFungibleToken.NFT

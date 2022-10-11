@@ -50,6 +50,10 @@ pub contract GamingMetadataViews {
         init (_ retrievers: {String: AnyStruct}) {
             self.winLossRetrievers = retrievers
         }
+
+        pub fun getWinLossRetriever(name: String): AnyStruct? {
+            return self.winLossRetrievers[name]
+        }
     }
 
     /// Helper to get a Win/Loss view in a type-safe way

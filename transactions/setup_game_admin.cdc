@@ -12,6 +12,7 @@ transaction {
         let gameAdmin: @RockPaperScissorsGame.GameAdmin <- RockPaperScissorsGame.createGameAdmin()
         // Save it
         acct.save(<-gameAdmin, to: RockPaperScissorsGame.GameAdminStoragePath)
+        // Link it
         acct.link<&{RockPaperScissorsGame.GameAdminPublic}>(
             RockPaperScissorsGame.GameAdminPublicPath,
             target: RockPaperScissorsGame.GameAdminStoragePath

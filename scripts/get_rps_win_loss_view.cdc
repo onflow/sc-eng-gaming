@@ -4,8 +4,8 @@ import GamingMetadataViews from "../contracts/GamingMetadataViews.cdc"
 import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
 
 
-/// WIP
-pub fun main(address: Address, id: UInt64): GamingMetadataViews.WinLoss {
+/// Script to get the RockPaperScissors WinLoss data from a given address's NFT
+pub fun main(address: Address, id: UInt64): GamingMetadataViews.WinLoss? {
     let account = getAccount(address)
 
     let resolverCollectionRef = account
@@ -15,10 +15,18 @@ pub fun main(address: Address, id: UInt64): GamingMetadataViews.WinLoss {
 
     let viewResolver = resolverCollectionRef.borrowViewResolver(id: id)
 
-    let wlView = GamingMetadataViews.getWinLossView(viewResolver : viewResolver) ?? 
-        panic("Can not borrow WinLossView from NFT")
+    // If the WinLossView exists for the given viewResolver, check for winLoss data
+    if let wlView: GamingMetadataViews.WinLossView = GamingMetadataViews
+        .getWinLossView(viewResolver: viewResolver) {
+        if wlView.winLossRetrievers.containsKey(RockPaperScissorsGame.name) {
+            // Since the WinLossRetriever is stored as AnyStruct in ScoreNFT, we need
+            // to cast the result
+            let winLossRetriever: RockPaperScissorsGame.WinLossRetriever = wlView.getWinLossRetriever(name: RockPaperScissorsGame.name)! as! RockPaperScissorsGame.WinLossRetriever
+            return winLossRetriever!.retrieveWinLoss(id: id)
+        }
+        return nil
+    }
+    // Otherwise return nil
+    return nil
     
-    let winLossRetriever = wlView.winLossRetrievers[RockPaperScissorsGame.name] as! RockPaperScissorsGame.WinLossRetriever 
-    
-    return winLossRetriever.retrieveWinLoss(id: id) ?? panic("No WinLoss records for this NFT")
 }
