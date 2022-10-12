@@ -33,7 +33,11 @@
 		},
 		"player-one": {
 			"address": "01cf0e2f2f715450",
-			"key": "7bd075389fd9a134a22f13f7e5ddfc83d864bc6268789e7ecc990f4ecf7e6945"
+			"key": "9aa61f716ba34ee16624f1c89a1788e23fa6dce1f84ba9ae5d3f867b4592b962"
+		},
+		"player-two": {
+			"address": "179b6b1cb6755e31",
+			"key": "f0f45db18f611b691ded9e05d76c1b69abd69128362d712500dc6ba9527b0d10"
 		}
 	},
 	"deployments": {
