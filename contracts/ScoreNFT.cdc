@@ -12,7 +12,7 @@ import GamingMetadataViews from "./GamingMetadataViews.cdc"
 // instead of having to be constrained to what is in here
 pub contract ScoreNFT {
 
-    pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver{
+    pub resource NFT {
         pub let id: UInt64
 
 		/// maps the name of the game to its win/loss retriever function
@@ -24,9 +24,6 @@ pub contract ScoreNFT {
 			// make sure the name is not already in use
 		    // There might be a better way to key the dictionary than by a string Name
             self.winLossRetrievers[gameName] = retriever
-        }
-        pub fun getViews(): [Type] {
-            return [GamingMetadataViews.WinLossView]
         }
 
 		pub fun resolveView(_ view: Type): AnyStruct? {

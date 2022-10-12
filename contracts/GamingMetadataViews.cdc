@@ -40,7 +40,7 @@ pub contract GamingMetadataViews {
 		/// Dictionary mapping game name to function that returns a WinLoss struct
 		pub let winLossRetrievers: {String: ((UInt64): WinLoss)}
 
-        init (retriever: (UInt64): WinLoss))) {
+        init () {
             self.winLossRetrievers = {}
         }
     }
