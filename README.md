@@ -18,9 +18,7 @@
     1. Player 1: `flow scripts execute ./scripts/get_collection_ids.cdc 01cf0e2f2f715450`
     1. Player 2: `flow scripts execute ./scripts/get_collection_ids.cdc 179b6b1cb6755e31`
 1. Players escrow ScoreNFTs: 
-    1. `flow transactions send ./transactions/game_player_escrow_nft.cdc 36 34 --signer player-one`
-    1. `flow transactions send ./transactions/game_player_escrow_nft.cdc 36 35 --signer player-two`
-1. Admin submit moves on behalf of both players: `flow transactions send ./transactions/game_admin_submit_moves.cdc 36 34 1 35 3`
-1. Get player's scores: 
-    1. Player 1: `flow scripts execute ./scripts/get_rps_win_loss_view.cdc 01cf0e2f2f715450 34`
-    1. Player 1: `flow scripts execute ./scripts/get_rps_win_loss_view.cdc 179b6b1cb6755e31 35`
+    1. `flow transactions send ./transactions/game_player_escrow_nft.cdc <MatchID> <NFTID> --signer player-one`
+    1. `flow transactions send ./transactions/game_player_escrow_nft.cdc <MatchID> <NFTID> --signer player-two`
+1. Admin submit moves on behalf of both players: `flow transactions send ./transactions/game_admin_submit_moves.cdc <MatchID> <NFTID1> <Move1> <NFTID2> <Move2>`
+1. Get player's scores: `flow scripts execute ./scripts/get_rps_win_loss_view.cdc <AnyPlayerAddress>`

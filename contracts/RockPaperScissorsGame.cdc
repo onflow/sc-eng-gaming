@@ -188,12 +188,9 @@ pub contract RockPaperScissorsGame {
 			let newMatch <- create Match(matchTimeout: matchTimeout)
 			let newMatchID = newMatch.id
 			
-			let storageIdentifier = RockPaperScissorsGame.MatchStorageBasePathString.concat(newMatchID.toString())
 			// Derive paths using matchID
-			let matchStoragePath = StoragePath(identifier: storageIdentifier)!
-
-			let privateIdentifier = RockPaperScissorsGame.MatchPrivateBasePathString.concat(newMatchID.toString())
-			let matchPrivatePath = PrivatePath(identifier: privateIdentifier)!
+			let matchStoragePath = StoragePath(identifier: RockPaperScissorsGame.MatchStorageBasePathString.concat(newMatchID.toString()))!
+			let matchPrivatePath = PrivatePath(identifier: RockPaperScissorsGame.MatchPrivateBasePathString.concat(newMatchID.toString()))!
 			
 			// Save the match to game contract account's storage
 			RockPaperScissorsGame.account.save(<-newMatch, to: matchStoragePath)
@@ -276,9 +273,6 @@ pub contract RockPaperScissorsGame {
 			pre {
 				!self.matchPlayerCapabilities.containsKey(matchID): "Player already has capability for this Match!"
 			}
-			post {
-				self.matchPlayerCapabilities.containsKey(matchID): "Capability for match has not been saved into player"
-			}
 			self.matchPlayerCapabilities.insert(key: matchID, cap)
 			// Event that could be used to notify player they were added
 			emit PlayerAddedToMatch(game: RockPaperScissorsGame.name, matchID: matchID, playerID: self.id)
@@ -309,8 +303,7 @@ pub contract RockPaperScissorsGame {
 		pre {
 			moves.length == 2: "RockPaperScissors requires two moves"
 		}
-		log(moves)
-		
+
 		let player1 = moves.keys[0]
 		let player2 = moves.keys[1]
 
@@ -338,7 +331,6 @@ pub contract RockPaperScissorsGame {
 					}
 			}
 		}
-
 		// If they played the same move, it's a tie -> return nil
 		return nil
 	}
@@ -360,8 +352,8 @@ pub contract RockPaperScissorsGame {
 		self.GameAdminPublicPath = /public/RockPaperScissorsGameAdmin
 		self.GamePlayerStoragePath = /storage/RockPaperScissorsGamePlayer
 		self.GamePlayerPublicPath = /public/RockPaperScissorsGamePlayer
-		self.MatchStorageBasePathString = "Match"
-		self.MatchPrivateBasePathString = "Match"
+		self.MatchStorageBasePathString = "/storage/Match"
+		self.MatchPrivateBasePathString = "/private/Match"
 
 		self.name = "RockPaperScissors"
 		self.winLossRecords = {}
