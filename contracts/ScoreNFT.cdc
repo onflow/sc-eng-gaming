@@ -37,10 +37,5 @@ pub contract ScoreNFT {
                     return nil
             }
         }
-
-        init() {
-            self.id = self.uuid
-        }
     }
 }
- 
