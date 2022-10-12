@@ -11,13 +11,6 @@ pub contract RockPaperScissorsGame {
 		pub case scissors
 	}
 
-	pub struct WinLossRetriever {
-		/// Retriever for winloss data to be added to deposited NFTs metadata retrievers
-		pub fun retrieveWinLoss(id: UInt64): GamingMetadataViews.WinLoss? {
-			return RockPaperScissorsGame.winLossRecords[id]
-		}
-	}
-
 	/// Name of the game
 	pub let name: String
 	/// Field that stores win/loss records for every NFT that has played this game
@@ -25,8 +18,6 @@ pub contract RockPaperScissorsGame {
 
 	/// Set canonical paths for easy storage of resources in transactions
 	pub let GameAdminStoragePath: StoragePath
-	// for exposing capability for getting matches ids
-	pub let GameAdminPublicPath: PublicPath
 	pub let GamePlayerStoragePath: StoragePath
 	pub let GamePlayerPublicPath: PublicPath
 	/// Set base path as strings - will be concatenated with matchID they apply to
@@ -92,7 +83,7 @@ pub contract RockPaperScissorsGame {
 			let nftID = token.id
 
 			// If nft doesn't already have a winLossRetriever, add it
-			token.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retriever: RockPaperScissorsGame.WinLossRetriever)
+			token.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retriever: RockPaperScissorsGame.retrieveWinLoss)
 
 			// Construct WinLoss Metadata if none exists
 			if RockPaperScissorsGame.winLossRecords[nftID] == nil {
@@ -166,14 +157,10 @@ pub contract RockPaperScissorsGame {
 
 	/** --- Receivers for each party's capabilities --- */
 
-	pub resource interface GameAdminPublic {
-		pub fun getMatchesIDs(): [UInt64]
-	}
-	
 	/// Resource to allow creation of matches & maintain Capabilities for each
 	/// New matches can be created & are stored to the game contract's account to make
 	/// escrow of assets as safe as possible
-	pub resource GameAdmin: GameAdminPublic {
+	pub resource GameAdmin {
 
 		pub let id: UInt64
 		pub let matchAdminActionsCapabilities: {UInt64: Capability<&{MatchAdminActions}>}
@@ -223,12 +210,8 @@ pub contract RockPaperScissorsGame {
 		}
 		
 		/// Allows GameAdmin to delete capabilities from their mapping to free up space used by old matches
-		pub fun deleteAdminActionsCapability(matchID: UInt64) {
+		pub fun deletePlayerActionsCapability(matchID: UInt64) {
 			self.matchAdminActionsCapabilities.remove(key: matchID)
-		}
-
-		pub fun getMatchesIDs(): [UInt64] {
-			return self.matchAdminActionsCapabilities.keys
 		}
 	}
 
@@ -296,6 +279,18 @@ pub contract RockPaperScissorsGame {
 		return <- create GamePlayer()
 	}
 
+	/// The function that will be saved inside the NFT for retrieving its RockPaperScissors score
+	///
+	/// @param
+	/// @return
+	///
+	pub fun retrieveWinLoss(id: UInt64): GamingMetadataViews.WinLoss {
+		if self.winLossRecords[id] == nil {
+			self.winLossRecords[id] = GamingMetadataViews.WinLoss(game: RockPaperScissorsGame.name, id: id)
+		}
+		return self.winLossRecords[id]!
+	}
+
 	/// Method to determine outcome of a RockPaperScissors with given moves
 	/// Exposing game logic allows for some degree of composability with other
 	/// games and match types
@@ -349,7 +344,6 @@ pub contract RockPaperScissorsGame {
 
 	init() {
 		self.GameAdminStoragePath = /storage/RockPaperScissorsGameAdmin
-		self.GameAdminPublicPath = /public/RockPaperScissorsGameAdmin
 		self.GamePlayerStoragePath = /storage/RockPaperScissorsGamePlayer
 		self.GamePlayerPublicPath = /public/RockPaperScissorsGamePlayer
 		self.MatchStorageBasePathString = "/storage/Match"

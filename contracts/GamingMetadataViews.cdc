@@ -45,9 +45,9 @@ pub contract GamingMetadataViews {
 		/// to the individual gaming contracts' records of win/loss
         /// for their games
 		/// Dictionary mapping game name to function that returns a WinLoss struct
-		pub let winLossRetrievers: {String: AnyStruct}
+		pub let winLossRetrievers: {String: ((UInt64): WinLoss)}
 
-        init (_ retrievers: {String: AnyStruct}) {
+        init (_ retrievers: {String: ((UInt64): WinLoss)}) {
             self.winLossRetrievers = retrievers
         }
     }
