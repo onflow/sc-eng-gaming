@@ -1,6 +1,6 @@
-import NonFungibleToken from "../contracts/utility/NonFungibleToken.cdc"
-import MetadataViews from "../contracts/utility/MetadataViews.cdc"
-import ScoreNFT from "../contracts/ScoreNFT.cdc"
+import NonFungibleToken from "./utility/NonFungibleToken.cdc"
+import MetadataViews from "./utility/MetadataViews.cdc"
+import ScoreNFT from "./contracts/ScoreNFT.cdc"
 
 /// Transaction to setup ScoreNFT collection in the signer's account
 transaction {
