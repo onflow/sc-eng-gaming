@@ -1,10 +1,9 @@
 import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
 
 /// Transaction to submit moves on behalf of players
-/// int moves: 0 rock, 1 paper, 2 scissors
 // TODO: Reconsider how we submit moves - I don't like that we have to enter NFT ids or enums here or client side
 // When we are not testing it manually the 4 last parameters will just be moves: {UInt64: RockPaperScissorsGame.Moves}
-// TODO: We'll want to consider how we can submit moves for async games (i.e. one player at a time)
+// int moves: 1 rock, 2 paper, 3 scissors
 transaction(matchID: UInt64, nftID1: UInt64, move1: UInt8, nftID2: UInt64, move2: UInt8) {
     
     let matchAdminActionsRef: &{RockPaperScissorsGame.MatchAdminActions}
@@ -30,7 +29,6 @@ transaction(matchID: UInt64, nftID1: UInt64, move1: UInt8, nftID2: UInt64, move2
         let player2Move = RockPaperScissorsGame.Moves(
             rawValue: move2
         ) ?? panic("Illegal move for player 2")
-        // Assign moves for each player's NFT
         self.moves = {
             nftID1: player1Move,
             nftID2: player2Move

@@ -87,13 +87,12 @@ pub contract RockPaperScissorsGame {
 				self.playerNFTs.length < 2: "Both players have adready escrowed their NFTs"
 				self.inPlay == true: "Match is over!"
 			}
-
 			// Make sure we're dealing with a ScoreNFT.NFT
 			let token <- nft as! @ScoreNFT.NFT
 			let nftID = token.id
 
 			// If nft doesn't already have a winLossRetriever, add it
-			token.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retriever: RockPaperScissorsGame.WinLossRetriever())
+			token.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retriever: RockPaperScissorsGame.WinLossRetriever)
 
 			// Construct WinLoss Metadata if none exists
 			if RockPaperScissorsGame.winLossRecords[nftID] == nil {
@@ -118,19 +117,14 @@ pub contract RockPaperScissorsGame {
 				getCurrentBlock().timestamp >= self.createdTimestamp + self.timeout ||
 				self.inPlay == false: "Cannot return NFTs while Match is still in play!"
 			}
-
 			let returnedNFTs: [UInt64] = []
 			for id in self.nftReceivers.keys {
-				let receiver = self.nftReceivers[id]!.borrow() ?? panic("Could not access player's receiver")
-				let token <- self.playerNFTs.remove(key: id)!
-				receiver.deposit(token: <-token)
-				returnedNFTs.append(id)
-				//if let receiver = self.nftReceivers[id]!.borrow() {
-         		//	if let token <- self.playerNFTs.remove(key: id)  {
-				//		receiver.deposit(token: <- token)
-				//		returnedNFTs.append(id)
-				//	}
-				//}
+				if let receiver = self.nftReceivers[id]!.borrow() {
+         			if let token <- self.playerNFTs.remove(key: id)  {
+						receiver.deposit(token: <- token)
+						returnedNFTs.append(id)
+					}
+				}
 			}
 			return returnedNFTs
 		}
@@ -141,7 +135,6 @@ pub contract RockPaperScissorsGame {
 				self.playerNFTs.length == 2: "Both players must escrow NFTs before play begins!"
 				self.inPlay == true: "Match is not in play any longer!"
 			}
-
 			// Get the ID of the winning NFT (nil implies a tie)
 			let winningID: UInt64? = RockPaperScissorsGame.determineRockPaperScissorsWinner(moves: moves)
 			// Then update the win loss records for the players' NFTs
@@ -167,7 +160,6 @@ pub contract RockPaperScissorsGame {
 				self.inPlay == false: 
 					"Cannot destroy while Match is still in play!"
 			}
-
 			destroy self.playerNFTs
 		}
 	}
@@ -287,7 +279,6 @@ pub contract RockPaperScissorsGame {
 			post {
 				self.matchPlayerCapabilities.containsKey(matchID): "Capability for match has not been saved into player"
 			}
-
 			self.matchPlayerCapabilities.insert(key: matchID, cap)
 			// Event that could be used to notify player they were added
 			emit PlayerAddedToMatch(game: RockPaperScissorsGame.name, matchID: matchID, playerID: self.id)
