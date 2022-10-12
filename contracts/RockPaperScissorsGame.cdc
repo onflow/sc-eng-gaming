@@ -279,16 +279,9 @@ pub contract RockPaperScissorsGame {
 		return <- create GamePlayer()
 	}
 
-	/// The function that will be saved inside the NFT for retrieving its RockPaperScissors score
-	///
-	/// @param
-	/// @return
-	///
-	pub fun retrieveWinLoss(id: UInt64): GamingMetadataViews.WinLoss {
-		if self.winLossRecords[id] == nil {
-			self.winLossRecords[id] = GamingMetadataViews.WinLoss(game: RockPaperScissorsGame.name, id: id)
-		}
-		return self.winLossRecords[id]!
+	/// Retriever for winloss data to be added to deposited NFTs metadata retrievers
+	pub fun retrieveWinLoss(id: UInt64): GamingMetadataViews.WinLoss? {
+		return self.winLossRecords[id]
 	}
 
 	/// Method to determine outcome of a RockPaperScissors with given moves
@@ -331,7 +324,6 @@ pub contract RockPaperScissorsGame {
 	}
 
 	/// Method to update GamingMetadataViews.WinLoss for each NFT
-	// why is winner an optional? it will explode comparing
 	access(contract) fun updateWinLossRecord(id: UInt64, winner: UInt64?) {
 		if id == winner {
 			self.winLossRecords[id]!.addWin()
