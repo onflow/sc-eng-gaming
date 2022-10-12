@@ -1,6 +1,5 @@
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 import MetadataViews from "./utility/MetadataViews.cdc"
-import GamingMetadataViews from "./GamingMetadataViews.cdc"
 
 // Then, in the NFT contract, the NFT can just store the dictionary
 // of the winLossRetrievers and return it via the metadata view
@@ -22,13 +21,9 @@ pub contract ScoreNFT {
 
 	pub resource NFT: NonFungibleToken.INFT, MetadataViews.Resolver {
 		pub let id: UInt64
+
 		/// maps the name of the game to its win/loss retriever function
 		pub let winLossRetrievers: {String: ((UInt64): GamingMetadataViews.WinLoss?)}
-
-		init() {
-			self.id = self.uuid
-			self.winLossRetrievers = {}
-		}
 
 		/// When a user deposits their NFT into a game session,
 		/// the game can add their retriever to the NFT
@@ -47,14 +42,19 @@ pub contract ScoreNFT {
 
 		pub fun resolveView(_ view: Type): AnyStruct? {
 			switch view {
-				case Type<GamingMetadataViews.WinLossView>():
-					return GamingMetadataViews.WinLossView(
+				case Type<GamingMetadataViews.TotalWinLoss>():
+					return GamingMetadataViews.TotalWinLoss(
 						id: self.id,
 						self.winLossRetrievers
 					)
 				default:
 					return nil
 			}
+		}
+
+		init() {
+			self.id = self.uuid
+			self.winLossRetrievers = {}
 		}
 	}
 
@@ -136,14 +136,13 @@ pub contract ScoreNFT {
     }
 
 	// public function that anyone can call to create a new empty collection
-    pub fun createEmptyCollection(): @NonFungibleToken.Collection {
-        let newCollection <- create Collection() as! @NonFungibleToken.Collection
-        return <- newCollection
+    pub fun createEmptyCollection(): @ScoreNFT.Collection {
+        return <- create Collection()
     }
 
 	pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}) {
 		self.totalSupply = self.totalSupply + UInt64(1)
-		let newNFT <- create NFT() as! @NonFungibleToken.NFT
+		let newNFT <- create NFT()
 		recipient.deposit(token: <-newNFT)
 	}
 
@@ -153,3 +152,4 @@ pub contract ScoreNFT {
 		self.CollectionPublicPath = /public/ScoreNFTCollection
 	}
 }
+ 
