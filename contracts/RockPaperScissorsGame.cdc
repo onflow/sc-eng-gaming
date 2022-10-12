@@ -4,53 +4,121 @@ import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 
 pub contract RockPaperScissorsGame {
 
-	/// Simple enum to identify moves
-	pub enum Moves: UInt8 {
-		pub case rock
-		pub case paper
-		pub case scissors
+	// Simple enum to identify match winner
+	pub enum Winner: UInt8 {
+		pub case playerOne
+		pub case playerTwo
 	}
 
 	/// Name of the game
 	pub let name: String
+	/// Moves that are allowed for this game
+	pub let allowableMoves: [String]
 	/// Field that stores win/loss records for every NFT that has played this game
 	pub let winLossRecords: {UInt64: GamingMetadataViews.WinLoss}
 
-	/// Set canonical paths for easy storage of resources in transactions
-	pub let GameAdminStoragePath: StoragePath
-	pub let GamePlayerStoragePath: StoragePath
-	pub let GamePlayerPublicPath: PublicPath
-	/// Set base path as strings - will be concatenated with matchID they apply to
-	pub let MatchStorageBasePathString: String
-	pub let MatchPrivateBasePathString: String
+	/// Set canonical paths
+	pub let MatchStoragePath: StoragePath
+	pub let MatchPrivatePath: PrivatePath
+	pub let EscrowCollectionStoragePath: StoragePath
+	pub let EscrowCollectionPrivatePath: PrivatePath
 
 	// Relevant events to watch
-	pub event NewMatchCreated(game: String, matchID: UInt64)
-	pub event PlayerSignedUpForMatch(game: String, matchID: UInt64, playerID: UInt64)
-	pub event PlayerAddedToMatch(game: String, matchID: UInt64, playerID: UInt64)
-	pub event PlayerNFTEscrowed(game: String, matchID: UInt64, matchNFTsEscrowed: Int)
-	pub event MatchOver(game: String, matchID: UInt64, winningNFTID: UInt64?)
+	pub event PlayerOneDeposited(game: String, matchID: UInt64)
+	pub event PlayerTwoDeposited(game: String, matchID: UInt64)
+	pub event MatchOver(game: String, matchID: UInt64)
 
-	/** --- Interfaces for each party --- */
-	pub resource interface MatchAdminActions {
-		pub let id: UInt64
-		pub fun submitMoves(moves: {UInt64: Moves})
-		pub fun returnPlayerNFTs(): [UInt64]
+	/// Struct used to submit & resolve player moves according to the
+	/// rules of Rock Paper Scissors
+	pub struct Moves {
+		pub let playerOneMove: String
+		pub let playerTwoMove: String
+		access(self) var winner: RockPaperScissorsGame.Winner?
+
+		pub fun resolveMoves(): RockPaperScissorsGame.Winner? {
+			// return winner if already decided
+			if self.winner != nil {
+				return self.winner
+			}
+
+			// Check playerOneMove agains playerTwoMove to decide winner with
+			// guarantees that they are not equal as enforced in init pre
+			switch self.playerOneMove {
+				// playerOne played rock
+				case RockPaperScissorsGame.allowableMoves[0]:
+					if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[1] {
+						// playerTwo played paper -> playerTwo wins
+						self.winner = RockPaperScissorsGame.Winner.playerTwo
+						return self.winner
+					} else if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[2] {
+						// playerTwo played scissors -> playerOne wins
+						self.winner = RockPaperScissorsGame.Winner.playerOne
+						return self.winner
+					}
+				// playerOne played paper
+				case RockPaperScissorsGame.allowableMoves[1]:
+					if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[0] {
+						// playerTwo played rock -> playerOne wins
+						self.winner = RockPaperScissorsGame.Winner.playerOne
+						return self.winner
+					} else if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[2] {
+						// playerTwo played scissors -> playerTwo wins
+						self.winner = RockPaperScissorsGame.Winner.playerTwo
+						return self.winner
+					}
+				// playerOne played scissors
+				case RockPaperScissorsGame.allowableMoves[2]:
+					if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[0] {
+						// playerTwo played rock -> playerTwo wins
+						self.winner = RockPaperScissorsGame.Winner.playerTwo
+						return self.winner
+					} else if self.playerTwoMove == RockPaperScissorsGame.allowableMoves[1] {
+						// playerTwo played paper -> playerOne wins
+						self.winner = RockPaperScissorsGame.Winner.playerOne
+						return self.winner
+					}
+			}
+
+			return nil
+		}
+
+		// Set variables on construction, ensuring provided moves are legal
+		init(playerOneMove: String, playerTwoMove: String) {
+			// Ensure that the moves are allowed & that they are not the same
+			pre {
+				RockPaperScissorsGame.allowableMoves.contains(playerOneMove) &&
+				RockPaperScissorsGame.allowableMoves.contains(playerTwoMove): "Provided moves are not legal for this game!"
+				playerOneMove != playerTwoMove: "No ties allowed, try again!"
+			}
+			self.playerOneMove = playerOneMove
+			self.playerTwoMove = playerTwoMove
+			self.winner = nil
+		}
 	}
 
-	pub resource interface MatchPlayerActions {
+	pub resource interface MatchAdmin {
 		pub let id: UInt64
-		pub fun escrowNFT(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>)
-		pub fun returnPlayerNFTs(): [UInt64]
+		pub fun submitMoves(moves: RockPaperScissorsGame.Moves)
+		pub fun returnAssetsToOwners()
+	}
+
+	pub resource interface PlayerOne {
+		pub let id: UInt64
+		pub fun escrowPlayerOne(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>)
+		pub fun returnAssetsToOwners()
+	}
+
+	pub resource interface PlayerTwo {
+		pub let id: UInt64
+		pub fun escrowPlayerTwo(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>)
+		pub fun returnAssetsToOwners()
 	}
 
 	/// Resource defining a Match as a single round of Rock Paper Scissors
 	/// Logic for move hierarchy is contained in the struct above, Moves
-	pub resource Match: MatchAdminActions, MatchPlayerActions {
+	pub resource Match: MatchAdmin, PlayerOne, PlayerTwo {
 
 		pub let id: UInt64
-		
-		// Match timeout parameters so NFTs aren't locked forever
 		pub let createdTimestamp: UFix64
 		pub let timeout: UFix64
 
@@ -58,284 +126,232 @@ pub contract RockPaperScissorsGame {
 		pub var inPlay: Bool
 
 		// ScoreNFT Capability to custody NFTs during gameplay
-		pub let playerNFTs: @{UInt64: NonFungibleToken.NFT}
+		pub let escrowCollection: Capability<&ScoreNFT.Collection>
+		// We'll track each players' NFTs by their IDs
+		pub var playerOneNFTID: UInt64?
+		pub var playerTwoNFTID: UInt64?
 		// Keep Receiver Capabilities to easily return NFTs
-		pub let nftReceivers: {UInt64: Capability<&{NonFungibleToken.Receiver}>}
+		pub var playerOneReceiver: Capability<&{NonFungibleToken.Receiver}>?
+		pub var playerTwoReceiver: Capability<&{NonFungibleToken.Receiver}>?
 
 		init(matchTimeout: UFix64) {
 			self.id = self.uuid
 			self.inPlay = true
 			self.createdTimestamp = getCurrentBlock().timestamp
 			self.timeout = matchTimeout
-			self.playerNFTs <- {}
-			self.nftReceivers = {}
+			self.escrowCollection = RockPaperScissorsGame.createEscrowCollection(matchID: self.id)
+			self.playerOneNFTID = nil
+			self.playerTwoNFTID = nil
+			self.playerOneReceiver = nil
+			self.playerTwoReceiver = nil
 		}
 
-		// Dedicated escrow methods to track each player's NFTs & control access
-		// I'm sure there's a better way to do this to avoid redundant code
-		pub fun escrowNFT(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>) {
+		// Dedicated 
+		pub fun escrowPlayerOne(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>) {
 			pre {
-				self.playerNFTs.length < 2: "Both players have adready escrowed their NFTs"
+				self.playerOneNFTID == nil && self.playerOneReceiver == nil: "Player1 has already escrowed!"
 				self.inPlay == true: "Match is over!"
 			}
-			// Make sure we're dealing with a ScoreNFT.NFT
-			let token <- nft as! @ScoreNFT.NFT
-			let nftID = token.id
 
 			// If nft doesn't already have a winLossRetriever, add it
-			token.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retriever: RockPaperScissorsGame.retrieveWinLoss)
-
+			nft.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retriever: RockPaperScissorsGame.retrieveWinLoss)
 			// Construct WinLoss Metadata if none exists
-			if RockPaperScissorsGame.winLossRecords[nftID] == nil {
-				RockPaperScissorsGame.winLossRecords[nftID] = GamingMetadataViews.WinLoss(
+			if RockPaperScissorsGame.winLossRecords[nft.id] == nil {
+				RockPaperScissorsGame.winLossRecords[nft.id] = GamingMetadataViews.WinLoss(
 					game: RockPaperScissorsGame.name,
-					nftID: nftID
+					nftID: nft.id
 				)
 			}
-
 			// Then store player's NFT & Receiver
-			let oldNFT <- self.playerNFTs[nftID] <- token
-			self.nftReceivers.insert(key: nftID, receiver)
-			destroy oldNFT
+			let token <- nft as! @NonFungibleToken.NFT
+			self.playerOneNFTID = token.id
+			let escrowRef = self.escrowCollection.borrow()!
+			escrowRef.deposit(token: <-token)
+			self.playerOneReceiver = receiver
+			emit PlayerOneDeposited(game: RockPaperScissorsGame.name, matchID: self.id)
+		}
+		
 
-			emit PlayerNFTEscrowed(game: RockPaperScissorsGame.name, matchID: self.id, matchNFTsEscrowed: self.playerNFTs.length)
+		pub fun escrowPlayerTwo(nft: @ScoreNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>) {
+			pre {
+				self.playerTwoNFTID == nil && self.playerTwoReceiver == nil: "Player2 has already deposited!"
+				self.inPlay == true: "Match is over!"
+			}
+
+			// If nft doesn't already have a winLossRetriever, add it
+			nft.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retriever: RockPaperScissorsGame.retrieveWinLoss)
+			// Construct WinLoss Metadata if none exists
+			if RockPaperScissorsGame.winLossRecords[nft.id] == nil {
+				RockPaperScissorsGame.winLossRecords[nft.id] = GamingMetadataViews.WinLoss(
+					game: RockPaperScissorsGame.name,
+					nftID: nft.id
+				)
+			}
+			// Then store player's NFT & Receiver
+			let token <- nft as! @NonFungibleToken.NFT
+			self.playerTwoNFTID = token.id
+			let escrowRef = self.escrowCollection.borrow()!
+			escrowRef.deposit(token: <-token)
+			self.playerTwoReceiver = receiver
+			emit PlayerTwoDeposited(game: RockPaperScissorsGame.name, matchID: self.id)
 		}
 
-		// Can be called by any interface if there's a timeout or assets weren't returned
-		// for some reason
-		pub fun returnPlayerNFTs(): [UInt64] {
+		pub fun returnAssetsToOwners() {
 			pre {
 				getCurrentBlock().timestamp >= self.createdTimestamp + self.timeout ||
 				self.inPlay == false: "Cannot return NFTs while Match is still in play!"
 			}
-			let returnedNFTs: [UInt64] = []
-			for id in self.nftReceivers.keys {
-				if let receiver = self.nftReceivers[id]!.borrow() {
-         			if let token <- self.playerNFTs.remove(key: id)  {
-						receiver.deposit(token: <- token)
-						returnedNFTs.append(id)
-					}
-				}
+			let escrowRef = self.escrowCollection.borrow()!
+			// return the NFTs to their owners
+			if self.playerOneNFTID != nil {
+				let nft <- escrowRef.withdraw(withdrawID: self.playerOneNFTID!)
+				self.playerOneReceiver!.borrow()!.deposit(token: <-nft)
+				self.playerOneNFTID = nil
 			}
-			return returnedNFTs
+			if self.playerTwoNFTID != nil {
+				let nft <- escrowRef.withdraw(withdrawID: self.playerTwoNFTID!)
+				self.playerTwoReceiver!.borrow()!.deposit(token: <-nft)
+				self.playerTwoNFTID = nil
+			}
 		}
 
-		// Can only be called by the game admin to submit moves for both players
-		pub fun submitMoves(moves: {UInt64: Moves}) {
+		// can only be called by the game admin to submit moves for both players
+		pub fun submitMoves(moves: RockPaperScissorsGame.Moves) {
 			pre {
-				self.playerNFTs.length == 2: "Both players must escrow NFTs before play begins!"
-				self.inPlay == true: "Match is not in play any longer!"
+				self.escrowCollection.borrow()!.getIDs().length == 2:
+					"Both players must escrow NFTs before play begins!"
 			}
-			// Get the ID of the winning NFT (nil implies a tie)
-			let winningID: UInt64? = RockPaperScissorsGame.determineRockPaperScissorsWinner(moves: moves)
-			// Then update the win loss records for the players' NFTs
-			for nftID in self.playerNFTs.keys {
-				RockPaperScissorsGame.updateWinLossRecord(
-					id: nftID,
-					winner: winningID
-				)
-			}
+
+			// Resolve any Game logic necessary to figure out a winner
+			let winner = moves.resolveMoves()
+
+			// Then update the win loss records for both the players
+			// TODO: Implement these in the contract
+			RockPaperScissorsGame.updateWinLossRecord(
+				id: self.playerOneNFTID!,
+				win: winner == RockPaperScissorsGame.Winner.playerOne
+			)
+			RockPaperScissorsGame.updateWinLossRecord(
+				id: self.playerTwoNFTID!,
+				win: winner == RockPaperScissorsGame.Winner.playerTwo
+			)
+
 			// Finally, end match & return assets
 			self.inPlay = false
-			self.returnPlayerNFTs()
+			self.returnAssetsToOwners()
 
-			emit MatchOver(game: RockPaperScissorsGame.name, matchID: self.id, winningNFTID: winningID)
+			emit MatchOver(game: RockPaperScissorsGame.name, matchID: self.id)
 		}
-		
-		// Custom destroyer to prevent destroying escrowed NFTs
+
 		destroy() {
 			pre {
-				self.playerNFTs.length == 0:
+				self.escrowCollection.borrow()!.getIDs().length == 0:
 					"Cannot destroy while NFTs in escrow!"
 				getCurrentBlock().timestamp >= self.createdTimestamp + self.timeout ||
 				self.inPlay == false: 
 					"Cannot destroy while Match is still in play!"
 			}
-			destroy self.playerNFTs
 		}
 	}
 
-	/** --- Receivers for each party's capabilities --- */
-	/// Resource to allow creation of matches & maintain Capabilities for each
-	/// New matches can be created & are stored to the game contract's account to make
-	/// escrow of assets as safe as possible
-	pub resource GameAdmin {
-		pub let id: UInt64
-		// pub let matchAdminActionsCapabilities: {UInt64: Capability<&{MatchAdminActions}>}
-		pub let matchAdminActionsCapabilities: {UInt64: Capability<&{MatchAdminActions}>}
-		
-		init() {
-			self.id = self.uuid
-			self.matchAdminActionsCapabilities = {}
-		}
-		
-		pub fun createMatch(matchTimeout: UFix64) {
-			// Create the new match & preserve its ID
-			let newMatch <- create Match(matchTimeout: matchTimeout)
-			let newMatchID = newMatch.id
-			
-			// Derive paths using matchID
-			let matchStoragePath = StoragePath(identifier: RockPaperScissorsGame.MatchStorageBasePathString.concat(newMatchID.toString()))!
-			let matchPrivatePath = PrivatePath(identifier: RockPaperScissorsGame.MatchPrivateBasePathString.concat(newMatchID.toString()))!
-			
-			// Save the match to game contract account's storage
-			RockPaperScissorsGame.account.save(<-newMatch, to: matchStoragePath)
-			
-			// Link each Capability to game contract account's private
-			RockPaperScissorsGame.account.link<&{MatchAdminActions, MatchPlayerActions}>(matchPrivatePath, target: matchStoragePath)
 
-			// Add the MatchAdminActions capability to GameAdmin's mappings under newMatchID
-			self.matchAdminActionsCapabilities.insert(
-				key: newMatchID,
-				RockPaperScissorsGame.account.getCapability<&{MatchAdminActions}>(matchPrivatePath)!
-			)
-
-			emit NewMatchCreated(game: RockPaperScissorsGame.name, matchID: newMatchID)
-		}
-
-		pub fun addPlayerToMatch(matchID: UInt64, gamePlayerCapability: Capability<&AnyResource{GamePlayerPublic}>) {
-			// Derive match's private path from matchID
-			let matchPrivatePath = PrivatePath(identifier: RockPaperScissorsGame.MatchPrivateBasePathString.concat(matchID.toString()))!
-			// Get the capability
-			let matchPlayerActionsCap = RockPaperScissorsGame.account.getCapability<&{MatchPlayerActions}>(matchPrivatePath)
-			assert(
-				matchPlayerActionsCap != nil,
-				message: "Not able to retrieve MatchPlayerActions Capability for given matchID"
-			)
-			// Add it to the player's matchPlayerCapabilities
-			gamePlayerCapability.borrow()!.addMatchPlayerActionsCapability(matchID: matchID, matchPlayerActionsCap)
-		}
-		
-		/// Allows GameAdmin to delete capabilities from their mapping to free up space used by old matches
-		pub fun deletePlayerActionsCapability(matchID: UInt64) {
-			self.matchAdminActionsCapabilities.remove(key: matchID)
+	/** --- Wrappers for each party's capabilities --- */
+	pub resource MatchAdminWrapper {
+		pub let matchAdminCap: Capability<&{MatchAdmin}>
+		init(_ admin: Capability<&{MatchAdmin}>) {
+			self.matchAdminCap = admin
 		}
 	}
 
-	/// Public interface allowing others to add GamePlayer to matches. Of course, there is no obligation for
-	/// matches to be played, but this makes it so that a GameAdmin or even other player could add the
-	/// GamePlayer to a match
-	pub resource interface GamePlayerPublic {
-		pub let id: UInt64
-		pub fun addMatchPlayerActionsCapability(matchID: UInt64, _ cap: Capability<&{MatchPlayerActions}>)
-	}
-
-	/// Resource that maintains all the player's MatchPlayerActions capabilities
-	/// Players can add themselves to games or be added if they expose GamePlayerPublic capability
-	pub resource GamePlayer: GamePlayerPublic {
-		pub let id: UInt64
-		pub let matchPlayerCapabilities: {UInt64: Capability<&{MatchPlayerActions}>}
-		
-		init() {
-			self.id = self.uuid
-			self.matchPlayerCapabilities = {}
-		}
-		
-		/// Allows for GamePlayer to sign up for a match that already exists
-		pub fun signUpForMatch(matchID: UInt64, _ cap: Capability<&{MatchPlayerActions}>) {
-			// Derive path to capability
-			let matchPrivatePath = PrivatePath(identifier: RockPaperScissorsGame.MatchPrivateBasePathString.concat(matchID.toString()))!
-			// Get the Capability
-			let matchPlayerActionsCap = RockPaperScissorsGame.account.getCapability<&{MatchPlayerActions}>(matchPrivatePath)
-			// Ensure Capability is not nil
-			assert(
-				matchPlayerActionsCap != nil,
-				message: "Not able to retrieve MatchPlayerActions Capability for given matchID"
-			)
-			// Add it to the mapping
-			self.matchPlayerCapabilities.insert(key: matchID, matchPlayerActionsCap)
-
-			emit PlayerSignedUpForMatch(game: RockPaperScissorsGame.name, matchID: matchID, playerID: self.id)
-		}
-
-		/// Allows others to add Capabilities to their mapping for ease of match setup
-		pub fun addMatchPlayerActionsCapability(matchID: UInt64, _ cap: Capability<&{MatchPlayerActions}>) {
-			pre {
-				!self.matchPlayerCapabilities.containsKey(matchID): "Player already has capability for this Match!"
-			}
-			self.matchPlayerCapabilities.insert(key: matchID, cap)
-			// Event that could be used to notify player they were added
-			emit PlayerAddedToMatch(game: RockPaperScissorsGame.name, matchID: matchID, playerID: self.id)
-		}
-
-		// Allows GamePlayer to delete capabilities from their mapping to free up space used by old matches
-		pub fun deletePlayerActionsCapability(matchID: UInt64) {
-			self.matchPlayerCapabilities.remove(key: matchID)
+	pub resource PlayerOneWrapper {
+		pub let playerOneCap: Capability<&{PlayerOne}>
+		init(_ p1: Capability<&{PlayerOne}>) {
+			self.playerOneCap = p1
 		}
 	}
 
-	pub fun createGameAdmin(): @GameAdmin {
-		return <- create GameAdmin()
-	}
-
-	pub fun createPlayer (): @GamePlayer {
-		return <- create GamePlayer()
+	pub resource PlayerTwoWrapper {
+		pub let playerTwoCap: Capability<&{PlayerTwo}>
+		init(_ p2: Capability<&{PlayerTwo}>) {
+			self.playerTwoCap = p2
+		}
 	}
 
 	/** --- Contract helper functions --- */
 
-	/// Retriever for winloss data to be added to deposited NFTs metadata retrievers
+	/// Function to create a new match and return the MatchAdmin Capability
+	pub fun createNewMatch(matchTimeout: UFix64): Capability<&{MatchAdmin}> {
+		// Create the new match & preserve its ID
+		let newMatch <- create Match(matchTimeout: matchTimeout)
+		let newMatchID = newMatch.id
+		
+		// Construct Match specific paths
+		let matchPrivatePath = PrivatePath(identifier: self.MatchPrivatePath.toString().concat(newMatchID.toString()))!
+		let matchStoragePath = StoragePath(identifier: self.MatchStoragePath.toString().concat(newMatchID.toString()))!
+		
+		// Save the match to this account
+		self.account.save(<-newMatch, to: matchStoragePath)
+
+		// Link each Capability to private
+		self.account.link<&{MatchAdmin, PlayerOne, PlayerTwo}>(matchPrivatePath, target: matchStoragePath)
+		
+		return self.account.getCapability<&{MatchAdmin}>(self.MatchPrivatePath)!
+	}
+
+	access(contract) fun createEscrowCollection(matchID: UInt64): Capability<&ScoreNFT.Collection> {
+		// Derive path
+		let escrowCollectionStoragePath = StoragePath(identifier: self.EscrowCollectionStoragePath.toString().concat(matchID.toString()))!
+		let escrowCollectionPrivatePath = PrivatePath(identifier: self.EscrowCollectionPrivatePath.toString().concat(matchID.toString()))!
+		// Create the collection
+		let collection <- ScoreNFT.createEmptyCollection()
+		// Save & link
+		self.account.save(<-collection, to: escrowCollectionStoragePath)
+		self.account.link<&ScoreNFT.Collection>(escrowCollectionPrivatePath, target: escrowCollectionStoragePath)
+		// Return Capability
+		return self.account.getCapability<&ScoreNFT.Collection>(escrowCollectionPrivatePath)
+	}
+
+	/// Returns the PlayerOne Capability for a given match
+	pub fun getPlayerOne(matchID: UInt64): @PlayerOneWrapper? {
+		let playerOnePrivatePath = PrivatePath(identifier:self.MatchPrivatePath.toString().concat(matchID.toString()))!
+		let playerOneCap = self.account.getCapability<&{PlayerOne}>(playerOnePrivatePath)
+		if playerOneCap != nil {
+			return <- create PlayerOneWrapper(playerOneCap)
+		}
+		return nil
+	}
+
+	/// Returns the PlayerTwo Capability for a given match
+	pub fun getPlayerTwo(matchID: UInt64): @PlayerTwoWrapper? {
+		let playerTwoPrivatePath = PrivatePath(identifier:self.MatchPrivatePath.toString().concat(matchID.toString()))!
+		let playerTwoCap = self.account.getCapability<&{PlayerTwo}>(playerTwoPrivatePath)
+		if playerTwoCap != nil {
+			return <- create PlayerTwoWrapper(playerTwoCap)
+		}
+		return nil
+	}
+
+	// Retriever for winloss data to be added to deposited NFTs metadata retrievers
 	pub fun retrieveWinLoss(id: UInt64): GamingMetadataViews.WinLoss? {
 		return self.winLossRecords[id]
 	}
 
-	/// Method to determine outcome of a RockPaperScissors with given moves
-	/// Exposing game logic allows for some degree of composability with other
-	/// games and match types
-	pub fun determineRockPaperScissorsWinner(moves: {UInt64: Moves}): UInt64? {
-		pre {
-			moves.length == 2: "RockPaperScissors requires two moves"
-		}
-
-		let player1 = moves.keys[0]
-		let player2 = moves.keys[1]
-
-		// Not a tie, so compare
-		if moves[player1] != moves[player2] {
-			// Choose one move to compare against other
-			switch moves[player1] {
-				case RockPaperScissorsGame.Moves.rock:
-					if moves[player2] == RockPaperScissorsGame.Moves.paper {
-						return player2
-					} else if moves[player2] == RockPaperScissorsGame.Moves.scissors {
-						return player1
-					}
-				case RockPaperScissorsGame.Moves.paper:
-					if moves[player2] == RockPaperScissorsGame.Moves.rock {
-						return player1
-					} else if moves[player2] == RockPaperScissorsGame.Moves.scissors {
-						return player2
-					}
-				case RockPaperScissorsGame.Moves.scissors:
-					if moves[player2] == RockPaperScissorsGame.Moves.rock {
-						return player2
-					} else if moves[player2] == RockPaperScissorsGame.Moves.paper {
-						return player1
-					}
-			}
-		}
-		// If they played the same move, it's a tie -> return nil
-		return nil
-	}
-
-	/// Method to update GamingMetadataViews.WinLoss for each NFT
-	access(contract) fun updateWinLossRecord(id: UInt64, winner: UInt64?) {
-		if id == winner {
+	// Method to update winloss data for each NFT
+	access(contract) fun updateWinLossRecord(id: UInt64, win: Bool) {
+		if win {
 			self.winLossRecords[id]!.addWin()
-		} else if id != winner && winner != nil{
-			self.winLossRecords[id]!.addLoss()
 		} else {
-			self.winLossRecords[id]!.addTie()
+			self.winLossRecords[id]!.addLoss()
 		}
 	}
 
 	init() {
-		self.GameAdminStoragePath = /storage/RockPaperScissorsGameAdmin
-		self.GamePlayerStoragePath = /storage/RockPaperScissorsGamePlayer
-		self.GamePlayerPublicPath = /public/RockPaperScissorsGamePlayer
-		self.MatchStorageBasePathString = "/storage/Match"
-		self.MatchPrivateBasePathString = "/private/Match"
+		self.MatchStoragePath = /storage/Match
+		self.MatchPrivatePath = /private/Match
+		self.EscrowCollectionStoragePath = /storage/EscrowCollection
+		self.EscrowCollectionPrivatePath = /private/EscrowCollection
 
+		self.allowableMoves = ["rock", "paper", "scissors"]
 		self.name = "RockPaperScissors"
 		self.winLossRecords = {}
 	}
