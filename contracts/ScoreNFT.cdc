@@ -137,7 +137,6 @@ pub contract ScoreNFT: NonFungibleToken {
         return <- newCollection
     }
 
-	// TODO: Make a Minter resource
 	pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}) {
 		self.totalSupply = self.totalSupply + UInt64(1)
 		let newNFT <- create NFT() as! @NonFungibleToken.NFT
