@@ -43,20 +43,20 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 1. Players setup NFT collection: 
     1. Player one:
         ```console
-        flow transactions send ./transactions/setup_score_nft_collection.cdc --signer player-one
+        flow transactions send ./transactions/setup_game_piece_nft_collection.cdc --signer player-one
         ```
     1. Player two: 
         ```console
-        flow transactions send ./transactions/setup_score_nft_collection.cdc --signer player-two
+        flow transactions send ./transactions/setup_game_piece_nft_collection.cdc --signer player-two
         ```
-1. Players mint ScoreNFT: 
+1. Players mint GamePieceNFT: 
     1. Player one:
         ```console
-        flow transactions send ./transactions/mint_score_nft.cdc --signer player-one
+        flow transactions send ./transactions/mint_game_piece_nft.cdc --signer player-one
         ```
     1. Player two:
         ```console
-        flow transactions send ./transactions/mint_score_nft.cdc --signer player-two
+        flow transactions send ./transactions/mint_game_piece_nft.cdc --signer player-two
         ```
 1. Admin creates new match with args `<player_one_address> <player_two_address> <match_timeout_in_minutes>`:
     ```console
@@ -75,27 +75,27 @@ To demo the functionality of this repo, clone it and follow the steps below by e
         ```console
         flow scripts execute ./scripts/get_collection_ids.cdc 179b6b1cb6755e31
         ```
-1. Players escrow ScoreNFTs with args `<match_id> <nft_id>`:
+1. Players escrow GamePieceNFTs with args `<match_id> <nft_id>`:
     1. Player one:
         ```console
-        flow transactions send ./transactions/game_player_escrow_nft.cdc 36 34 --signer player-one
+        flow transactions send ./transactions/game_player_escrow_nft.cdc 37 35 --signer player-one
         ```
     1. Player two:
         ```console
-        flow transactions send ./transactions/game_player_escrow_nft.cdc 36 35 --signer player-two
+        flow transactions send ./transactions/game_player_escrow_nft.cdc 37 36 --signer player-two
         ```
 1. Admin submit moves on behalf of both players with args `<match_id> <player_one_nft_id> <player_one_move> <player_two_nft_id> <player_two_move>`: 
     ```console
-    flow transactions send ./transactions/game_admin_submit_moves.cdc 36 34 0 35 2
+    flow transactions send ./transactions/game_admin_submit_moves.cdc 37 35 0 36 2
     ```
 1. Get scores associated with each player's NFT `<player_address> <nft_id>`: 
     1. Player one:
         ```console
-        flow scripts execute ./scripts/get_rps_win_loss_view.cdc 01cf0e2f2f715450 34
+        flow scripts execute ./scripts/get_rps_win_loss_view.cdc 01cf0e2f2f715450 35
         ```
     1. Player two: 
         ```console
-        flow scripts execute ./scripts/get_rps_win_loss_view.cdc 179b6b1cb6755e31 35
+        flow scripts execute ./scripts/get_rps_win_loss_view.cdc 179b6b1cb6755e31 36
         ```
 
 ___
@@ -108,7 +108,7 @@ This contract defines the basic structure of NFT metadata `WinLoss` related to
 
 The `WinLossView` maintains a mapping of game names to the game's respective 'WinLoss' retriever. This pattern was established to allow game contracts to maintain their own histories of NFT IDs to `WinLoss` data while also enabling an NFT to easily retrieve the data stored about it.
 
-### **ScoreNFT**
+### **GamePieceNFT**
 
 This NFT was implemented as a simple example demonstrating how an NFT could expose certain data to be mutated by some parties, but not it's owners. The `WinLossViews` metadata effectively serves as a pointer to the game which the metadata refers to, allowing the game to define the access and conditions under which the metadata could be altered.
 
@@ -140,11 +140,11 @@ ___
 
 ### Happy Path Walkthrough
 
-1. `ScoreNFT` setup
-    1. `setup_score_nft_collection`
-        1. Each player sets their account up with a `ScoreNFT.Collection`, linking some public capabilities allowing for deposit of `NFT`s to their `Collection`
-    2. `mint_score_nft`
-        1. Each player mints at least one `ScoreNFT` to their `Collection` which will be used in gameplay for the sake of maintaining gameplay history (win/loss/ties)
+1. `GamePieceNFT` setup
+    1. `setup_game_piece_nft_collection`
+        1. Each player sets their account up with a `GamePieceNFT.Collection`, linking some public capabilities allowing for deposit of `NFT`s to their `Collection`
+    2. `mint_game_piece_nft`
+        1. Each player mints at least one `GamePieceNFT` to their `Collection` which will be used in gameplay for the sake of maintaining gameplay history (win/loss/ties)
 2. `RockPaperScissorsGame` setup
     1. `setup_game_admin`
         1. The game client sets up a `GameAdmin` resource, allowing it to maintain access to `MatchAdminActions` Capabilities for all `Match`es it administers.
@@ -155,7 +155,7 @@ ___
         1. The `GameAdmin` creates a `Match` (with `createMatch()`), which is then stored in the game contract’s storage. In addition to creating and storing the new `Match`, `MatchAdminActions` and `MatchPlayerActions` Capabilities are linked in the contract’s private storage. The `MatchAdminActions` are then added to the `GameAdmin`’s mapping maintaining its `MatchAdminActions` Capabilities
         2. To add `GamePlayers` to the `Match`, the `GameAdmin` then calls `addPlayerToMatch()`, passing the new `Match.id` and reference to the `GamePlayer`’s `GamePlayerPublic` Capability. The `MatchPlayerActions` Capability for the `Match` with the provided `id` is then added to the `GamePlayer`’s mapping, by calling `addMatchPlayerActionsCapability()` on the given reference and providing the relevant `MatchPlayerActions` and `Match.id`
     2. `game_player_escrow_nft`
-        1. With the `MatchPlayerActions` Capability, each player then escrows their `ScoreNFT`, providing the `NFT` and their `Collection`’s `NonFungibleToken.Receiver` Capability as parameters in `MatchPlayerActions.escrowNFT()`. The `Receiver` is provided so that the `NFT` can be easily returned to the player automatically at the end of the `Match`.
+        1. With the `MatchPlayerActions` Capability, each player then escrows their `GamePieceNFT`, providing the `NFT` and their `Collection`’s `NonFungibleToken.Receiver` Capability as parameters in `MatchPlayerActions.escrowNFT()`. The `Receiver` is provided so that the `NFT` can be easily returned to the player automatically at the end of the `Match`.
             1. As previously mentioned, the `NFT` is provided so that history of wins and losses can be recorded and maintained. Upon escrow to the Match, the `NFT`’s `id` is recorded and a `WinLoss` is added to the game contract’s `winLossRecords` mapping. Additionally, a `WinLossRetriever` is added to the `NFT` so that the recorded `WinLoss` can be accessed via the NFT’s `GamingMetadataViews.WinLossView` struct.
     3. `game_admin_submit_moves`
         1. Upon successful escrow of both players’ `NFT`s, the `Match` can be played. It’s assumed in this construction that each players’ moves will be submitted to a game client off-chain. Once the game client has received each player’s moves, the `GameAdmin` accessed the `Match`’s `MatchAdminActions`, and calls `submitMoves()`. This method - `submitMoves()` - does a number of things before finalizing the `Match`:
@@ -177,7 +177,7 @@ Below you'll find diagrams that visualize the flow between all components for ea
 ![GameAdmin setup new Match](/images/rps_game_admin_setup_new_match.png)
 
 ### `game_player_escrow_nft`
-![GamePlayer escrow ScoreNFT](/images/rps_game_player_escrow_nft.png)
+![GamePlayer escrow GamePieceNFT](/images/rps_game_player_escrow_nft.png)
 
 ### `game_admin_submit_moves`
 ![GameAdmin submit player Moves](/images/rps_game_admin_submit_moves.png)
