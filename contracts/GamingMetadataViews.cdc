@@ -1,5 +1,9 @@
 import MetadataViews from "./utility/MetadataViews.cdc"
 
+/// This contract is an initial implementation of gaming related
+/// win/loss metadata and mechanisms to retrieve win/loss records
+/// from games in which the NFT was played.
+/// 
 pub contract GamingMetadataViews {
 
     /// Interface that should be implemented by game contracts
@@ -8,18 +12,25 @@ pub contract GamingMetadataViews {
     /// is added to the escrowed NFT so that the BasicWinloss
     /// stored on the game contract can be retrieved by the NFT
     pub resource interface BasicWinLossRetriever {
-        /// Returns a WinLoss if one exists for the given NFT.id
+        
+        /// Retrieves the BasicWinLoss for a given NFT
+        ///
+        /// @param nftID: The id of the NFT the caller is attempting to
+        /// retrieve a BasicWinLoss for
+        ///
         pub fun getWinLossData(nftID: UInt64): BasicWinLoss?
     }
 
-    /// Struct that represents the win/loss record for a given NFT in a game
+    /// Struct that contains attributes and methods relevant to win/loss/tie
+    /// record and mechanisms to increment such values
     pub struct BasicWinLoss {
-        /// name of the game
+        /// The name of the associated game
         pub let gameName: String
 
-        /// id of the NFT
+        /// The id of the associated NFT
         pub let nftID: UInt64
    
+        /// Aggregate game results
         pub var wins: UInt64
         pub var losses: UInt64
         pub var ties: UInt64
@@ -31,6 +42,9 @@ pub contract GamingMetadataViews {
             self.losses = 0
             self.ties = 0
         }
+
+        /// Below are methods to increment and decrement win/loss/ties
+        /// aggregate values.
 
         pub fun addWin () {
             self.wins = self.wins + 1
@@ -67,10 +81,11 @@ pub contract GamingMetadataViews {
 
     }
 
+    /// A struct which contains a mapping of game names to the games associated
+    /// implementation of BasicWinLossRetriever
+    ///
     pub struct WinLossView {
-        /// We can store any number of functions that link
-        /// to the individual gaming contracts' records of win/loss
-        /// for their games
+
         /// Maintain associated NFT.id so we can easily return BasicWinLoss
         pub let nftID: UInt64
         /// Dictionary mapping game name to BasicWinLossRetriever Capability
@@ -81,8 +96,16 @@ pub contract GamingMetadataViews {
             self.retrieverCaps = retrieverCaps
         }
 
-        pub fun getBasicWinLoss(name: String): BasicWinLoss? {
-            if let gameCap: Capability<&AnyResource{BasicWinLossRetriever}> = self.retrieverCaps[name] {
+        /// This function retrieves the BasicWinLoss value for the given game name by 
+        /// accessing the game's BasicWinLossRetriever Capability from the retrieverCaps
+        /// mapping and calling getWinlossData() for this WinLossView's associate NFT id.
+        ///
+        /// @param gameName: The name of the game to which the retriever is indexed
+        ///
+        /// @return The BasicWinLoss for the nft in the given gameName or nil if none was found
+        ///
+        pub fun getBasicWinLoss(gameName: String): BasicWinLoss? {
+            if let gameCap: Capability<&AnyResource{BasicWinLossRetriever}> = self.retrieverCaps[gameName] {
                 if let gameCapRef: &AnyResource{BasicWinLossRetriever} = gameCap.borrow() {
                     return gameCapRef.getWinLossData(nftID: self.nftID)
                 }

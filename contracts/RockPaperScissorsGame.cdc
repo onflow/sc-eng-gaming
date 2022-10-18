@@ -2,6 +2,7 @@ import GamePieceNFT from "./GamePieceNFT.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 
+/// TODO: TOP-LEVEL COMMENT
 pub contract RockPaperScissorsGame {
 
     /// Simple enum to identify moves
