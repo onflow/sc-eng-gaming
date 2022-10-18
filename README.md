@@ -1,4 +1,5 @@
 # Rock Paper Scissors (Mostly) On-Chain
+# TODO: RESTRUCTURE
 
 ## Overview
 

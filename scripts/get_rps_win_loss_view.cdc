@@ -21,7 +21,7 @@ pub fun main(address: Address, id: UInt64): GamingMetadataViews.BasicWinLoss? {
     if let wlView: GamingMetadataViews.WinLossView = GamingMetadataViews.getBasicWinLossView(
         viewResolver: viewResolver
     ) {
-        return wlView.getBasicWinLoss(name: "RockPaperScissors")
+        return wlView.getBasicWinLoss(gameName: "RockPaperScissors")
     }
     // Otherwise return nil
     return nil

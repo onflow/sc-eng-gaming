@@ -2,15 +2,21 @@ import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 import MetadataViews from "./utility/MetadataViews.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
 
-/// Then, in the NFT contract, the NFT can just store the dictionary
-/// of the winLossRetrieverCaps and return it via the metadata view
-/// The function to add a new retriever can just be public so that 
-/// we don't have to do any complicated access(contract) things
-/// and creating a new metadata updater resource.
-/// Since it is public, any game that the user deposits their NFT
-/// into can add their win/loss retriever function to it
-/// and games can implement their escrow mechanics in any way they want
-/// instead of having to be constrained to what is in here
+/// In this contract, we defined an NFT designed for use in games.
+/// The primary differentiation between this and standard NFTs is the
+/// mapping of GamingMetadataViews.BasicWinLossRetriever Capabilities
+/// and the function addWinLossRetriever() which is included so that
+/// games in which the NFT is used can add said Capability. This pattern
+/// emerged as a way to enable win/loss data for games where the NFT is
+/// played to be mutated by the games and enable the NFT to maintain
+/// win/loss data for any game in which it's played without the need for
+/// the owner to pay for the storage of that win/loss data.
+///
+/// We hope that this pattern can be built on for more complex gaming
+/// applications with more complex metadata as a powerful method for 
+/// defining attributes that can be mutated, but in a manner that ensures
+/// mutation is only performed by the game in which the NFT is played.
+///
 pub contract GamePieceNFT: NonFungibleToken {
 
     pub var totalSupply: UInt64
@@ -31,8 +37,14 @@ pub contract GamePieceNFT: NonFungibleToken {
             self.winLossRetrieverCaps = {}
         }
 
-        /// When a user deposits their NFT into a game session,
-        /// the game can add their retriever to the NFT
+        /// When a user deposits their NFT into a game Match, the game contract can 
+        /// add their GamingMetadataViews.BasicWinLossRetriever implementation to the NFT
+        /// so that win/loss data can be retrieved when referencing the NFT
+        ///
+        /// @param gameName: The name of the game the BasicWinLossRetriever is associated with
+        /// @param retrieverCap: A Capability for a GamingMetadataViews.BasicWinLossRetriever
+        /// implementing resource
+        ///
         pub fun addWinLossRetriever(gameName: String, retrieverCap: Capability<&{GamingMetadataViews.BasicWinLossRetriever}>) {
             // make sure the name is not already in use
             if self.winLossRetrieverCaps[gameName] == nil {
