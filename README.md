@@ -30,7 +30,11 @@ accessible via the `NFT` itself, and in many cases via the contract also!
 
 As a proof of concept, we have defined a basic metadata view (`WinLossView`) to show the win/loss record (`BasicWinLoss` ) for an `NFT` for any game it participates in. It tracks wins, losses, and ties and exposes the ability to retrieve those values (stored in the game contract) directly from the `NFT` resource. While the implementation defined in this repo is very simple, you can imagine a more complex set of gaming metadata containing an `NFT`'s health and defense attributes, evolution characteristics, etc., making this pattern useful for any sort of game you might be designing.
 
-The `WinLossView` maintains a mapping of game names to the game's respective imlementation of the `BasicWinLossRetriever` interface. This pattern was established to allow game contracts to create and maintain their own histories of `NFT.id`s to `BasicWinLoss` data while also enabling an NFT to easily retrieve its associated gameplay history.
+The `WinLossView` maintains a mapping of game names to the game's respective `BasicWinLossRetriever`. A `BasicWinLossRetriever` is an interface defining a Capability with a function that can access `BasicWinLoss` data elsewhere. In this case, game contracts can maintain their own histories of NFT's `BasicWinLoss` so that they can create interesting metrics and records based on the data, allow anyone to retrieve any of the data easily from a central place, and also enable anyone with the NFT object itself or a reference to it to easily retrieve the data stored on it without directly relying on a central contract. 
+
+Another benefit is that when a user submits their NFT to play a new game, the game can automatically add its win/loss record retriever to the NFT without an explicit confirmation from the user because the user has given permission implicitly.
+
+It is the best of all worlds!
 
 #### ***Considerations***
 
