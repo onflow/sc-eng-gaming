@@ -1,7 +1,7 @@
 import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
 
 /// Transaction that sets up GameAdmin resource in signing account
-
+///
 transaction(playerOneAddr: Address, playerTwoAddr: Address, matchTimeLimitInMinutes: UInt) {
     
     let gameAdminRef: &RockPaperScissorsGame.GameAdmin
@@ -37,7 +37,7 @@ transaction(playerOneAddr: Address, playerTwoAddr: Address, matchTimeLimitInMinu
         // Create a match with the given timeLimit in minutes
         let newMatchID = self.gameAdminRef.createMatch(matchTimeLimit: UFix64(matchTimeLimitInMinutes) * UFix64(60000))
         // Then add the MatchPlayerActions for the match to each player's GamePlayer resource 
-        // via the GamePlayerPublic referenc
+        // via the GamePlayerPublic reference
         self.gameAdminRef
             .addPlayerToMatch(
                 matchID: newMatchID,

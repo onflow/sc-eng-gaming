@@ -2,6 +2,8 @@ import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 import MetadataViews from "./utility/MetadataViews.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
 
+/// GamePieceNFT
+///
 /// In this contract, we defined an NFT designed for use in games.
 /// The primary differentiation between this and standard NFTs is the
 /// mapping of GamingMetadataViews.BasicWinLossRetriever Capabilities
@@ -76,6 +78,7 @@ pub contract GamePieceNFT: NonFungibleToken {
                     "Cannot borrow GamePieceNFT reference: the ID of the returned reference is incorrect"
             }
         }
+        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver}
     }
 
     pub resource Collection: GamePieceNFTCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {

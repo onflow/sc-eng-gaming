@@ -2,7 +2,35 @@ import GamePieceNFT from "./GamePieceNFT.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 
-/// TODO: TOP-LEVEL COMMENT
+/// RockPaperScissorsGame
+///
+/// Contract defines the logic of a game of Rock Paper Scissors
+/// and resources to support gameplay between two players
+/// mediated by an administrative Capability as well as 
+/// resources to receive and maintain player and admin
+/// Capabilities.
+///
+/// Gameplay occurs through Match resources in which players
+/// must escrow their GamePieceNFTs for the length of the Match
+/// or until the Match timeLimit is reached. New Matches are stored
+/// in this contract's account storage to provide a neutral party
+/// in which NFTs are escrowed. MatchAdminActions allow
+/// for submission of moves on behalf of players while
+/// MatchPlayerActions allow players to escrow NFTs and request
+/// that escrowed NFTs be returned.
+///
+/// To maintain each party's Capabilities, GameAdmin and GamePlayer
+/// resources are included in this contract. GameAdmins can create
+/// new Matches while a GamePlayer can join existing Matches or be
+/// added to Matches by others if they link their GamePlayerPublic
+/// Capabilities in public storage.
+///
+/// This contract is designed to be built upon by others in a composable
+/// manner, so please create your own Matches, combine logic and Moves
+/// from this game contract with other game contracts in other Matches
+/// and tournaments, and get creative to build a thriving community of
+/// composable games on Flow!
+///
 pub contract RockPaperScissorsGame {
 
     /// Simple enum to identify moves
@@ -101,6 +129,9 @@ pub contract RockPaperScissorsGame {
         pub let nftReceivers: {UInt64: Capability<&{NonFungibleToken.Receiver}>}
 
         init(matchTimeLimit: UFix64) {
+            pre {
+                matchTimeLimit <= UFix64(86400000): "matchTimeLimit must be less than a day (86400000 ms)"
+            }
             self.id = self.uuid
             self.inPlay = true
             self.createdTimestamp = getCurrentBlock().timestamp
@@ -335,6 +366,7 @@ pub contract RockPaperScissorsGame {
     /// Public interface allowing others to add GamePlayer to matches. Of course, there is no obligation for
     /// matches to be played, but this makes it so that a GameAdmin or even other player could add the
     /// GamePlayer to a match
+    ///
     pub resource interface GamePlayerPublic {
         pub let id: UInt64
         pub fun addMatchPlayerActionsCapability(matchID: UInt64, _ cap: Capability<&{MatchPlayerActions}>)
@@ -342,6 +374,7 @@ pub contract RockPaperScissorsGame {
 
     /// Resource that maintains all the player's MatchPlayerActions capabilities
     /// Players can add themselves to games or be added if they expose GamePlayerPublic capability
+    ///
     pub resource GamePlayer: GamePlayerPublic {
         pub let id: UInt64
         pub let matchPlayerCapabilities: {UInt64: Capability<&{MatchPlayerActions}>}
@@ -432,6 +465,7 @@ pub contract RockPaperScissorsGame {
     /// with the expectation that there are exactly two entries
     ///
     /// @return the id of the winning NFT or nil if result is a tie
+    ///
     pub fun determineRockPaperScissorsWinner(moves: {UInt64: Moves}): UInt64? {
         pre {
             moves.length == 2: "RockPaperScissors requires two moves"

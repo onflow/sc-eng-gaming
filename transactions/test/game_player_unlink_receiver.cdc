@@ -5,6 +5,7 @@ import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 /// Used to test RockPaperScissors.Match.returnPlayerNFTs() behavior
 /// Transaction to unlink NonFungibleToken.Receiver from
 /// GamePieceNFT.CollectionPublicPath
+///
 transaction {
 
     prepare(acct: AuthAccount) {
