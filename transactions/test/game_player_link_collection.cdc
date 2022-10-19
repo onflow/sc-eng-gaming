@@ -3,6 +3,7 @@ import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 
 /// Transaction to relink GamePieceNFT collection in the signer's account
+///
 transaction {
 
     prepare(acct: AuthAccount) {

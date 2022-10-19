@@ -1,5 +1,7 @@
 import MetadataViews from "./utility/MetadataViews.cdc"
 
+/// GamingMetadataViews
+///
 /// This contract is an initial implementation of gaming related
 /// win/loss metadata and mechanisms to retrieve win/loss records
 /// from games in which the NFT was played.
@@ -11,6 +13,7 @@ pub contract GamingMetadataViews {
     /// The implementing resource expose a capability which
     /// is added to the escrowed NFT so that the BasicWinloss
     /// stored on the game contract can be retrieved by the NFT
+    ///
     pub resource interface BasicWinLossRetriever {
         
         /// Retrieves the BasicWinLoss for a given NFT
@@ -23,6 +26,7 @@ pub contract GamingMetadataViews {
 
     /// Struct that contains attributes and methods relevant to win/loss/tie
     /// record and mechanisms to increment such values
+    ///
     pub struct BasicWinLoss {
         /// The name of the associated game
         pub let gameName: String
@@ -43,6 +47,8 @@ pub contract GamingMetadataViews {
             self.ties = 0
         }
 
+        /** --- Value Incrementers --- */
+        ///
         /// Below are methods to increment and decrement win/loss/ties
         /// aggregate values.
 
@@ -117,6 +123,7 @@ pub contract GamingMetadataViews {
     /// Helper to get a Win/Loss view in a type-safe way
     ///
     /// @param viewResolver: A reference to the resolver resource
+    ///
     /// @return A WinLossView structure
     ///
     pub fun getBasicWinLossView(viewResolver: &{MetadataViews.Resolver}): WinLossView? {
