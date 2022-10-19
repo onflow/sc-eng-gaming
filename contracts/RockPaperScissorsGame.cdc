@@ -264,6 +264,7 @@ pub contract RockPaperScissorsGame {
 
     /// Interface that allows for public access to the IDs that the implementing
     /// resource administers
+    ///
     pub resource interface GameAdminPublic {
         pub let id: UInt64
         pub fun getMatchesIDs(): [UInt64]
@@ -272,6 +273,7 @@ pub contract RockPaperScissorsGame {
     /// Resource to allow creation of matches & maintain Capabilities for each
     /// New matches can be created & are stored to the game contract's account to make
     /// escrow of assets as safe as possible
+    ///
     pub resource GameAdmin: GameAdminPublic {
 
         pub let id: UInt64
