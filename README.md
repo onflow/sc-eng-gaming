@@ -158,92 +158,93 @@ ___
 To demo the functionality of this repo, clone it and follow the steps below by entering each command using [Flow CLI](https://github.com/onflow/flow-cli) from the package root:
 
 1. Deploy all contracts:
-    ```console
+    ```sh
     flow run
     ```
 1. Create players accounts: 
     1. Player 1:
-        ```console
+        ```sh
         flow accounts create
         ```
         
         account name: `player-one`
     1. Player 2: 
-        ```console
+        ```sh
         flow accounts create
         ```
         
         account name: `player-two`
 1. Admin setup as `GameAdmin`:
-    ```console
+    ```sh
     flow transactions send ./transactions/setup_game_admin.cdc
     ```
 1. Players setup as `GamePlayer`s: 
     1. Player one:
-        ```console
+        ```sh
         flow transactions send ./transactions/setup_game_player.cdc --signer player-one
         ```
     1. Player two:
-        ```console
+        ```sh
         flow transactions send ./transactions/setup_game_player.cdc --signer player-two
         ```
 1. Players setup NFT collection: 
     1. Player one:
-        ```console
+        ```sh
         flow transactions send ./transactions/setup_game_piece_nft_collection.cdc --signer player-one
         ```
     1. Player two: 
-        ```console
+        ```sh
         flow transactions send ./transactions/setup_game_piece_nft_collection.cdc --signer player-two
         ```
 1. Players mint GamePieceNFT: 
     1. Player one:
-        ```console
+        ```sh
         flow transactions send ./transactions/mint_game_piece_nft.cdc --signer player-one
         ```
     1. Player two:
-        ```console
+        ```sh
         flow transactions send ./transactions/mint_game_piece_nft.cdc --signer player-two
         ```
 1. Admin creates new match with args `<player_one_address> <player_two_address> <match_timeout_in_minutes>`:
-    ```console
+    ```sh
     flow transactions send ./transactions/game_admin_setup_new_match.cdc 01cf0e2f2f715450 179b6b1cb6755e31 5
     ```
 1. Get matches ids from Admin with arg `<game_admin_address>`: 
-    ```console
+    ```sh
     flow scripts execute ./scripts/get_matches_ids.cdc f8d6e0586b0a20c7
     ```
 1. Get Score NFTs ids from Players with arg `<player_address>`: 
     1. Player one:
-        ```console
+        ```sh
         flow scripts execute ./scripts/get_collection_ids.cdc 01cf0e2f2f715450
         ```
     1. Player two:
-        ```console
+        ```sh
         flow scripts execute ./scripts/get_collection_ids.cdc 179b6b1cb6755e31
         ```
 1. Players escrow GamePieceNFTs with args `<match_id> <nft_id>`:
     1. Player one:
-        ```console
+        ```sh
         flow transactions send ./transactions/game_player_escrow_nft.cdc 37 35 --signer player-one
         ```
     1. Player two:
-        ```console
+        ```sh
         flow transactions send ./transactions/game_player_escrow_nft.cdc 37 36 --signer player-two
         ```
 1. Admin submit moves on behalf of both players with args `<match_id> <player_one_nft_id> <player_one_move> <player_two_nft_id> <player_two_move>`: 
-    ```console
+    ```sh
     flow transactions send ./transactions/game_admin_submit_moves.cdc 37 35 0 36 2
     ```
 1. Get scores associated with each player's NFT `<player_address> <nft_id>`: 
     1. Player one:
-        ```console
+        ```sh
         flow scripts execute ./scripts/get_rps_win_loss_view.cdc 01cf0e2f2f715450 35
         ```
     1. Player two: 
-        ```console
+        ```sh
         flow scripts execute ./scripts/get_rps_win_loss_view.cdc 179b6b1cb6755e31 36
         ```
 
 ___
 
+ 
