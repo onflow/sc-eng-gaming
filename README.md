@@ -213,7 +213,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     ```sh
     flow scripts execute ./scripts/get_matches_ids.cdc f8d6e0586b0a20c7
     ```
-1. Get Score NFTs ids from Players with arg `<player_address>`: 
+1. Get GamePiece NFTs ids from Players with arg `<player_address>`: 
     1. Player one:
         ```sh
         flow scripts execute ./scripts/get_collection_ids.cdc 01cf0e2f2f715450
