@@ -84,7 +84,6 @@ pub contract GamingMetadataViews {
             }
             self.ties = self.ties - 1
         }
-
     }
 
     /// A struct which contains a mapping of game names to the games associated
@@ -117,6 +116,16 @@ pub contract GamingMetadataViews {
                 }
             }
             return nil
+        }
+    }
+
+    pub struct MovesView {
+        pub let nftID: UInt64
+        pub var moves: {String: [AnyStruct]}
+
+        init(id: UInt64, _ moves: {String: [AnyStruct]}) {
+            self.nftID = id
+            self.moves = moves
         }
     }
 
