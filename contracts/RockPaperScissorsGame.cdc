@@ -4,8 +4,6 @@ import GamePieceNFT from "./GamePieceNFT.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 
-/// TODO: Top level comment
-///
 /// RockPaperScissorsGame
 ///
 /// Contract defines the logic of a game of Rock Paper Scissors
@@ -18,14 +16,26 @@ import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 /// must escrow their GamePieceNFTs for the length of the Match
 /// or until the Match timeLimit is reached. New Matches are stored
 /// in this contract's account storage to provide a neutral party
-/// in which NFTs are escrowed. MatchAdminActions allow
-/// for submission of moves on behalf of players while
-/// MatchPlayerActions allow players to escrow NFTs and request
-/// that escrowed NFTs be returned.
+/// in which NFTs are escrowed. 
+///
+/// MatchLobbyActions allow players to escrow their NFTs while
+/// MatchPlayerActions allows players to submit their moves and 
+/// request that escrowed NFTs be returned.
 ///
 /// To maintain the player's Capabilities, the GamePlayer
 /// resource is included in this contract. GamePlayers can create new
 /// Matches, but must escrow a GamePieceNFT to do so (to limit spam).
+/// A GamePlayer can give a GamePlayerProxy Capability to another account
+/// allowing that account (e.g. a game client) to escrow their NFT to a 
+/// Match and submit moves on the player's behalf, making for smoother
+/// gameplay UX.
+///
+/// Note that to submit moves, a reference to a GamePlayer's
+/// GamePlayerID must be provided. This is due to the fact that both
+/// GamePlayers have the same MatchPlayerActions Capability. If we simply
+/// asked for the GamePlayer's id, we couldn't trust they would be honest,
+/// so the Match asks for a reference that only the GamePlayer should be
+/// able to provide.
 ///
 /// This contract is designed to be built upon by others in a composable
 /// manner, so please create your own Matches, combine logic and Moves
