@@ -445,3 +445,4 @@ pub contract GamePieceNFT: NonFungibleToken {
         emit ContractInitialized()
     }
 }
+ 

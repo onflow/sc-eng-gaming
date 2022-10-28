@@ -1,5 +1,25 @@
 # Rock Paper Scissors (Mostly) On-Chain
 
+## TODO:
+- Update README
+    - In GameAdmin version
+    - In disintermediated version
+- Update comments in NFT contract
+- Create txns and scripts to engage with contract
+    - Incorporate TEA's proxy account work
+    - Full start to finish user flow
+        
+        1. Set up Vault in game contract account
+        1. Mint ExampleToken to contract account's vault
+        1. Register with GamePieceNFT using game's ContractAdmin
+        1. Setup users' accounts
+            
+            1. Setup GamePiece NFT collection
+            1. Mint NFT
+            1. Get them both GamePlayers & link Caps
+            1. Set up both proxies
+        1. Init gameplay...
+
 We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
 
 ## Overview
@@ -213,7 +233,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     ```sh
     flow scripts execute ./scripts/get_matches_ids.cdc f8d6e0586b0a20c7
     ```
-1. Get GamePiece NFTs ids from Players with arg `<player_address>`: 
+1. Get Score NFTs ids from Players with arg `<player_address>`: 
     1. Player one:
         ```sh
         flow scripts execute ./scripts/get_collection_ids.cdc 01cf0e2f2f715450
