@@ -45,6 +45,9 @@ pub contract RockPaperScissorsGame {
     /// Set canonical paths for easy storage of resources in transactions
     pub let GamePlayerStoragePath: StoragePath
     pub let GamePlayerPublicPath: PublicPath
+    /// Contract Admin paths
+    pub let ContractAdminStoragePath: StoragePath
+    pub let ContractAdminPrivatePath: PrivatePath
     /// Set base path as strings - will be concatenated with matchID they apply to
     pub let MatchStorageBasePathString: String
     pub let MatchPrivateBasePathString: String
@@ -60,6 +63,9 @@ pub contract RockPaperScissorsGame {
     /// Field that stores win/loss records for every NFT that has played this game
     access(contract) let winLossRecords: {UInt64: GamingMetadataViews.BasicWinLoss}
 
+    /// Maintain history of completed Matches
+    access(contract) let completedMatchIDs: [UInt64]
+
     /// Capability granted by GamePieceNFT to amend NFT metadata
     access(contract) var gameRegistrationTicketCap: Capability<&GamePieceNFT.GameRegistrationTicket>?
 
@@ -69,7 +75,7 @@ pub contract RockPaperScissorsGame {
     pub event PlayerAddedToMatch(gameName: String, matchID: UInt64, addedPlayerID: UInt64)
     pub event PlayerNFTEscrowed(gameName: String, matchID: UInt64, nftID: UInt64, numberOfNFTsInEscrow: UInt8)
     pub event MoveSubmitted(gameName: String, matchID: UInt64, totalRoundMovesSubmitted: UInt8)
-    pub event MatchOver(gameName: String, matchID: UInt64, winningNFTID: UInt64?, returnedNFTIDs: [UInt64])
+    pub event MatchOver(gameName: String, matchID: UInt64, winningGamePlayer: UInt64?, winningNFTID: UInt64?, returnedNFTIDs: [UInt64])
 
     /** --- WinLossRetreiver Implementation --- */
     /// Resource acts as a retriever for an NFT's WinLoss data
@@ -107,8 +113,10 @@ pub contract RockPaperScissorsGame {
     ///
     pub resource interface MatchPlayerActions {
         pub let id: UInt64
-        //pub fun escrowNFT(nft: @GamePieceNFT.NFT, receiver: Capability<&{NonFungibleToken.Receiver}>, playerID: UInt64)
-        pub fun submitMove(move: Moves, playerID: UInt64)
+        pub var winningNFTID: UInt64?
+        pub var winningPlayerID: UInt64?
+        pub fun getNFTGameMoves(forPlayerID: UInt64): [Moves]
+        pub fun submitMove(move: Moves, gamePlayerIDRef: &{GamePlayerID})
         pub fun returnPlayerNFTs(): [UInt64]
     }
 
@@ -131,14 +139,20 @@ pub contract RockPaperScissorsGame {
         pub var inPlay: Bool
 
         /// GamePieceNFT Capability to custody NFTs during gameplay
-        pub let playerNFTs: @{UInt64: NonFungibleToken.NFT}
+        pub let escrowedNFTs: @{UInt64: GamePieceNFT.NFT}
         /// Track NFT associate with GamePlayer
         pub let gamePlayerIDToNFTID: {UInt64: UInt64}
         /// Keep Receiver Capabilities to easily return NFTs
         pub let nftReceivers: {UInt64: Capability<&{NonFungibleToken.Receiver}>}
 
+        /// Define the allowable Moves in this Match
+        pub let allowedMoves: [Moves]
         /// Maintain number of moves submitted
         pub let submittedMoves: {UInt64: Moves}
+
+        /// Maintain ids of winning nft and GamePlayer ids
+        pub var winningNFTID: UInt64?
+        pub var winningPlayerID: UInt64?
 
         init(matchTimeLimit: UFix64) {
             pre {
@@ -148,11 +162,94 @@ pub contract RockPaperScissorsGame {
             self.inPlay = true
             self.createdTimestamp = getCurrentBlock().timestamp
             self.timeLimit = matchTimeLimit
-            self.playerNFTs <- {}
+            self.escrowedNFTs <- {}
             self.nftReceivers = {}
             self.gamePlayerIDToNFTID = {}
+            self.allowedMoves = [
+                RockPaperScissorsGame.Moves.paper,
+                RockPaperScissorsGame.Moves.rock,
+                RockPaperScissorsGame.Moves.scissors
+            ]
             self.submittedMoves = {}
+            self.winningNFTID = nil
+            self.winningPlayerID = nil
         }
+
+        /** --- MatchLobbyActions ---*/
+
+        /// Allows for an NFT to be deposited to escrow, returning a Capability
+        /// that enables the holder to engage in gameplay
+        ///
+        /// @param nft: The NFT to be escrowed into the Match
+        /// @param receiver: The Receiver to which the NFT will be returned
+        /// after the Match is over
+        /// @param playerID: The GamePlayer.id of the depositing player
+        ///
+        /// @return MatchPlayerActions Capability for this Match
+        ///
+        pub fun escrowNFTToMatch(
+            nft: @GamePieceNFT.NFT,
+            receiver: Capability<&{NonFungibleToken.Receiver}>,
+            playerID: UInt64
+        ): Capability<&{MatchPlayerActions}> {
+            pre {
+                !self.gamePlayerIDToNFTID.keys.contains(playerID):
+                    "Player has already joined this Match!"
+                self.escrowedNFTs.length < 2:
+                    "Both players have adready escrowed their NFTs, Match is full!"
+                self.inPlay == true:
+                    "Match is over!"
+            }
+
+            // Get MatchPlayerActions Capability from contract account's storage
+            let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(self.id)!
+            let matchPlayerActionsCap = RockPaperScissorsGame.account
+                .getCapability<&{
+                    MatchPlayerActions
+                }>(
+                    matchPrivatePath
+                )
+            assert(
+                matchPlayerActionsCap.check(),
+                message: "Problem retrieving Match's MatchPlayerActions Capability!"
+            )
+
+            let nftID: UInt64 = nft.id
+
+            // Call the GamePieceNFT.NFTEscrow.escrowNFT() implementation
+            self.escrowNFT(nft: <-nft, receiverCap: receiver)
+
+            // Maintain association of this NFT with the depositing GamePlayer
+            self.gamePlayerIDToNFTID.insert(key: playerID, nftID)
+
+            emit PlayerNFTEscrowed(
+                gameName: RockPaperScissorsGame.name,
+                matchID: self.id,
+                nftID: nftID,
+                numberOfNFTsInEscrow: UInt8(self.escrowedNFTs.length)
+            )
+
+            if let escrowedNFTRef = &self.escrowedNFTs[nftID] as &GamePieceNFT.NFT? {
+                let nftMoves: [RockPaperScissorsGame.Moves] = escrowedNFTRef.getGameMoves(gameName: RockPaperScissorsGame.name) as! [Moves]
+                // Assert that the NFT has the necessary game moves to play the game
+                assert(
+                    nftMoves != nil,
+                    message: "Moves not correctly added to escrowed NFT!"
+                )
+                for i, m in nftMoves {
+                    assert(
+                        self.allowedMoves.contains(m) &&
+                        nftMoves.contains(self.allowedMoves[i]),
+                        message: "NFT contains moves that are not allowed in this Match!"       
+                    )
+                }
+                // return MatchPlayerActions Capability
+                return matchPlayerActionsCap
+            }
+            panic("Could not get reference to escrowed NFT")
+        }
+
+        /** --- GamePieceNFT.NFTEscrow --- */
 
         /// This method allows players to escrow their NFTs for gameplay so that the
         /// contract can add associated Metadata to the NFT and add the NFT's id into
@@ -162,21 +259,15 @@ pub contract RockPaperScissorsGame {
         /// @param receiver: The Receiver to which the NFT will be deposited after the Match
         /// has resolved
         ///
-        access(contract) fun escrowNFT(
+        pub fun escrowNFT(
             nft: @GamePieceNFT.NFT,
-            receiver: Capability<&{NonFungibleToken.Receiver}>,
-            playerID: UInt64
+            receiverCap: Capability<&{NonFungibleToken.Receiver}>
         ) {
-            pre {
-                self.playerNFTs.length < 2: "Both players have adready escrowed their NFTs"
-                self.inPlay == true: "Match is over!"
-            }
-
-            let nftID: UInt64 = nft.id
-
+            let nftID = nft.id
             // Ensure the NFT has a way to retrieve win/loss data with a GamingMetadataViews.BasicWinLossRetriever
             // Check for existing retrievers for this game is done on the side of the NFT contract
-            let winLossRetrieverCap: Capability<&{GamingMetadataViews.BasicWinLossRetriever}> = RockPaperScissorsGame.getWinLossRetrieverCapability()
+            let winLossRetrieverCap: Capability<&{GamingMetadataViews.BasicWinLossRetriever}> = RockPaperScissorsGame
+                .getWinLossRetrieverCapability()
             nft.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retrieverCap: winLossRetrieverCap)
 
             // Insert GamingMetadataViews.BasicWinLoss for this game
@@ -184,22 +275,39 @@ pub contract RockPaperScissorsGame {
             RockPaperScissorsGame.insertWinLossRecord(nftID: nftID)
 
             // Then store player's NFT & Receiver
-            self.playerNFTs[nftID] <-! nft
-            self.nftReceivers.insert(key: nftID, receiver)
+            self.escrowedNFTs[nftID] <-! nft
+            self.nftReceivers.insert(key: nftID, receiverCap)
 
-            // Maintain association of this NFT with the depositing GamePlayer
-            self.gamePlayerIDToNFTID.insert(key: playerID, nftID)
-
-            emit PlayerNFTEscrowed(
-                gameName: RockPaperScissorsGame.name,
-                matchID: self.id,
+            // Add the allowed Moves to this NFT
+            self.addMovesToNFT(
                 nftID: nftID,
-                numberOfNFTsInEscrow: UInt8(self.playerNFTs.length)
+                regTicketCap: RockPaperScissorsGame.gameRegistrationTicketCap!,
+                newMoves: self.allowedMoves
             )
         }
 
-        /// ??? - CONSIDER: Could we create a GamingMetadataView that gives an NFT certain Moves?
-        ///
+        /** --- MatchPlayerActions --- */
+
+        /// Allows the caller to retrieve the moves assigned to the NFT
+        /// deposited by the given GamePlayer.id
+        pub fun getNFTGameMoves(forPlayerID: UInt64): [Moves] {
+            pre {
+                self.gamePlayerIDToNFTID[forPlayerID] != nil: 
+                    "Player does not have an NFT in this Match!"
+            }
+
+            // Get a reference to their escrowed NFT
+            let playerNFTID = self.gamePlayerIDToNFTID[forPlayerID]!
+            if let nftRef = &self.escrowedNFTs[playerNFTID] as &GamePieceNFT.NFT? {
+                // Check that there are moves associated with given NFT.id
+                if let moves = nftRef.getGameMoves(gameName: RockPaperScissorsGame.name) as! [Moves]? {
+                    return moves
+                }
+                panic("No moves associated with this game are assigned to player's NFT!")
+            }
+            panic("Could not get reference to player's NFT!")
+        }
+
         /// Function allows for MatchAdminActions to submit moves on behalf of players.
         /// Doing so determines the winner with the given moves, updates the BasicWinLossRecord
         /// for the associated NFT.id and returns the escrowed NFTs to their owners.
@@ -207,17 +315,56 @@ pub contract RockPaperScissorsGame {
         /// @param moves: a mapping of nft.id to Moves (rock, paper, or scissors)
         /// with the expectation that there are exactly two entries
         ///
-        access(contract) fun submitMove(move: Moves, playerID: UInt64) {
+        pub fun submitMove(move: Moves, gamePlayerIDRef: &{GamePlayerID}) {
             pre {
-                self.playerNFTs.length == 2: "Both players must escrow NFTs before play begins!"
-                self.gamePlayerIDToNFT.keys.contains(playerID): "Player is not associated with this Match!"
-                self.submittedMoves.length < 2: "Both moves have already been submitted for this Match!"
-                self.inPlay == true: "Match is not in play any longer!"
+                self.escrowedNFTs.length == 2: 
+                    "Both players must escrow NFTs before play begins!"
+                self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id):
+                    "Player is not associated with this Match!"
+                !self.submittedMoves.keys.contains(gamePlayerIDRef.id):
+                    "Player has already submitted move for this Match!"
+                self.submittedMoves.length < 2:
+                    "Both moves have already been submitted for this Match!"
+                self.inPlay == true:
+                    "Match is not in play any longer!"
             }
-            // TODO: Change determine winner to emit GamePlayer.id
-            self.submittedMoves.insert(key: playerID, move)
+
+            // Add the move to the mapping of submitted moves indexed by the
+            // submitting player's GamePlayerID.id
+            self.submittedMoves.insert(key: gamePlayerIDRef.id, move)
+
+            // If this is the second of 2 moves, resolve the Match
             if self.submittedMoves.length == 2 {
 
+                // Determine the ids of winning GamePlayer.id & NFT.id
+                self.winningPlayerID = RockPaperScissorsGame
+                    .determineRockPaperScissorsWinner(
+                        moves: self.submittedMoves
+                    )
+                if self.winningPlayerID != nil {
+                    self.winningNFTID = self.gamePlayerIDToNFTID[self.winningPlayerID!]!
+                }
+                // Ammend NFTs win/loss
+                for nftID in self.escrowedNFTs.keys {
+                    RockPaperScissorsGame.updateWinLossRecord(
+                        nftID: nftID,
+                        winner: self.winningNFTID
+                    )
+                }
+                // Mark the Match as no longer in play
+                self.inPlay = false
+                // Return the escrowed NFTs to the depositing players
+                let returnedNFTIDs = self.returnPlayerNFTs()
+                // Add the Match.id to the contract's list of completed Matches
+                RockPaperScissorsGame.completedMatchIDs.append(self.id)
+                // Announce the Match results
+                emit MatchOver(
+                    gameName: RockPaperScissorsGame.name,
+                    matchID: self.id,
+                    winningGamePlayer: self.winningPlayerID,
+                    winningNFTID: self.winningNFTID,
+                    returnedNFTIDs: returnedNFTIDs
+                )
             }
         }
 
@@ -236,76 +383,107 @@ pub contract RockPaperScissorsGame {
             // Written so that issues with one player's Receiver won't affect the return of
             // any other player's NFT
             for id in self.nftReceivers.keys {
-                if let receiverCap = self.nftReceivers[id] {
+                if let receiverCap: Capability<&{NonFungibleToken.Receiver}> = self.nftReceivers[id] {
                     if let receiverRef = receiverCap.borrow() {
                         // We know we have the proper Receiver reference, so we'll now move the token & deposit
-                        if let token <- self.playerNFTs.remove(key: id)  {
+                        if let token: @GamePieceNFT.NFT <- self.escrowedNFTs.remove(key: id)  {
                             receiverRef.deposit(token: <- token)
                             returnedNFTs.append(id)
                         }
                     }
                 }
             }
+            // Add the id of this Match to the history of completed Matches
+            // as long as all it does not contain NFTs
+            if self.escrowedNFTs.length == 0 {
+                RockPaperScissorsGame.completedMatchIDs.append(self.id)
+            }
+            // Return an array containing ids of the successfully returned NFTs
             return returnedNFTs
         }
         
         /// Custom destroyer to prevent destroying escrowed NFTs
         destroy() {
             pre {
-                self.playerNFTs.length == 0:
+                self.escrowedNFTs.length == 0:
                     "Cannot destroy while NFTs in escrow!"
                 getCurrentBlock().timestamp >= self.createdTimestamp + self.timeLimit ||
                 self.inPlay == false: 
                     "Cannot destroy while Match is still in play!"
             }
-
-            destroy self.playerNFTs
+            destroy self.escrowedNFTs
         }
     }
 
-    /// Public interface allowing others to add GamePlayer to matches. Of course, there is no obligation for
-    /// matches to be played, but this makes it so that a GameAdmin or even other player could add the
-    /// GamePlayer to a match
+    /// A simple interface a player would use to demonstrate that they are
+    /// the given ID
+    pub resource interface GamePlayerID {
+        pub let id: UInt64
+    }
+
+    /// Public interface allowing others to add GamePlayer to matches. Of course, there is
+    /// no obligation for matches to be played, but this makes it so that other players
+    /// each other to a Match
     ///
     pub resource interface GamePlayerPublic {
         pub let id: UInt64
-        pub fun addMatchLobbyActionsCapability(matchID: UInt64, _ cap: Capability<&{MatchLobbyActions}>)
+        pub fun addMatchLobbyActionsCapability(
+            matchID: UInt64,
+            _ cap: Capability<&{MatchLobbyActions}>
+        )
     }
 
+    /// Interface defining a Capability that would enable a proxy account given
+    /// this Capability to act on behalf of the GamePlayer
+    ///
     pub resource interface GamePlayerProxy {
-        pub fun createMatch(matchTimeLimit: UFix64, nftID: UInt64, receiverPath: PublicPath): UInt64
+        pub fun getMatchLobbyCaps(): {UInt64: Capability<&{MatchLobbyActions}>}
+        pub fun getMatchPlayerCaps(): {UInt64: Capability<&{MatchPlayerActions}>}
+        pub fun createMatch(
+            matchTimeLimit: UFix64,
+            nftID: UInt64,
+            receiverPath: PublicPath
+        ): UInt64
         pub fun signUpForMatch(matchID: UInt64)
         pub fun depositNFTToMatchEscrow(
             nftID: UInt64,
             matchID: UInt64,
             receiverPath: PublicPath
         )
-        pub fun addPlayerToMatch(matchID: UInt64, gamePlayerRef: &AnyResource{GamePlayerPublic})
+        pub fun getAvailableMoves(matchID: UInt64): [Moves]
+        pub fun submitMoveToMatch(matchID: UInt64, move: Moves)
+        pub fun addPlayerToMatch(
+            matchID: UInt64,
+            gamePlayerRef: &AnyResource{GamePlayerPublic}
+        )
     }
 
     /** --- Receiver for Match Capabilities --- */
 
     /// Resource that maintains all the player's MatchPlayerActions capabilities
-    /// Players can add themselves to games or be added if they expose GamePlayerPublic capability
+    /// Players can add themselves to games or be added if they expose GamePlayerPublic
+    /// capability
     ///
-    pub resource GamePlayer : GamePlayerPublic, GamePlayerProxy {
+    pub resource GamePlayer : GamePlayerPublic, GamePlayerProxy, GamePlayerID {
         pub let id: UInt64
-        pub let matchLobbyCapabilities: {UInt64: Capability<&{MatchLobbyActions}>}
-        pub let matchPlayerCapabilities: {UInt64: Capability<&{MatchPlayerActions}>}
-        access(self) let nftProviderCapability: Capability<&{NonFungibleToken.Provider}>
+        access(self) let matchLobbyCapabilities: {UInt64: Capability<&{MatchLobbyActions}>}
+        access(self) let matchPlayerCapabilities: {UInt64: Capability<&{MatchPlayerActions}>}
+        access(self) var nftProviderCapability: Capability<&{NonFungibleToken.Provider}>
 
-        init() {
+        init(_ providerCap: Capability<&{NonFungibleToken.Provider}>) {
             self.id = self.uuid
             self.matchPlayerCapabilities = {}
-            self.nftProviderCapability = collectionCap
+            self.matchLobbyCapabilities = {}
+            self.nftProviderCapability = providerCap
         }
         
         /** --- GamePlayer --- */
 
-        /// Allows GamePlayer to delete capabilities from their mapping to free up space used by old matches.
+        /// Allows GamePlayer to delete capabilities from their mapping to free up space used
+        /// by old matches.
         ///
-        /// @param matchID: The id for the MatchPlayerActions Capability that the GamePlayer would like
-        /// to delete from their matchPlayerCapabilities
+        /// @param matchID: The id for the MatchPlayerActions Capability that the GamePlayer 
+        /// would like to delete from their matchPlayerCapabilities
         ///
         pub fun deletePlayerActionsCapability(matchID: UInt64) {
             self.matchPlayerCapabilities.remove(key: matchID)
@@ -313,13 +491,34 @@ pub contract RockPaperScissorsGame {
 
         /// Allows the Provider Capability to be updated
         ///
-        /// @param newCap: The Capability that will become the GamePlayer's new nftCollectionCapability
+        /// @param newCap: The Capability that will become the GamePlayer's new 
+        /// nftCollectionCapability
         ///
-        pub fun updateNFTCollectionCapability(newCap: Capability<&{NonFungibleToken.Provider}>) {
-            self.nftCollectionCapability = newCap
+        pub fun updateNFTProviderCapability(newCap: Capability<&{NonFungibleToken.Provider}>) {
+            self.nftProviderCapability = newCap
+        }
+
+        pub fun getGamePlayerIDRef(): &{GamePlayerID} {
+            return &self as &{GamePlayerID}
         }
 
         /** --- GamePlayerProxy --- */
+
+        /// Simple getter for mapping of MatchLobbyActions Capabilities
+        ///
+        /// @return mapping of Match.id to MatchLobbyActions Capabilities
+        ///
+        pub fun getMatchLobbyCaps(): {UInt64: Capability<&{MatchLobbyActions}>} {
+            return self.matchLobbyCapabilities
+        }
+
+        /// Simple getter for mapping of MatchPlayerActions Capabilities
+        ///
+        /// @return mapping of Match.id to MatchPlayerActions Capabilities
+        ///
+        pub fun getMatchPlayerCaps(): {UInt64: Capability<&{MatchPlayerActions}>} {
+            return self.matchPlayerCapabilities
+        }
 
         /// Creates a new Match resource, saving it in the contract account's storage
         /// and linking MatchPlayerActions at a dynamic path derived with the Match.id.
@@ -331,20 +530,22 @@ pub contract RockPaperScissorsGame {
         /// 
         /// @return: Match.id of the newly created Match
         ///
-        pub fun createMatch(matchTimeLimit: UFix64, nftID: UInt64, receiverPath: PublicPath): UInt64 {
+        pub fun createMatch(
+            matchTimeLimit: UFix64,
+            nftID: UInt64,
+            receiverPath: PublicPath
+        ): UInt64 {
             pre {
-                self.nftProviderCapability.check(): "GamePlayer does not have NFT.Provider configured!"
+                self.nftProviderCapability.check():
+                    "GamePlayer does not have NFT.Provider configured!"
             }
             // Create the new match & preserve its ID
             let newMatch <- create Match(matchTimeLimit: matchTimeLimit)
             let newMatchID = newMatch.id
             
             // Derive paths using matchID
-            let storageIdentifier = RockPaperScissorsGame.MatchStorageBasePathString.concat(newMatchID.toString())
-            let matchStoragePath = StoragePath(identifier: storageIdentifier)!
-
-            let privateIdentifier = RockPaperScissorsGame.MatchPrivateBasePathString.concat(newMatchID.toString())
-            let matchPrivatePath = PrivatePath(identifier: privateIdentifier)!
+            let matchStoragePath = RockPaperScissorsGame.getMatchStoragePath(newMatchID)!
+            let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(newMatchID)!
             
             // Save the match to game contract account's storage
             RockPaperScissorsGame.account.save(<-newMatch, to: matchStoragePath)
@@ -353,10 +554,18 @@ pub contract RockPaperScissorsGame {
             RockPaperScissorsGame.account.link<&{
                 MatchLobbyActions,
                 MatchPlayerActions
-            }>(matchPrivatePath, target: matchStoragePath)
+            }>(
+                matchPrivatePath,
+                target: matchStoragePath
+            )
 
             // Get the MatchLobbyActions Capability we just linked
-            let lobbyCap = RockPaperScissorsGame.account.getCapability<&{MatchLobbyActions}>(matchPrivatePath)
+            let lobbyCap = RockPaperScissorsGame.account
+                .getCapability<&{
+                    MatchLobbyActions
+                }>(
+                    matchPrivatePath
+                )
             // Add that Capability to the GamePlayer's mapping
             self.matchLobbyCapabilities[newMatchID] = lobbyCap
 
@@ -406,7 +615,15 @@ pub contract RockPaperScissorsGame {
             pre {
                 self.nftProviderCapability.check():
                     "GamePlayer does not have NFT.Provider configured!"
-                self.matchLobbyCapabilities.keys.contains(matchID) && self.matchPlayer:
+                self.matchLobbyCapabilities.keys.contains(matchID) &&
+                !self.matchPlayerCapabilities.keys.contains(matchID):
+                    "GamePlayer does not have the Capability to play this Match!"
+            }
+            post {
+                self.matchPlayerCapabilities.keys.contains(matchID):
+                    "MatchPlayerActions Capability not successfully added!"
+                !self.matchLobbyCapabilities.keys.contains(matchID) &&
+                self.matchPlayerCapabilities.keys.contains(matchID):
                     "GamePlayer does not have the Capability to play this Match!"
             }
             // Retrieve the Receiver Capability from this resource owner's account
@@ -430,23 +647,60 @@ pub contract RockPaperScissorsGame {
                     ?? panic("Couldn't borrow reference to Provider! Update & try again.")
                 
                 // Get the MatchPlayerActions Capability from this GamePlayer's mapping
-                let matchCap: Capability<&{MatchLobbyActions}> = self.matchPlayerCapabilities[matchID]!
-                let matchPlayerActionsRef = matchCap
+                let matchLobbyCap: Capability<&{MatchLobbyActions}> = self.matchLobbyCapabilities[matchID]!
+                let matchLobbyActionsRef = matchLobbyCap
                     .borrow()
                     ?? panic("Could not borrow reference to MatchPlayerActions")
 
                 // Withdraw the given NFT
-                let nft <- providerRef.withdraw(withdrawID: nftID) as @GamePieceNFT.NFT
+                let nft <- providerRef.withdraw(withdrawID: nftID) as! @GamePieceNFT.NFT
                 // Escrow the NFT to the Match, getting back a Capability
-                let playerActionsCap: Capability<&{MatchPlayerActions}> = matchPlayerActionsRef
+                let playerActionsCap: Capability<&{MatchPlayerActions}> = matchLobbyActionsRef
                     .escrowNFTToMatch(
                         nft: <-nft,
-                        receiver: receiver,
+                        receiver: receiverCap,
                         playerID: self.id
                     )
-                // Add that Capability to the GamePlayer's mapping
+                // Add that Capability to the GamePlayer's mapping & remove from
+                // mapping of MatchLobbyCapabilities
                 self.matchPlayerCapabilities.insert(key: matchID, playerActionsCap)
+                self.matchLobbyCapabilities.remove(key: matchID)
             }
+            panic("Could not find receiver at owner's provided receiverPath")
+        }
+
+        /// Getter for the GamePlayer's available moves assigned to their escrowed NFT
+        ///
+        /// @param matchID: Match.id for which they are querying
+        ///
+        /// @return the Moves assigned to their escrowed NFT
+        ///
+        pub fun getAvailableMoves(matchID: UInt64): [Moves] {
+            pre {
+                self.matchPlayerCapabilities[matchID] != nil:
+                    "Player is not engaged with the given Match"
+                self.matchPlayerCapabilities[matchID]!.check():
+                    "Problem with MatchPlayerMoves Capability for given Match.id!"
+            }
+            let matchCap = self.matchPlayerCapabilities[matchID]!
+            return matchCap.borrow()!.getNFTGameMoves(forPlayerID: self.id)
+        }
+
+        /// Allows the GamePlayer to submit a move to the provided Match.id
+        ///
+        /// @param matchID: Match.id of the Match into which the move will be submited
+        /// @param move: The move to be played
+        ///
+        pub fun submitMoveToMatch(matchID: UInt64, move: Moves) {
+            pre {
+                self.matchPlayerCapabilities.keys.contains(matchID):
+                    "Player does not have the ability to play this Match!"
+                self.matchPlayerCapabilities[matchID]!.check():
+                    "Problem with the MatchPlayerActions Capability for given Match!"
+            }
+            let matchRef = self.matchPlayerCapabilities[matchID]!.borrow()!
+            let gamePlayerIDRef = self.getGamePlayerIDRef()
+            matchRef.submitMove(move: move, gamePlayerIDRef: gamePlayerIDRef)
         }
 
         /// Adds the referenced GamePlayer to the Match defined by the given Match.id by retrieving
@@ -459,10 +713,9 @@ pub contract RockPaperScissorsGame {
         ///
         pub fun addPlayerToMatch(matchID: UInt64, gamePlayerRef: &AnyResource{GamePlayerPublic}) {
             // Derive match's private path from matchID
-            let matchPrivatePath = PrivatePath(identifier: RockPaperScissorsGame
-                .MatchPrivateBasePathString.concat(matchID.toString()))!
+            let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(matchID)!
             // Get the capability
-            let matchLobbyActionsCap: Capability<&AnyReso{MatchLobbyActions}> = RockPaperScissorsGame.account
+            let matchLobbyActionsCap: Capability<&AnyResource{MatchLobbyActions}> = RockPaperScissorsGame.account
                 .getCapability<&{MatchLobbyActions}>(matchPrivatePath)
 
             // Ensure we actually got the Capability we need
@@ -512,13 +765,13 @@ pub contract RockPaperScissorsGame {
             }
 
             // Downcast the given vault
-            let ftVault <- feeVault as! @FungibleToken.Vault
+            let ftVault <- feeVault as @FungibleToken.Vault
 
             // Register, receiving a GameRegistrationTicket in return
             let registrationTicket: @GamePieceNFT.GameRegistrationTicket <- GamePieceNFT
                 .registerGameName(
                     gameName: RockPaperScissorsGame.name,
-                    registrationFee: ftVault
+                    registrationFee: <-ftVault
                 )
 
             // Save & link the resource
@@ -552,18 +805,18 @@ pub contract RockPaperScissorsGame {
     ///
     /// @return a fresh GamePlayer resource
     ///
-    pub fun createGamePlayer(): @GamePlayer {
-        return <- create GamePlayer()
+    pub fun createGamePlayer(providerCap: Capability<&{NonFungibleToken.Provider}>): @GamePlayer {
+        return <- create GamePlayer(providerCap)
     }
 
     /// Method to determine outcome of a RockPaperScissors with given moves
     /// Exposing game logic allows for some degree of composability with other
     /// games and match types
     ///
-    /// @param moves: a mapping of nft.id to Moves (rock, paper, or scissors)
+    /// @param moves: a mapping of GamePlayer.id to Moves (rock, paper, or scissors)
     /// with the expectation that there are exactly two entries
     ///
-    /// @return the id of the winning NFT or nil if result is a tie
+    /// @return the id of the winning GamePlayer or nil if result is a tie
     ///
     pub fun determineRockPaperScissorsWinner(moves: {UInt64: Moves}): UInt64? {
         pre {
@@ -594,7 +847,6 @@ pub contract RockPaperScissorsGame {
                     return player1
                 }
         }
-
         // If they played the same move, it's a tie -> return nil
         return nil
     }
@@ -606,6 +858,31 @@ pub contract RockPaperScissorsGame {
     ///
     pub fun getTotalWinLossRecords(): {UInt64: GamingMetadataViews.BasicWinLoss} {
         return self.winLossRecords
+    }
+
+    /// Allows the public to clean up Matches that are no longer necessary, 
+    /// helping to reduce contract's use of storage
+    ///
+    pub fun destroyCompletedMatches(): [UInt64] {
+        
+        let destroyedMatchIDs: [UInt64] = []
+        // Iterate through completedMatchIDs
+        for matchID in self.completedMatchIDs {
+            
+            // Derive the StoragePath of the Match with given id
+            if let matchStoragePath = RockPaperScissorsGame.getMatchStoragePath(matchID) {
+                
+                // Load and destroy the Match
+                let completedMatch <- self.account.load<@Match>(from: matchStoragePath)
+                destroy completedMatch
+                
+                // Remove the id of the destroyed Match, adding to array
+                // maintaining destroyed IDs
+                destroyedMatchIDs.append(self.completedMatchIDs.removeFirst())
+            }
+        }
+        // Return the IDs of the destroyed Matches
+        return destroyedMatchIDs
     }
     
     /// Returns a Capability for GamingMetadataViews.BasicWinLossRetriever implemented in
@@ -652,12 +929,39 @@ pub contract RockPaperScissorsGame {
         }
     }
 
+    /// Function for easy derivation of a Match's StoragePath. Provides no guarantees
+    /// that a Match is stored there.
+    ///
+    /// @param matchID: the id of the target Match
+    ///
+    /// @return the StoragePath where that Match would be stored or nil
+    ///
+    access(contract) fun getMatchStoragePath(_ matchID: UInt64): StoragePath? {
+        let identifier = self.MatchStorageBasePathString.concat(matchID.toString())
+        return StoragePath(identifier: identifier)
+    }
+
+    /// Function for easy derivation of a Match's PrivatePath. Provides no guarantees
+    /// that a Match is stored there.
+    ///
+    /// @param matchID: the id of the target Match
+    ///
+    /// @return the PrivatePath where that Match would be stored or nil
+    ///
+    access(contract) fun getMatchPrivatePath(_ matchID: UInt64): PrivatePath? {
+        let identifier = self.MatchStorageBasePathString.concat(matchID.toString())
+        return PrivatePath(identifier: identifier)
+    }
+
     init() {
         // Initialize variables
         self.name = "RockPaperScissors"
         self.winLossRecords = {}
+        self.completedMatchIDs = []
 
         // Assign canonical paths
+        self.ContractAdminStoragePath = /storage/ContractAdmin
+        self.ContractAdminPrivatePath = /private/ContractAdmin
         self.GamePlayerStoragePath = /storage/RockPaperScissorsGamePlayer
         self.GamePlayerPublicPath = /public/RockPaperScissorsGamePlayer
         self.RPSWinLossRetrieverStoragePath = /storage/RPSWinLossRetriever
@@ -678,8 +982,14 @@ pub contract RockPaperScissorsGame {
         self.account.link<&RPSWinLossRetriever>(self.RPSWinLossRetrieverPrivatePath, target: self.RPSWinLossRetrieverStoragePath)
 
         // Create the ContractAdmin resource
-        let admin <- create GameAdmin()
-        self.account.save(<-admin, to: )
+        let admin <- create ContractAdmin()
+        self.account.save(<-admin, to: self.ContractAdminStoragePath)
+        self.account.link<
+            &ContractAdmin
+        >(
+            self.ContractAdminPrivatePath,
+            target: self.ContractAdminStoragePath
+        )
     }
 }
  

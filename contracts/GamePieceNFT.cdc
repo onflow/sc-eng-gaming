@@ -82,9 +82,8 @@ pub contract GamePieceNFT: NonFungibleToken {
             if let regTicketRef: &GameRegistrationTicket = regTicketCap.borrow() {
                 // We can't get a reference to the nested resource, so we
                 // need to retrieve the resource
-                if let nft <- self.escrowedNFTs[nftID] <- nil {
-                    nft.addMoves(gameName: regTicketRef.gameName, newMoves)
-                    self.escrowedNFTs[nftID] <-! nft
+                if let nftRef = &self.escrowedNFTs[nftID] as &NFT? {
+                    nftRef.addMoves(gameName: regTicketRef.gameName, newMoves)
                 }
             }
             panic("Could not add given moves to specified NFT!")
@@ -117,7 +116,7 @@ pub contract GamePieceNFT: NonFungibleToken {
         pub let id: UInt64
         /// Dictionary mapping game name to Capability to GamingMetadataViews.BasicWinLossRetriever
         pub let winLossRetrieverCaps: {String: Capability<&{GamingMetadataViews.BasicWinLossRetriever}>}
-        pub let gameMoves: {String: [AnyStruct]}
+        access(contract) let gameMoves: {String: [AnyStruct]}
 
         init() {
             self.id = self.uuid
@@ -155,6 +154,10 @@ pub contract GamePieceNFT: NonFungibleToken {
             }
         }
 
+        pub fun getGameMoves(gameName: String): [AnyStruct]? {
+            return self.gameMoves[gameName]
+        }
+
         access(contract) fun addMoves(gameName: String, _ newMoves: [AnyStruct]) {
             if self.gameMoves.keys.contains(gameName) {
                 self.gameMoves[gameName]!.appendAll(newMoves)
@@ -168,6 +171,10 @@ pub contract GamePieceNFT: NonFungibleToken {
                 return self.gameMoves[gameName]!.remove(at: targetIndex)
             }
             return nil
+        }
+
+        access(self) fun deleteGameMoves(gameName: String): [AnyStruct]? {
+            return self.gameMoves.remove(key: gameName)
         }
     }
 
