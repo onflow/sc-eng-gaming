@@ -9,8 +9,8 @@
     - Incorporate TEA's proxy account work
     - Full start to finish user flow
         
-        1. Set up Vault in game contract account
-        1. Mint ExampleToken to contract account's vault
+        1. Allow minting & game registration in GameNFT contract using GameNFT.Administrator
+        1. Set up Vault in game contract account using ExampleToken.Minter.mintTokens() & saving returned Vault
         1. Register with GamePieceNFT using game's ContractAdmin
         1. Setup users' accounts
             
@@ -18,6 +18,9 @@
             1. Mint NFT
             1. Get them both GamePlayers & link Caps
             1. Set up both proxies
+
+                1. Create proxy accounts
+                1. Get GamePlayerProxy Capability from each player and create a GamePlayerProxyReceiver, saving in respective proxy accounts
         1. Init gameplay...
 
 We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
