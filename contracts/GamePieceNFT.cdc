@@ -39,9 +39,18 @@ pub contract GamePieceNFT: NonFungibleToken {
     pub let AdminStoragePath: StoragePath
     pub let AdminPrivatePath: PrivatePath
 
+    
     pub event ContractInitialized()
+    /// NFT related events
+    pub event MintingAuthorizationUpdated(mintingAllowed: Bool)
+    pub event MintedNFT(id: UInt64, totalSupply: UInt64)
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
+
+    /// Game Registration events
+    pub event GameRegistrationAuthorizationChanged(registrationAllowed: Bool)
+    pub event GameRegistrationFeeUpdated(registrationFee: UFix64)
+    pub event GameNameRegistered(gameName: String)
 
     pub let gameNameRegistry: {UInt64: String}
     pub var registrationFee: UFix64
@@ -279,16 +288,25 @@ pub contract GamePieceNFT: NonFungibleToken {
 
         /** --- MintingAdmin --- */
         pub fun allowMinting(_ permissions: Bool) {
-            GamePieceNFT.mintingAllowed = permissions
+            if permissions != GamePieceNFT.mintingAllowed {
+                GamePieceNFT.mintingAllowed = permissions
+                emit MintingAuthorizationUpdated(mintingAllowed: GamePieceNFT.mintingAllowed)
+            }
         }
 
         /** --- RegistryAdmin --- */
         pub fun allowRegistration(_ permissions: Bool) {
-            GamePieceNFT.registrationAllowed = permissions
+            if permissions != GamePieceNFT.registrationAllowed {
+                GamePieceNFT.registrationAllowed = permissions
+                emit GameRegistrationAuthorizationChanged(registrationAllowed: GamePieceNFT.registrationAllowed)
+            }
         }
 
         pub fun setRegistrationFee(_ feeAmount: UFix64) {
-            GamePieceNFT.registrationFee = feeAmount
+            if feeAmount != GamePieceNFT.registrationFee {
+                GamePieceNFT.registrationFee = feeAmount
+                emit GameRegistrationFeeUpdated(registrationFee: GamePieceNFT.registrationFee)
+            }
         }
 
         /** --- FundsAdmin --- */
@@ -336,7 +354,9 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
         self.totalSupply = self.totalSupply + UInt64(1)
         let newNFT <- create NFT() as! @NonFungibleToken.NFT
+        let newID: UInt64 = newNFT.id
         recipient.deposit(token: <-newNFT)
+        emit MintedNFT(id: newID, totalSupply: self.totalSupply)
     }
 
     /// Function to enable registering to the NFT's namespace. This can be
@@ -367,10 +387,12 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
         // Cast as ExampleToken.Vault to confirm denomination
         let castedVault <- registrationFee as! @ExampleToken.Vault
+        
         // Create new registration Ticket
         let regTicket <- create GameRegistrationTicket(gameName: gameName)
         // Add the given game name to the registry
         self.gameNameRegistry.insert(key: regTicket.id, gameName)
+        
         // Get a reference to the contract account's vault
         let vaultRef = self.account
             .borrow<&ExampleToken.Vault>(from: self.VaultStoragePath)
@@ -378,7 +400,9 @@ pub contract GamePieceNFT: NonFungibleToken {
         // Deposit given vault
         let uncastedVault <- castedVault as! @FungibleToken.Vault
         vaultRef.deposit(from: <-uncastedVault)
-        // Return registration ticket
+        
+        // Emit event & return registration ticket
+        emit GameNameRegistered(gameName: gameName)
         return <- regTicket
     }
 

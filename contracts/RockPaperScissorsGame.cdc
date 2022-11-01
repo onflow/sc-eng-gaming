@@ -768,6 +768,21 @@ pub contract RockPaperScissorsGame {
         }
     }
 
+    /** =========== */
+    /// TODO - DELETE THIS RESOURCE - USED FOR TESTING PROXY CAPABILITY
+    pub resource GamePlayerProxyReceiver {
+        pub let gamePlayerProxyCap: Capability<&{GamePlayerProxy}>
+
+        init(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>) {
+            self.gamePlayerProxyCap = gamePlayerProxyCap
+        }
+    }
+
+    pub fun createProxyPlaceholder(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>): @GamePlayerProxyReceiver {
+        return <- create GamePlayerProxyReceiver(gamePlayerProxyCap)
+    }
+    /** =========== */
+
     /// Administrator resource that manages the game's registration with GamePieceNFT
     pub resource ContractAdmin {
 
