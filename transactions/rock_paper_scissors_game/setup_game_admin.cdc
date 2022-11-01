@@ -1,4 +1,4 @@
-import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
+import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 
 /// Transaction that sets up GameAdmin resource in signing account
 transaction {

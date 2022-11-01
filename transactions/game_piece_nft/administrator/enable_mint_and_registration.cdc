@@ -1,4 +1,4 @@
-import GamePieceNFT from "../contracts/GamePieceNFT.cdc"
+import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
 
 /// Transaction enabling minting and game name registration
 /// in GamePieceNFT contract via the Administrator resource
