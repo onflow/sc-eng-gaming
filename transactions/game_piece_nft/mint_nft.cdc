@@ -1,5 +1,5 @@
-import NonFungibleToken from "../contracts/utility/NonFungibleToken.cdc"
-import GamePieceNFT from "../contracts/GamePieceNFT.cdc"
+import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
+import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 
 /// Transaction to setup GamePieceNFT collection in the signer's account
 transaction {

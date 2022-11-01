@@ -9,8 +9,9 @@
     - Incorporate TEA's proxy account work
     - Full start to finish user flow
         
-        1. Allow minting & game registration in GameNFT contract using GameNFT.Administrator
-        1. Set up Vault in game contract account using ExampleToken.Minter.mintTokens() & saving returned Vault
+        1. X - Allow minting & game registration in GameNFT contract using GameNFT.Administrator
+        1. X - Set up Vault in game contract account
+        1. X - Mint tokens to game contract account's vault
         1. Register with GamePieceNFT using game's ContractAdmin
         1. Setup users' accounts
             

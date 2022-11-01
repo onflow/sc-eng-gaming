@@ -1,4 +1,4 @@
-import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
+import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
 /// Transaction that sets up GamePlayer resource in signing account
 /// and exposes GamePlayerPublic capability so matches can be added
