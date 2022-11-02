@@ -1,11 +1,10 @@
 import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
 
-/// Transaction that sets up GameAdmin resource in signing account
+/// Transaction that creates a new Match
 ///
 transaction(playerOneAddr: Address, playerTwoAddr: Address, matchTimeLimitInMinutes: UInt) {
     
     let gameAdminRef: &RockPaperScissorsGame.GameAdmin
-    let gamePlayerOnePublicRef: &AnyResource{RockPaperScissorsGame.GamePlayerPublic}
     let gamePlayerTwoPublicRef: &AnyResource{RockPaperScissorsGame.GamePlayerPublic}
     
     prepare(acct: AuthAccount) {

@@ -12,17 +12,21 @@
         1. X - Allow minting & game registration in GameNFT contract using GameNFT.Administrator
         1. X - Set up Vault in game contract account
         1. X - Mint tokens to game contract account's vault
-        1. Register with GamePieceNFT using game's ContractAdmin
-        1. Setup users' accounts
+        1. X - Register with GamePieceNFT using game's ContractAdmin
+        1. Setup users' accounts - player-one & player-two
             
-            1. Setup GamePiece NFT collection
-            1. Mint NFT
-            1. Get them both GamePlayers & link Caps
-            1. Set up both proxies
+            1. X - Setup GamePiece NFT collection
+            1. X - Mint NFT
+            1. X - Get them both GamePlayers & link Caps
+            1. X - Set up both proxies
 
-                1. Create proxy accounts
-                1. Get GamePlayerProxy Capability from each player and create a GamePlayerProxyReceiver, saving in respective proxy accounts
+                1. X - Create proxy accounts - proxy-one & proxy-two
+                1. X - Get GamePlayerProxy Capability from each player and create a GamePlayerProxyReceiver, saving in respective proxy accounts
         1. Init gameplay...
+
+            1. Create new Match
+            1. X - Escrow NFT using Proxy
+            1. X - Submit moves using Proxy
 
 We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
 

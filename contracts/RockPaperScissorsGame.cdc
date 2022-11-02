@@ -55,6 +55,8 @@ pub contract RockPaperScissorsGame {
     /// Set canonical paths for easy storage of resources in transactions
     pub let GamePlayerStoragePath: StoragePath
     pub let GamePlayerPublicPath: PublicPath
+    pub let GamePlayerPrivatePath: PrivatePath
+    pub let GamePlayerProxyReceiverStoragePath: StoragePath // TODO: DELETE
     /// Contract Admin paths
     pub let ContractAdminStoragePath: StoragePath
     pub let ContractAdminPrivatePath: PrivatePath
@@ -330,7 +332,7 @@ pub contract RockPaperScissorsGame {
         ///
         pub fun submitMove(move: Moves, gamePlayerIDRef: &{GamePlayerID}) {
             pre {
-                self.escrowedNFTs.length == 2: 
+                self.escrowedNFTs.length == 2:
                     "Both players must escrow NFTs before play begins!"
                 self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id):
                     "Player is not associated with this Match!"
@@ -341,6 +343,18 @@ pub contract RockPaperScissorsGame {
                 self.inPlay == true:
                     "Match is not in play any longer!"
             }
+
+            // Ensure that the player has the ability to play the given move 
+            assert(
+                self.getNFTGameMoves(
+                    forPlayerID: self.gamePlayerIDToNFTID[
+                        gamePlayerIDRef.id
+                    ]!
+                ).contains(
+                    move
+                ),
+                message: "Player's NFT does not have the submitted move available to play!"
+            )
 
             // Add the move to the mapping of submitted moves indexed by the
             // submitting player's GamePlayerID.id
@@ -771,14 +785,18 @@ pub contract RockPaperScissorsGame {
     /** =========== */
     /// TODO - DELETE THIS RESOURCE - USED FOR TESTING PROXY CAPABILITY
     pub resource GamePlayerProxyReceiver {
-        pub let gamePlayerProxyCap: Capability<&{GamePlayerProxy}>
+        pub var gamePlayerProxyCap: Capability<&{GamePlayerProxy}>
 
         init(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>) {
             self.gamePlayerProxyCap = gamePlayerProxyCap
         }
+
+        pub fun updateGamePlayerProxyCap(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>) {
+            self.gamePlayerProxyCap = gamePlayerProxyCap
+        }
     }
 
-    pub fun createProxyPlaceholder(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>): @GamePlayerProxyReceiver {
+    pub fun createProxyReceiver(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>): @GamePlayerProxyReceiver {
         return <- create GamePlayerProxyReceiver(gamePlayerProxyCap)
     }
     /** =========== */
@@ -792,6 +810,10 @@ pub contract RockPaperScissorsGame {
         /// @param feeVault: ExampleToken.Vault containing the fee required to register
         ///
         pub fun registerGameWithGamePieceNFT(feeVault: @ExampleToken.Vault) {
+            pre {
+                RockPaperScissorsGame.gameRegistrationTicketCap == nil:
+                    "gameRegistrationTicket has already been assigned - try updating!"
+            }
             post {
                 RockPaperScissorsGame.gameRegistrationTicketCap != nil:
                     "Problem registering with GamePieceNFT - GameRegistrationTicket was not updated!"
@@ -997,6 +1019,8 @@ pub contract RockPaperScissorsGame {
         self.ContractAdminPrivatePath = /private/ContractAdmin
         self.GamePlayerStoragePath = /storage/RockPaperScissorsGamePlayer
         self.GamePlayerPublicPath = /public/RockPaperScissorsGamePlayer
+        self.GamePlayerPrivatePath = /private/RockPaperScissorsGamePlayer
+        self.GamePlayerProxyReceiverStoragePath = /storage/RockPaperScissorsGameProxyReceiver
         self.RPSWinLossRetrieverStoragePath = /storage/RPSWinLossRetriever
         self.RPSWinLossRetrieverPrivatePath = /private/RPSWinLossRetriever
         // Assign paths for GameRegistrationTicket
