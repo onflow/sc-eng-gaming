@@ -38,7 +38,6 @@ pub contract GamePieceNFT: NonFungibleToken {
     /// Administrator related paths
     pub let AdminStoragePath: StoragePath
     pub let AdminPrivatePath: PrivatePath
-
     
     pub event ContractInitialized()
     /// NFT related events
