@@ -1,11 +1,6 @@
 /* 
 *
-*  This is a Simple implementation of a Flow Non-Fungible Token
-*  It is not part of the official standard but it assumed to be
-*  similar to how many NFTs would implement the core functionality.
-*
-*  This contract does not implement any sophisticated classification
-*  system for its NFTs. It defines a simple NFT with minimal metadata.
+*  Very basic NFT implementation that supports proxy accounts
 *   
 */
 
@@ -55,6 +50,7 @@ pub contract FlarpNarbleNFT2: NonFungibleToken {
         pub fun RetrieveFromGame()
     }
 
+    //The collection that stores the NFTs
     pub resource Collection: CollectionPublic, CollectionProxy, CollectionPrivate, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic {
         // dictionary of NFT conforming tokens
         // NFT is a resource type with an `UInt64` ID field
@@ -64,10 +60,12 @@ pub contract FlarpNarbleNFT2: NonFungibleToken {
             self.ownedNFTs <- {}
         }
         
+        //Placeholder for logic which would send an NFT to the game
         pub fun SendToGame() {
             log("Sent to game")
         }
         
+        //Placeholder for logic which would retrieve an NFT from the game
         pub fun RetrieveFromGame() {
             log("Retrieved from game")
         }
@@ -107,6 +105,7 @@ pub contract FlarpNarbleNFT2: NonFungibleToken {
             return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
  
+        // Gets a reference to the NFT in the collection as this specific NFT type
         pub fun borrowFlarpNarbleNFT2(id: UInt64): &FlarpNarbleNFT2.NFT? {
             if self.ownedNFTs[id] != nil {
                 // Create an authorized reference to allow downcasting
@@ -167,22 +166,11 @@ pub contract FlarpNarbleNFT2: NonFungibleToken {
         self.MinterStoragePath = /storage/FlarpNarbleNFT2Minter
         self.MinterPublicPath = /public/FlarpNarbleMinter
 
-        /*
-        // Create a Collection resource and save it to storage
-        let collection <- create Collection()
-        self.account.save(<-collection, to: self.CollectionStoragePath)
-
-        // create a public capability for the collection
-        self.account.link<&FlarpNarbleNFT.Collection{NonFungibleToken.CollectionPublic, FlarpNarbleNFT.CollectionPublic, MetadataViews.ResolverCollection}>(
-            self.CollectionPublicPath,
-            target: self.CollectionStoragePath
-        )
-        */
-
         // Create a Minter resource and save it to storage
         let minter <- create NFTMinter()
         self.account.save(<-minter, to: self.MinterStoragePath)
 
+        // Link the minter capability to a public path
         self.account.link<&{PublicMinter}>(self.MinterPublicPath, target: /storage/FlarpNarbleNFT2Minter)
 
         emit ContractInitialized()
