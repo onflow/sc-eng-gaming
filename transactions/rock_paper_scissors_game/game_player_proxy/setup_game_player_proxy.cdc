@@ -5,21 +5,16 @@ import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 ///
 transaction {
 
-    prepare(playerAcct: AuthAccount, proxyAcct: AuthAccount) {
+    prepare(proxyAcct: AuthAccount) {
         // Return if a resource already exists in this account at the target path
         if proxyAcct.borrow<&RockPaperScissorsGame.GamePlayerProxyReceiver>(from: RockPaperScissorsGame.GamePlayerProxyReceiverStoragePath) != nil {
             return
         }
-        // Get the GamePlayerProxy Capability from the playerAcct storage
-        let gamePlayerProxyCap = playerAcct.getCapability<&{
-            RockPaperScissorsGame.GamePlayerProxy
-        }>(
-            RockPaperScissorsGame.GamePlayerPrivatePath
-        )
         // Create a new resource
-        let proxyReceiver <- RockPaperScissorsGame.createProxyReceiver(gamePlayerProxyCap)
+        let proxyReceiver <- RockPaperScissorsGame.createProxyReceiver()
         // Save it
         proxyAcct.save(<-proxyReceiver, to: RockPaperScissorsGame.GamePlayerProxyReceiverStoragePath)
+        proxyAcct.link<&{RockPaperScissorsGame.GamePlayerProxyReceiverPublic}>(/public/GamePlayerProxyReceiver, target: RockPaperScissorsGame.GamePlayerProxyReceiverStoragePath)
     }
 }
  

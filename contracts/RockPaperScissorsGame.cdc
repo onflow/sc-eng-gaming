@@ -85,9 +85,25 @@ pub contract RockPaperScissorsGame {
     pub event NewMatchCreated(gameName: String, matchID: UInt64, creatorID: UInt64)
     pub event PlayerSignedUpForMatch(gameName: String, matchID: UInt64, addedPlayerID: UInt64)
     pub event PlayerAddedToMatch(gameName: String, matchID: UInt64, addedPlayerID: UInt64)
-    pub event PlayerNFTEscrowed(gameName: String, matchID: UInt64, nftID: UInt64, numberOfNFTsInEscrow: UInt8)
-    pub event MoveSubmitted(gameName: String, matchID: UInt64, totalRoundMovesSubmitted: UInt8)
-    pub event MatchOver(gameName: String, matchID: UInt64, winningGamePlayer: UInt64?, winningNFTID: UInt64?, returnedNFTIDs: [UInt64])
+    pub event PlayerEscrowedNFTToMatch(
+        gameName: String,
+        matchID: UInt64,
+        gamePlayerID: UInt64,
+        nftID: UInt64,
+        numberOfNFTsInEscrow: UInt8
+    )
+    pub event MoveSubmitted(
+        gameName: String,
+        matchID: UInt64,
+        totalRoundMovesSubmitted: UInt8
+    )
+    pub event MatchOver(
+        gameName: String,
+        matchID: UInt64,
+        winningGamePlayer: UInt64?,
+        winningNFTID: UInt64?,
+        returnedNFTIDs: [UInt64]
+    )
 
     /** --- WinLossRetreiver Implementation --- */
     /// Resource acts as a retriever for an NFT's WinLoss data
@@ -116,7 +132,7 @@ pub contract RockPaperScissorsGame {
         pub fun escrowNFTToMatch(
             nft: @GamePieceNFT.NFT,
             receiver: Capability<&{NonFungibleToken.Receiver}>,
-            playerID: UInt64
+            gamePlayerIDRef: &{GamePlayerID}
         ): Capability<&{MatchPlayerActions}>
         pub fun returnPlayerNFTs(): [UInt64]
     }
@@ -128,8 +144,6 @@ pub contract RockPaperScissorsGame {
     ///
     pub resource interface MatchPlayerActions {
         pub let id: UInt64
-        pub var winningNFTID: UInt64?
-        pub var winningPlayerID: UInt64?
         pub fun getNFTGameMoves(forPlayerID: UInt64): [Moves]
         pub fun submitMove(move: Moves, gamePlayerIDRef: &{GamePlayerID})
         pub fun returnPlayerNFTs(): [UInt64]
@@ -219,12 +233,22 @@ pub contract RockPaperScissorsGame {
             self.escrowedNFTs[nftID] <-! nft
             self.nftReceivers.insert(key: nftID, receiverCap)
 
-            // Add the allowed Moves to this NFT
-            self.addMovesToNFT(
-                nftID: nftID,
-                regTicketCap: RockPaperScissorsGame.gameRegistrationTicketCap!,
-                newMoves: self.allowedMoves
-            )
+            // Add game moves to the NFT if none exist for this game
+            let nftRef = (&self.escrowedNFTs[nftID] as &GamePieceNFT.NFT?)!
+            // See if the escrowed NFT has moves for this game
+            if nftRef.getGameMoves(gameName: RockPaperScissorsGame.name) == nil {
+                // Get the reference to the GameRegistration ticket used to identify this
+                // game and authorization to change data about it on the NFT
+                let gameRegistrationTicketRef = RockPaperScissorsGame.gameRegistrationTicketCap!
+                    .borrow()
+                    ?? panic("Problem with RockPaperScissorsGame GameRegistrationTicket Capability!")
+                // Simply add the moves to the NFT
+                self.addMovesToNFT(
+                    nftID: nftID,
+                    regTicketRef: gameRegistrationTicketRef,
+                    newMoves: self.allowedMoves
+                )
+            }
         }
 
         /** --- MatchLobbyActions ---*/
@@ -242,10 +266,10 @@ pub contract RockPaperScissorsGame {
         pub fun escrowNFTToMatch(
             nft: @GamePieceNFT.NFT,
             receiver: Capability<&{NonFungibleToken.Receiver}>,
-            playerID: UInt64
+            gamePlayerIDRef: &{GamePlayerID}
         ): Capability<&{MatchPlayerActions}> {
             pre {
-                !self.gamePlayerIDToNFTID.keys.contains(playerID):
+                !self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id):
                     "Player has already joined this Match!"
                 self.escrowedNFTs.length < 2:
                     "Both players have adready escrowed their NFTs, Match is full!"
@@ -272,26 +296,27 @@ pub contract RockPaperScissorsGame {
             self.escrowNFT(nft: <-nft, receiverCap: receiver)
 
             // Maintain association of this NFT with the depositing GamePlayer
-            self.gamePlayerIDToNFTID.insert(key: playerID, nftID)
+            self.gamePlayerIDToNFTID.insert(key: gamePlayerIDRef.id, nftID)
 
-            emit PlayerNFTEscrowed(
+            emit PlayerEscrowedNFTToMatch(
                 gameName: RockPaperScissorsGame.name,
                 matchID: self.id,
+                gamePlayerID: gamePlayerIDRef.id,
                 nftID: nftID,
                 numberOfNFTsInEscrow: UInt8(self.escrowedNFTs.length)
             )
 
             if let escrowedNFTRef = &self.escrowedNFTs[nftID] as &GamePieceNFT.NFT? {
-                let nftMoves: [RockPaperScissorsGame.Moves] = escrowedNFTRef.getGameMoves(gameName: RockPaperScissorsGame.name) as! [Moves]
+                let nftMoves = escrowedNFTRef.getGameMoves(gameName: RockPaperScissorsGame.name) as! [Moves]?
                 // Assert that the NFT has the necessary game moves to play the game
                 assert(
                     nftMoves != nil,
                     message: "Moves not correctly added to escrowed NFT!"
                 )
-                for i, m in nftMoves {
+                for i, m in nftMoves! {
                     assert(
                         self.allowedMoves.contains(m) &&
-                        nftMoves.contains(self.allowedMoves[i]),
+                        nftMoves!.contains(self.allowedMoves[i]),
                         message: "NFT contains moves that are not allowed in this Match!"       
                     )
                 }
@@ -347,9 +372,7 @@ pub contract RockPaperScissorsGame {
             // Ensure that the player has the ability to play the given move 
             assert(
                 self.getNFTGameMoves(
-                    forPlayerID: self.gamePlayerIDToNFTID[
-                        gamePlayerIDRef.id
-                    ]!
+                    forPlayerID: gamePlayerIDRef.id
                 ).contains(
                     move
                 ),
@@ -463,6 +486,7 @@ pub contract RockPaperScissorsGame {
             matchID: UInt64,
             _ cap: Capability<&{MatchLobbyActions}>
         )
+        pub fun getAvailableMoves(matchID: UInt64): [Moves]
     }
 
     /// Interface defining a Capability that would enable a proxy account given
@@ -503,6 +527,9 @@ pub contract RockPaperScissorsGame {
         access(self) var nftProviderCapability: Capability<&{NonFungibleToken.Provider}>
 
         init(_ providerCap: Capability<&{NonFungibleToken.Provider}>) {
+            pre {
+                providerCap.check(): "Problem with given Provider Capability!"
+            }
             self.id = self.uuid
             self.matchPlayerCapabilities = {}
             self.matchLobbyCapabilities = {}
@@ -645,6 +672,8 @@ pub contract RockPaperScissorsGame {
             receiverPath: PublicPath
         ) {
             pre {
+                self.owner != nil:
+                    "GamePlayer resource does not have an owning account from which to get a Receiver Capability"
                 self.nftProviderCapability.check():
                     "GamePlayer does not have NFT.Provider configured!"
                 self.matchLobbyCapabilities.keys.contains(matchID) &&
@@ -659,46 +688,46 @@ pub contract RockPaperScissorsGame {
                     "GamePlayer does not have the Capability to play this Match!"
             }
             // Retrieve the Receiver Capability from this resource owner's account
-            if let ownerAccount = self.owner {
-                // Note, we could have passed this in via arguments, but that could have exposed the user to
-                // a malicious proxy including a Receiver Capability to another account's Collection, meaning
-                // the user would lose their NFT. This way we enable the moving of resources (NFT -> Match)
-                // via Capabilities and know that the NFT will be returned to the correct Collection
-                let receiverCap = ownerAccount
-                    .getCapability<&AnyResource{NonFungibleToken.Receiver}>(receiverPath)
-                
-                // Ensure the Capability is valid
-                assert(
-                    receiverCap.check(),
-                    message: "Could not access Receiver Capability at the given path for this account!"
+            let ownerAccount = self.owner!
+            // Note, we could have passed this in via arguments, but that could have exposed the user to
+            // a malicious proxy including a Receiver Capability to another account's Collection, meaning
+            // the user would lose their NFT. This way we enable the moving of resources (NFT -> Match)
+            // via Capabilities and know that the NFT will be returned to the correct Collection
+            let receiverCap = ownerAccount
+                .getCapability<&
+                    AnyResource{NonFungibleToken.Receiver}
+                >(receiverPath)
+            
+            // Ensure the Capability is valid
+            assert(
+                receiverCap.check(),
+                message: "Could not access Receiver Capability at the given path for this account!"
+            )
+
+            // Get a reference to the Provider from which the NFT will be withdrawn
+            let providerRef = self.nftProviderCapability
+                .borrow()
+                ?? panic("Couldn't borrow reference to Provider! Update & try again.")
+            
+            // Get the MatchPlayerActions Capability from this GamePlayer's mapping
+            let matchLobbyCap: Capability<&{MatchLobbyActions}> = self.matchLobbyCapabilities[matchID]!
+            let matchLobbyActionsRef = matchLobbyCap
+                .borrow()
+                ?? panic("Could not borrow reference to MatchPlayerActions")
+
+            // Withdraw the given NFT
+            let nft <- providerRef.withdraw(withdrawID: nftID) as! @GamePieceNFT.NFT
+            // Escrow the NFT to the Match, getting back a Capability
+            let playerActionsCap: Capability<&{MatchPlayerActions}> = matchLobbyActionsRef
+                .escrowNFTToMatch(
+                    nft: <-nft,
+                    receiver: receiverCap,
+                    gamePlayerIDRef: &self as &{GamePlayerID}
                 )
-
-                // Get a reference to the Provider from which the NFT will be withdrawn
-                let providerRef = self.nftProviderCapability
-                    .borrow()
-                    ?? panic("Couldn't borrow reference to Provider! Update & try again.")
-                
-                // Get the MatchPlayerActions Capability from this GamePlayer's mapping
-                let matchLobbyCap: Capability<&{MatchLobbyActions}> = self.matchLobbyCapabilities[matchID]!
-                let matchLobbyActionsRef = matchLobbyCap
-                    .borrow()
-                    ?? panic("Could not borrow reference to MatchPlayerActions")
-
-                // Withdraw the given NFT
-                let nft <- providerRef.withdraw(withdrawID: nftID) as! @GamePieceNFT.NFT
-                // Escrow the NFT to the Match, getting back a Capability
-                let playerActionsCap: Capability<&{MatchPlayerActions}> = matchLobbyActionsRef
-                    .escrowNFTToMatch(
-                        nft: <-nft,
-                        receiver: receiverCap,
-                        playerID: self.id
-                    )
-                // Add that Capability to the GamePlayer's mapping & remove from
-                // mapping of MatchLobbyCapabilities
-                self.matchPlayerCapabilities.insert(key: matchID, playerActionsCap)
-                self.matchLobbyCapabilities.remove(key: matchID)
-            }
-            panic("Could not find receiver at owner's provided receiverPath")
+            // Add that Capability to the GamePlayer's mapping & remove from
+            // mapping of MatchLobbyCapabilities
+            self.matchPlayerCapabilities.insert(key: matchID, playerActionsCap)
+            self.matchLobbyCapabilities.remove(key: matchID)
         }
 
         /// Getter for the GamePlayer's available moves assigned to their escrowed NFT
@@ -784,20 +813,27 @@ pub contract RockPaperScissorsGame {
 
     /** =========== */
     /// TODO - DELETE THIS RESOURCE - USED FOR TESTING PROXY CAPABILITY
-    pub resource GamePlayerProxyReceiver {
-        pub var gamePlayerProxyCap: Capability<&{GamePlayerProxy}>
+    pub resource interface GamePlayerProxyReceiverPublic {
+        pub fun updateGamePlayerProxyCap(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>)
+    }
 
-        init(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>) {
-            self.gamePlayerProxyCap = gamePlayerProxyCap
+    pub resource GamePlayerProxyReceiver : GamePlayerProxyReceiverPublic {
+        pub var gamePlayerProxyCap: Capability<&{GamePlayerProxy}>?
+
+        init() {
+            self.gamePlayerProxyCap = nil
         }
 
         pub fun updateGamePlayerProxyCap(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>) {
+            pre {
+                gamePlayerProxyCap.check(): "Problem with provided Capability!"
+            }
             self.gamePlayerProxyCap = gamePlayerProxyCap
         }
     }
 
-    pub fun createProxyReceiver(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>): @GamePlayerProxyReceiver {
-        return <- create GamePlayerProxyReceiver(gamePlayerProxyCap)
+    pub fun createProxyReceiver(): @GamePlayerProxyReceiver {
+        return <- create GamePlayerProxyReceiver()
     }
     /** =========== */
 

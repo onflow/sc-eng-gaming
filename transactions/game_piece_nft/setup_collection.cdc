@@ -27,5 +27,13 @@ transaction {
             GamePieceNFT.CollectionPublicPath,
             target: GamePieceNFT.CollectionStoragePath
         )
+
+        // Link the Provider Capability in private storage
+        acct.link<&{
+            NonFungibleToken.Provider
+        }>(
+            GamePieceNFT.ProviderPrivatePath,
+            target: GamePieceNFT.CollectionStoragePath
+        )
     }
 }
