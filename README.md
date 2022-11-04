@@ -9,24 +9,90 @@
     - Incorporate TEA's proxy account work
     - Full start to finish user flow
         
+        1. X - Create player & proxy accounts
+        ```
+        flow accounts create
+        ```
+        account names:
+        
+            * player-one
+            * player-two
+            * proxy-one
+            * proxy-two
+            
         1. X - Allow minting & game registration in GameNFT contract using GameNFT.Administrator
+        ```
+        flow transactions send ./transactions/game_piece_nft/administrator/enable_mint_and_registration.cdc 5.0
+        ```
         1. X - Set up Vault in game contract account
+        ```
+        flow transactions send ./transactions/example_token/setup_example_token.cdc
+        ```
         1. X - Mint tokens to game contract account's vault
+        ```
+        flow transactions send ./transactions/example_token/administrator/mint_tokens.cdc f8d6e0586b0a20c7 20.0
+        ```
         1. X - Register with GamePieceNFT using game's ContractAdmin
+        ```
+        flow transactions send ./transactions/rock_paper_scissors_game/contract_admin/register_game_name.cdc 5.0
+        ```
         1. Setup users' accounts - player-one & player-two
             
             1. X - Setup GamePiece NFT collection
+            ```
+            flow transactions send ./transactions/game_piece_nft/setup_collection.cdc --signer player-one
+            ```
+            ```
+            flow transactions send ./transactions/game_piece_nft/setup_collection.cdc --signer player-two
+            ```
             1. X - Mint NFT
+            ```
+            flow transactions send ./transactions/game_piece_nft/mint_nft.cdc --signer player-one
+            ```
+            ```
+            flow transactions send ./transactions/game_piece_nft/mint_nft.cdc --signer player-two
+            ```
             1. X - Get them both GamePlayers & link Caps
+            ```
+            flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_game_player.cdc --signer player-one
+            ```
+            ```
+            flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_game_player.cdc --signer player-two
+            ```
             1. X - Set up both proxies
 
-                1. X - Create proxy accounts - proxy-one & proxy-two
+                1. X - Create GamePlayerProxy resources in each of the proxy accounts
+                ```
+                flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/setup_game_player_proxy.cdc --signer proxy-one
+                ```
+                ```
+                flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/setup_game_player_proxy.cdc --signer proxy-two
+                ```
                 1. X - Get GamePlayerProxy Capability from each player and create a GamePlayerProxyReceiver, saving in respective proxy accounts
+                ```
+                flow transactions send ./transactions/rock_paper_scissors_game/game_player/add_game_player_proxy_to_proxy_receiver.cdc f3fcd2c1a78f5eee --signer player-one
+                ```
+                ```
+                flow transactions send ./transactions/rock_paper_scissors_game/game_player/add_game_player_proxy_to_proxy_receiver.cdc e03daebed8ca0615 --signer player-two
+                ```
+
         1. Init gameplay...
 
-            1. Create new Match
-            1. X - Escrow NFT using Proxy
+            1. X - Create new Match
+            ```
+            flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/setup_new_match.cdc 47 179b6b1cb6755e31 10 --signer proxy-one
+            ```
+            1. X - Escrow player-two NFT using Proxy
+            ```
+            flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/escrow_nft.cdc 53 48 --signer proxy-two
+            ```
             1. X - Submit moves using Proxy
+            ```
+            flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/submit_moves.cdc 53 0 --signer proxy-one
+            ```
+            ```
+            flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/submit_moves.cdc 53 2 --signer proxy-two
+            ```
 
 We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
 
