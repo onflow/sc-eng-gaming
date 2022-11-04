@@ -5,7 +5,7 @@ import AccountProxies from "../../../contracts/utility/AccountProxies.cdc"
 ///
 transaction(childAccount: Address) {
   
-    let adminRef : &AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}
+    let adminRef: &AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}
 
     prepare(acct: AuthAccount) {  
         self.adminRef = acct.borrow<

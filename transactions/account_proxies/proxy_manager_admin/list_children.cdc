@@ -5,7 +5,7 @@ import AccountProxies from "../../../contracts/utility/AccountProxies.cdc"
 ///
 transaction() {
     
-    let adminRef : &AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}
+    let adminRef: &AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}
 
     prepare(acct: AuthAccount) {
         // Get a reference to the ProxyManagerAdmin Capability
