@@ -1,5 +1,6 @@
 {
     "contracts": {
+        "AccountProxies": "./contracts/utility/AccountProxies.cdc",
         "ExampleToken": "./contracts/utility/ExampleToken.cdc",
         "FungibleToken": "./contracts/utility/FungibleToken.cdc",
         "GamePieceNFT": "./contracts/GamePieceNFT.cdc",
@@ -28,7 +29,8 @@
                 "MetadataViews",
                 "GamingMetadataViews",
                 "GamePieceNFT",
-                "RockPaperScissorsGame"
+                "RockPaperScissorsGame",
+                "AccountProxies"
             ]
         }
     }
