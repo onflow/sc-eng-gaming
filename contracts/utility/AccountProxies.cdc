@@ -12,44 +12,44 @@ access(all) contract AccountProxies {
     pub let ProxyManagerPublicPath: PublicPath
 
     pub struct StoredCapability {
-        pub let path:Path
-        pub let type:String
-        pub let capability:Capability
+        pub let path: Path
+        pub let type: String
+        pub let capability: Capability
 
-        init(path:Path, type:String, capability:Capability) {
+        init(path: Path, type: String, capability: Capability) {
             self.path = path
             self.type = type
             self.capability = capability
         }
 
-        pub fun equals(_ other:StoredCapability) : Bool {
+        pub fun equals(_ other: StoredCapability): Bool {
             return (self.path.toString() == other.path.toString() && self.type == other.type)
         }
     }
 
     pub resource interface ProxyManagerPublic {
-        pub fun getProxyCapability(type: Type, path:Path, acct:AuthAccount) : Capability?
+        pub fun getProxyCapability(type: Type, path: Path, acct: AuthAccount): Capability?
     }
 
     pub resource interface ProxyManagerAdmin {
-        pub fun authorizeChild(address:Address, name:String)
-        pub fun deauthorizeChild(address:Address)
-        pub fun grantChildCapability(address:Address, path:Path, capability:Capability)
-        pub fun revokeChildCapability(address:Address, path:Path, capability:Capability)
-        pub fun getAuthorisedChildList() : {Address:String}
-        pub fun getChildCapabilityList(address: Address) : [String]
+        pub fun authorizeChild(address: Address, name: String)
+        pub fun deauthorizeChild(address: Address)
+        pub fun grantChildCapability(address: Address, path: Path, capability: Capability)
+        pub fun revokeChildCapability(address: Address, path: Path, capability: Capability)
+        pub fun getAuthorisedChildList(): {Address: String}
+        pub fun getChildCapabilityList(address: Address): [String]
     }
 
     pub resource ProxyManager : ProxyManagerAdmin, ProxyManagerPublic {
-        priv let children : {Address:[StoredCapability]}
-        priv let accountNames : {Address:String}
+        priv let children: {Address: [StoredCapability]}
+        priv let accountNames: {Address: String}
 
         init() {
             self.children = {}
             self.accountNames = {}
         }
 
-        priv fun findCapability(address:Address, storedCap:StoredCapability) : Int? {
+        priv fun findCapability(address: Address, storedCap: StoredCapability): Int? {
             if self.children.containsKey(address) {
                 var currentIndex = 0
                 while currentIndex < self.children[address]!.length {
@@ -57,14 +57,13 @@ access(all) contract AccountProxies {
                     if self.children[address]![currentIndex]!.equals(storedCap) {
                         return currentIndex
                     }
-
                     currentIndex = currentIndex + 1
                 }
             }
             return nil
         }
 
-        pub fun authorizeChild(address:Address, name:String) {
+        pub fun authorizeChild(address: Address, name: String) {
             if !self.children.containsKey(address) {
                 self.children[address] = []
                 self.accountNames[address] = name
@@ -85,26 +84,31 @@ access(all) contract AccountProxies {
             }
         }
 
-        pub fun deauthorizeChild(address:Address) {
+        pub fun deauthorizeChild(address: Address) {
             if self.children.containsKey(address) {
                 let name = self.accountNames[address]!
                 // remove account listing
                 self.children.remove(key: address)
                 self.accountNames.remove(key: address)
-                log("Deauthorized child: ".concat(name).concat(" Address: ").concat(address.toString()))
+                log(
+                    "Deauthorized child: "
+                    .concat(name)
+                    .concat(" Address: ")
+                    .concat(address.toString())
+                )
             } else {
                 log("Child not found: ".concat(address.toString()))        
             }
         }
 
-        pub fun grantChildCapability(address:Address, path:Path, capability:Capability) {
+        pub fun grantChildCapability(address: Address, path: Path, capability: Capability) {
             if self.children.containsKey(address) {
                 let newCap = StoredCapability(
                     path: path,
                     type: capability.getType().identifier,
                     capability: capability
                 )
-                let capIndex = self.findCapability(address:address, storedCap: newCap)
+                let capIndex = self.findCapability(address: address, storedCap: newCap)
                 if capIndex == nil {
                     self.children[address]!.append(newCap)
                     log(
@@ -122,7 +126,7 @@ access(all) contract AccountProxies {
             }
         }
 
-        pub fun revokeChildCapability(address:Address, path:Path, capability:Capability) {
+        pub fun revokeChildCapability(address: Address, path: Path, capability: Capability) {
             
             if self.children.containsKey(address) {
                 // revoke capability
@@ -150,7 +154,7 @@ access(all) contract AccountProxies {
             }
         }
 
-        pub fun getProxyCapability(type: Type, path:Path, acct:AuthAccount) : Capability? {
+        pub fun getProxyCapability(type: Type, path: Path, acct: AuthAccount): Capability? {
             let address = acct.address
             if self.children.containsKey(address) {
                 var currentIndex = 0
@@ -167,9 +171,9 @@ access(all) contract AccountProxies {
             return nil
         }
 
-        pub fun getAuthorisedChildList() : {Address:String} {
+        pub fun getAuthorisedChildList(): {Address: String} {
             // return a copy for security
-            let output : {Address: String} = {}
+            let output: {Address: String} = {}
 
             for address in self.accountNames.keys {
                 output[address] = self.accountNames[address]
@@ -178,8 +182,8 @@ access(all) contract AccountProxies {
             return output
         }
 
-        pub fun getChildCapabilityList(address: Address) : [String] {
-            let output : [String] = []
+        pub fun getChildCapabilityList(address: Address): [String] {
+            let output: [String] = []
 
             if self.children[address] != nil {
                 for childCapability in self.children[address]! {
@@ -199,7 +203,7 @@ access(all) contract AccountProxies {
 
     }
 
-    pub fun createProxyManager() : @ProxyManager {
+    pub fun createProxyManager(): @ProxyManager {
         return <- create ProxyManager()
     }
 

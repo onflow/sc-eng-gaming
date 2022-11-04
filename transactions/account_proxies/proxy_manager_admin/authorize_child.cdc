@@ -2,7 +2,7 @@ import AccountProxies from "../../../contracts/utility/AccountProxies.cdc"
 
 transaction(childAccount: Address, childName: String) {
   
-    let adminCap : &AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}
+    let adminCap: &AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}
 
     prepare(acct: AuthAccount)  {
         // Borrow a reference to the signing account's ProxyAdming resource
