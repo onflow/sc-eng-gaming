@@ -5,7 +5,7 @@ import AccountProxies from "../../../contracts/utility/AccountProxies.cdc"
 ///
 transaction(parentAccount: Address) {
 
-    let adminCap : Capability
+    let adminCap: Capability
 
     prepare(acct: AuthAccount) {  
         // get proxymananger from parent

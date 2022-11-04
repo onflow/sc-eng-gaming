@@ -4,8 +4,8 @@ import AccountProxies from "../../../contracts/utility/AccountProxies.cdc"
 ///
 transaction(childAccount:Address) {
     
-    let adminCap : Capability<&AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}>
-    let adminCapRef : &AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}
+    let adminCap: Capability<&AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}>
+    let adminCapRef: &AccountProxies.ProxyManager{AccountProxies.ProxyManagerAdmin}
 
     prepare(acct: AuthAccount) {  
         self.adminCap = acct.getCapability<
@@ -19,7 +19,7 @@ transaction(childAccount:Address) {
 
         // TODO: Replace with GamePlayerProxy Cap
         let childPath = AccountProxies.ProxyManagerPrivatePath
-        let childCap : Capability = self.adminCap   // for testing only
+        let childCap: Capability = self.adminCap   // for testing only
 
         self.adminCapRef
             .revokeChildCapability(
