@@ -9,14 +9,16 @@ transaction(matchID: UInt64, move: UInt8) {
     let moveAsEnum: RockPaperScissorsGame.Moves
     
     prepare(proxyAcct: AuthAccount) {
+        // TODO - this will be replaced with AccountProxies.ProxyManagerPublicInterface.GetCapability(): &G
+        //   when we settle the game contracts Capability interface & implement this cap-based proxy account model
         let gamePlayerReceiverRef = proxyAcct
             .borrow<&RockPaperScissorsGame.GamePlayerProxyReceiver>(
                 from: RockPaperScissorsGame.GamePlayerProxyReceiverStoragePath
             ) ?? panic("Could not borrow GamePlayerProxyReceiver reference!")
         // Get a reference to GamePlayerProxy contained in the receiver
-        self.gamePlayerProxyRef = gamePlayerReceiverRef.gamePlayerProxyCap
-            .borrow()
+        let gamePlayerProxyCap = gamePlayerReceiverRef.gamePlayerProxyCap
             ?? panic("Problem with GamePlayerProxy Capability in GamePlayerProxyReceiver!")
+        self.gamePlayerProxyRef = gamePlayerProxyCap.borrow() ?? panic("Problem getting proxy cap")
         // Construct a legible move from the raw input value
         self.moveAsEnum = RockPaperScissorsGame.Moves(
             rawValue: move

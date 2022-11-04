@@ -72,51 +72,34 @@ pub contract GamePieceNFT: NonFungibleToken {
     /// Implementation of this resource have the ability to alter NFT.gameMoves
     pub resource interface NFTEscrow {
         pub let escrowedNFTs: @{UInt64: NFT}
-        pub fun escrowNFT(nft: @NFT, receiverCap: Capability<&{NonFungibleToken.Receiver}>) {
-            post {
-                self.escrowedNFTs.keys.contains(nft.id):
-                    "Given NFT was not properly escrowed!"
-            }
-        }
+        pub fun escrowNFT(nft: @NFT, receiverCap: Capability<&{NonFungibleToken.Receiver}>)
         pub fun addMovesToNFT(
             nftID: UInt64,
-            regTicketCap: Capability<&GameRegistrationTicket>,
+            regTicketRef: &GameRegistrationTicket,
             newMoves: [AnyStruct]
         ) {
             pre {
-                regTicketCap.check(): "Problem with provided Capability!"
                 self.escrowedNFTs.keys.contains(nftID): "No NFTs in escrow with given ID!"
             }
-            if let regTicketRef: &GameRegistrationTicket = regTicketCap.borrow() {
-                // We can't get a reference to the nested resource, so we
-                // need to retrieve the resource
-                if let nftRef = &self.escrowedNFTs[nftID] as &NFT? {
-                    nftRef.addMoves(gameName: regTicketRef.gameName, newMoves)
-                }
-            }
-            panic("Could not add given moves to specified NFT!")
+            let nftRef = (&self.escrowedNFTs[nftID] as &NFT?)!
+            nftRef.addMoves(gameName: regTicketRef.gameName, newMoves)
         }
 
         pub fun removeMove(
             nftID: UInt64,
-            regTicketCap: Capability<&GameRegistrationTicket>,
+            regTicketRef: &GameRegistrationTicket,
             targetIndex: Int
         ): AnyStruct? {
             pre {
-                regTicketCap.check(): "Problem with provided Capability!"
                 self.escrowedNFTs.keys.contains(nftID): "No NFTs in escrow with given ID!"
             }
-            if let regTicketRef: &GameRegistrationTicket = regTicketCap.borrow() {
-                if let nft <- self.escrowedNFTs[nftID] <- nil {
-                    let removedMove: AnyStruct? = nft.removeMove(
-                        gameName: regTicketRef.gameName,
-                        targetIndex: targetIndex
-                    )
-                    self.escrowedNFTs[nftID] <-! nft
-                    return removedMove
-                }
-            }
-            return nil
+            let nftRef = (&self.escrowedNFTs[nftID] as &NFT?)!
+            let removedMove: AnyStruct? = nftRef
+                .removeMove(
+                    gameName: regTicketRef.gameName,
+                    targetIndex: targetIndex
+                )
+            return removedMove
         }
     }
 
