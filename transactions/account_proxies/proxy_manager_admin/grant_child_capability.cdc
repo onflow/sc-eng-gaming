@@ -1,4 +1,5 @@
 import AccountProxies from "../../../contracts/utility/AccountProxies.cdc"
+import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
 /// Grants the specified address access to a Capability
 ///
@@ -16,14 +17,18 @@ transaction(childAccount:Address) {
             )
         self.adminCapRef = self.adminCap.borrow() ?? panic("cannot borrow admin interface")
 
-        // TODO: Replace with GamePlayerProxy Cap
-        let childPath = AccountProxies.ProxyManagerPrivatePath
-        let childCap : Capability = self.adminCap   // for testing only
+        // Path to GamePlayerProxy Capability & Capability
+        let capPath = RockPaperScissorsGame.GamePlayerPrivatePath
+        let childCap : Capability = acct.getCapability<&{
+                RockPaperScissorsGame.GamePlayerProxy
+            }>(
+                capPath
+            )
 
         // Grant the account the access Capability
         self.adminCapRef.grantChildCapability(
                 address: childAccount,
-                path: childPath,
+                path: capPath,
                 capability: childCap
             )
         
