@@ -1,216 +1,152 @@
-/// This contract is an initial implementation of a Capability-based 
-/// puppet account model. The idea is that an account maintains a
-/// ProxyManager resource through which it can define certain
-/// Capabilities that other accounts can access. The "child" account,
-/// so to speak, should be considered user's account, but might be
-/// an account that another entity maintains key access to.
-///
-access(all) contract AccountProxies {
+import FungibleToken from "./FungibleToken.cdc"
 
-    pub let ProxyManagerStoragePath: StoragePath
-    pub let ProxyManagerPrivatePath: PrivatePath
-    pub let ProxyManagerPublicPath: PublicPath
-
-    pub struct StoredCapability {
-        pub let path: Path
-        pub let type: String
-        pub let capability: Capability
-
-        init(path: Path, type: String, capability: Capability) {
-            self.path = path
-            self.type = type
-            self.capability = capability
+access(all) contract AccountProxies
+{
+    //Struct for keeping track of proxy accounts
+    pub struct ProxyInfo
+    {
+        //Friendly name for the proxy to make identifying it easier
+        pub let name : String
+        //The capability that this proxy should have access to
+        pub let proxyCapability : Capability
+        //The flow provider capability of the proxy.  Used to let the main account pull funds from the proxy
+        pub let flowProviderCapability : Capability<&{FungibleToken.Provider}>
+        //Flag indicating if the proxy is currently allowed to access the capability granted to it
+        pub var active : Bool
+        
+        //Initialization
+        init(name: String, flowProviderCapability: Capability<&{FungibleToken.Provider}>, proxyCapability: Capability)
+        {
+            self.proxyCapability = proxyCapability;
+            self.name = name
+            self.flowProviderCapability = flowProviderCapability
+            self.active = true
         }
 
-        pub fun equals(_ other: StoredCapability): Bool {
-            return (self.path.toString() == other.path.toString() && self.type == other.type)
+        //Set the active status of the proxy
+        pub fun SetActive(_ status: Bool)
+        {
+            self.active = status
         }
     }
 
-    pub resource interface ProxyManagerPublic {
-        pub fun getProxyCapability(type: Type, path: Path, acct: AuthAccount): Capability?
+    //Allows a proxy to get the capability assigned to it.
+    //It is public, but requires that the proxy pass in it's AuthAccount to identify itself so only authorized
+    //proxies can get a capability from this function
+    pub resource interface ProxyManagerPublicInterface
+    {
+        pub fun GetCapability(_ acct:AuthAccount) : &Capability?
     }
 
-    pub resource interface ProxyManagerAdmin {
-        pub fun authorizeChild(address: Address, name: String)
-        pub fun deauthorizeChild(address: Address)
-        pub fun grantChildCapability(address: Address, path: Path, capability: Capability)
-        pub fun revokeChildCapability(address: Address, path: Path, capability: Capability)
-        pub fun getAuthorisedChildList(): {Address: String}
-        pub fun getChildCapabilityList(address: Address): [String]
+    //Admin interface that allow the main account to create and manage it's proxies
+    pub resource interface ProxyManagerAdminInterface
+    {
+        pub fun ActivateProxy(address:Address)
+        pub fun DeactivateProxy(address:Address)
+        pub fun GetProxies() : &{Address: ProxyInfo}
+        pub fun CreateProxy(signer: AuthAccount, publicKey: String, name: String, capability: Capability, initialFundingAmount: UFix64)
     }
 
-    pub resource ProxyManager : ProxyManagerAdmin, ProxyManagerPublic {
-        priv let children: {Address: [StoredCapability]}
-        priv let accountNames: {Address: String}
+    //The ProxyManager resource tracks allowed proxies and thier granted capabilities
+    pub resource ProxyManager : ProxyManagerAdminInterface, ProxyManagerPublicInterface
+    {
+        priv let proxies : {Address: ProxyInfo}
 
-        init() {
-            self.children = {}
-            self.accountNames = {}
+        init()
+        {
+            self.proxies = {}
         }
 
-        priv fun findCapability(address: Address, storedCap: StoredCapability): Int? {
-            if self.children.containsKey(address) {
-                var currentIndex = 0
-                while currentIndex < self.children[address]!.length {
-                    // find capability
-                    if self.children[address]![currentIndex]!.equals(storedCap) {
-                        return currentIndex
-                    }
-                    currentIndex = currentIndex + 1
-                }
-            }
-            return nil
-        }
-
-        pub fun authorizeChild(address: Address, name: String) {
-            if !self.children.containsKey(address) {
-                self.children[address] = []
-                self.accountNames[address] = name
-                log(
-                    "Authorized child: "
-                    .concat(name)
-                    .concat(" Address: ")
-                    .concat(address.toString())
-                )
-            } else {
-                log(
-                    "Child already authorized: "
-                    .concat(
-                        self.accountNames[address]!
-                    ).concat(" for Address: ")
-                    .concat(address.toString())
-                )
-            }
-        }
-
-        pub fun deauthorizeChild(address: Address) {
-            if self.children.containsKey(address) {
-                let name = self.accountNames[address]!
-                // remove account listing
-                self.children.remove(key: address)
-                self.accountNames.remove(key: address)
-                log(
-                    "Deauthorized child: "
-                    .concat(name)
-                    .concat(" Address: ")
-                    .concat(address.toString())
-                )
-            } else {
-                log("Child not found: ".concat(address.toString()))        
-            }
-        }
-
-        pub fun grantChildCapability(address: Address, path: Path, capability: Capability) {
-            if self.children.containsKey(address) {
-                let newCap = StoredCapability(
-                    path: path,
-                    type: capability.getType().identifier,
-                    capability: capability
-                )
-                let capIndex = self.findCapability(address: address, storedCap: newCap)
-                if capIndex == nil {
-                    self.children[address]!.append(newCap)
-                    log(
-                        "Granted capability: "
-                        .concat(
-                            capability.getType().identifier
-                        ).concat(" to child: ")
-                        .concat(address.toString())
-                    )
-                } else {
-                    log("Capability already granted")
-                }
-            } else {
-                log("Child not authorized: ".concat(address.toString()))        
-            }
-        }
-
-        pub fun revokeChildCapability(address: Address, path: Path, capability: Capability) {
+        //signer: The main Flow account
+        //publicKey: The public key that will be used for the new proxy account
+        //name: A name that will easily identify what this proxy does.  Recommended:  GameName_MachineName
+        //capability: The private capability that this proxy will have access to
+        //initialFundingAmount: The amount of Flow Tokens that should be transfered from the main account into the proxy account
+        pub fun CreateProxy(signer: AuthAccount, publicKey: String, name: String, capability: Capability, initialFundingAmount: UFix64)
+        {
+            //Create a public key for the proxy account from the passed in string
+            let key = PublicKey(
+                publicKey: publicKey.decodeHex(),
+                signatureAlgorithm: SignatureAlgorithm.ECDSA_P256
+            )
             
-            if self.children.containsKey(address) {
-                // revoke capability
-                let newCap = StoredCapability(
-                    path: path,
-                    type: capability.getType().identifier,
-                    capability: capability
-                )
-                let capIndex = self.findCapability(address:address, storedCap: newCap)
-                if capIndex != nil {
-                    self.children[address]!.remove(at: capIndex!)
-                    log(
-                        "Revoked capability: "
-                        .concat(
-                            capability.getType().identifier
-                        ).concat(" from child: ")
-                        .concat(address.toString())
-                    )
-                }
-                else {
-                    log("Capability not found on child: ".concat(address.toString()))
-                }
-            } else {
-                log("Child not authorized: ".concat(address.toString()))    
+            //Create the proxy account
+            let newAccount = AuthAccount(payer: signer)
+            
+            //Add the key to the new account
+            newAccount.keys.add(
+                publicKey: key,
+                hashAlgorithm: HashAlgorithm.SHA3_256,
+                weight: 1000.0
+            )
+
+            //Add some initial funds to the new account, pulled from the signing account.  Amount determined by initialFundingAmount
+            newAccount.getCapability(/public/flowTokenReceiver)!
+                .borrow<&{FungibleToken.Receiver}>()!
+                .deposit(from: <- signer.borrow<&{FungibleToken.Provider}>(from: /storage/flowTokenVault)!.withdraw(amount: initialFundingAmount))
+            
+            //Add this proxy to our list of proxies, grabbing the flow token provider capability as we do it.
+            self.proxies[newAccount.address] = ProxyInfo(name: name, flowProviderCapability: newAccount.getCapability<&{FungibleToken.Provider}>(/private/flowTokenProvider), proxyCapability: capability)
+            newAccount.save(signer.address, to: /storage/MainAccountAddress)
+        }
+
+        //Activates the proxy, allowing it to access the capability on the main account
+        pub fun ActivateProxy(address:Address)
+        {
+            if !self.proxies.containsKey(address)
+            {
+                log("Unknown proxy ".concat(address.toString()))
+                return
+            }
+                
+            self.proxies[address]!.SetActive(true)
+        }
+
+        //Deactivates the proxy. It will no longer be allowed to access the capability on the main account
+        pub fun DeactivateProxy(address:Address)
+        {
+            if self.proxies.containsKey(address)
+            {
+                self.proxies[address]!.SetActive(false)
+            }
+            else
+            {
+                log("Proxy not found: ".concat(address.toString()))        
             }
         }
 
-        pub fun getProxyCapability(type: Type, path: Path, acct: AuthAccount): Capability? {
-            let address = acct.address
-            if self.children.containsKey(address) {
-                var currentIndex = 0
-                while currentIndex < self.children[address]!.length {                   
-                    if self.children[address]![currentIndex]!.type == type.identifier {
-                        return self.children[address]![currentIndex]!.capability
-                    }
-
-                    currentIndex = currentIndex + 1
-                }
+        //Returns a reference to the capability that was granted to the proxy that is requesting it
+        //This is a reference, so it can't be stored.  The proxy will have to call this every transaction to get
+        //the capability.  This allows the main account to disable the proxy at any time and have it instantly lose
+        //access to the capability.
+        pub fun GetCapability(_ acct:AuthAccount) : &Capability?
+        {
+            if !self.proxies.containsKey(acct.address)
+            {
+                log("Proxy not found")
+                return nil
             }
-            log("Child not authorized: ".concat(address.toString()))
-
-            return nil
+            
+            if !self.proxies[acct.address]!.active
+            {
+                log("Proxy not active")
+                return nil
+            }
+            
+            return &self.proxies[acct.address]!.proxyCapability as &Capability
         }
 
-        pub fun getAuthorisedChildList(): {Address: String} {
-            // return a copy for security
-            let output: {Address: String} = {}
-
-            for address in self.accountNames.keys {
-                output[address] = self.accountNames[address]
-            }
-
-            return output
+        //Returns the proxy dictionary
+        pub fun GetProxies() : &{Address: ProxyInfo}
+        {
+            return &self.proxies as &{Address: ProxyInfo}
         }
-
-        pub fun getChildCapabilityList(address: Address): [String] {
-            let output: [String] = []
-
-            if self.children[address] != nil {
-                for childCapability in self.children[address]! {
-                    let entry = childCapability.type
-                        .concat("(from: ")
-                        .concat(
-                            childCapability.path.toString()
-                        ).concat(")")
-                    output.append(entry)
-                }
-            } else {
-                log("Child not authorized: ".concat(address.toString()))
-            }
-
-            return output
-        }
-
     }
 
-    pub fun createProxyManager(): @ProxyManager {
+    //Called by main accounts to allow them to install a ProxyManager on themselves.
+    pub fun CreateProxyManager() : @ProxyManager
+    {
         return <- create ProxyManager()
-    }
-
-    init() {
-        self.ProxyManagerStoragePath = /storage/ProxyManager
-        self.ProxyManagerPrivatePath = /private/ProxyManager
-        self.ProxyManagerPublicPath = /public/ProxyManager
     }
 }
  
