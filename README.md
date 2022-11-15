@@ -1,8 +1,5 @@
 # Rock Paper Scissors (Mostly) On-Chain
 
-## TODO:
-- Update comments in NFT contract
-
 We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
 
 ## Overview
