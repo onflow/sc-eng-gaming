@@ -119,13 +119,45 @@ pub contract GamingMetadataViews {
         }
     }
 
+    /// A struct which contains an NFT's game moves
+    ///
     pub struct MovesView {
+        /// The NFT's id    
         pub let nftID: UInt64
+        /// Mapping of game names to array of AnyStruct as generic game moves
         pub var moves: {String: [AnyStruct]}
 
         init(id: UInt64, _ moves: {String: [AnyStruct]}) {
             self.nftID = id
             self.moves = moves
+        }
+    }
+
+    /// TODO: Implement in RockPaperScissorsGame along with these attributes & a resolver impl
+    /// A standard struct containing basic metadata about a game
+    ///
+    pub struct GameContractMetadata {
+        pub let name: String
+        pub let description: String
+        pub let icon: AnyStruct{MetadataViews.File}
+        pub let thumbnail: AnyStruct{MetadataViews.File}
+        pub let contractAddress: Address
+        pub let externalURL: MetadataViews.ExternalURL
+        
+        init(
+            name: String,
+            description: String,
+            icon: AnyStruct{MetadataViews.File},
+            thumbnail: AnyStruct{MetadataViews.File},
+            contractAddress: Address,
+            externalURL: MetadataViews.ExternalURL
+        ) {
+            self.name = name
+            self.description = description
+            self.icon = icon
+            self.thumbnail = thumbnail
+            self.contractAddress = contractAddress
+            self.externalURL = externalURL
         }
     }
 
