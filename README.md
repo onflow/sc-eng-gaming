@@ -17,8 +17,6 @@
         
             * player-one
             * player-two
-            * proxy-one
-            * proxy-two
             
         1. X - Allow minting & game registration in GameNFT contract using GameNFT.Administrator
         ```
@@ -59,26 +57,6 @@
             ```
             flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_game_player.cdc --signer player-two
             ```
-            1. X - Set up accounts for proxy
-
-                1. X - Create ProxyManagerAdmin resources in each of the player accounts
-                ```
-                flow transactions send ./transactions/account_proxies/setup_proxy_admin.cdc --signer player-one
-                ```
-                ```
-                flow transactions send ./transactions/account_proxies/setup_proxy_admin.cdc --signer player-two
-                ```
-                1. X - Authorize each respective proxy accounts for each player
-                ```
-                flow transactions send ./transactions/account_proxies/authorize_child.cdc <proxy_one_address> rock_paper_scissors_proxy --signer player-one
-                ```
-                ```
-                flow transactions send ./transactions/account_proxies/authorize_child.cdc <proxy_two_address> rock_paper_scissors_proxy --signer player-two
-                ```
-                1. Grant each respective proxy account a GamePlayerProxy Capability
-                ```
-                flow transactions send ./transactions/account_proxies/grant_child_capability.cdc 
-                ```
 
         1. Init gameplay...
 
@@ -86,11 +64,11 @@
             ```
             flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/setup_new_match.cdc 47 179b6b1cb6755e31 10 --signer proxy-one
             ```
-            1. X - Escrow player-two NFT using Proxy
+            1. X - Escrow player NFTs
             ```
             flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/escrow_nft.cdc 53 48 --signer proxy-two
             ```
-            1. X - Submit moves using Proxy
+            1. X - Submit moves
             ```
             flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/submit_moves.cdc 53 0 --signer proxy-one
             ```
