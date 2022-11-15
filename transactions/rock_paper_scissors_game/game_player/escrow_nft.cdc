@@ -8,24 +8,24 @@ import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 /// for the player to participate in
 ///
 transaction(matchID: UInt64, escrowNFTID: UInt64) {
-    
-    let gamePlayerRef: &RockPaperScissorsGame.GamePlayer
 
     prepare(acct: AuthAccount) {
         // Get the GamePlayer reference from the signing account's storage
-        self.gamePlayerRef = acct
+        let gamePlayerRef = acct
             .borrow<&RockPaperScissorsGame.GamePlayer>(
                 from: RockPaperScissorsGame.GamePlayerStoragePath
             ) ?? panic("Could not borrow GamePlayer reference!")
-    }
 
-    execute {
+        let receiverCap = acct.getCapability<&
+                AnyResource{NonFungibleToken.Receiver}
+            >(GamePieceNFT.CollectionPublicPath)
+        
         // Escrow NFT
-        self.gamePlayerRef
+        gamePlayerRef
             .depositNFTToMatchEscrow(
                 nftID: escrowNFTID,
                 matchID: matchID,
-                receiverPath: GamePieceNFT.CollectionPublicPath
+                receiverCap: receiverCap
             )
     }
 }
