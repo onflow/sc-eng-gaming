@@ -1,80 +1,7 @@
 # Rock Paper Scissors (Mostly) On-Chain
 
 ## TODO:
-- Update README
-    - In GameAdmin version
-    - In disintermediated version
 - Update comments in NFT contract
-- Create txns and scripts to engage with contract
-    - Incorporate TEA's proxy account work
-    - Full start to finish user flow
-        
-        1. X - Create player & proxy accounts
-        ```
-        flow accounts create
-        ```
-        account names:
-        
-            * player-one
-            * player-two
-            
-        1. X - Allow minting & game registration in GameNFT contract using GameNFT.Administrator
-        ```
-        flow transactions send ./transactions/game_piece_nft/administrator/enable_mint_and_registration.cdc 5.0
-        ```
-        1. X - Set up Vault in game contract account
-        ```
-        flow transactions send ./transactions/example_token/setup_example_token.cdc
-        ```
-        1. X - Mint tokens to game contract account's vault
-        ```
-        flow transactions send ./transactions/example_token/administrator/mint_tokens.cdc f8d6e0586b0a20c7 20.0
-        ```
-        1. X - Register with GamePieceNFT using game's ContractAdmin
-        ```
-        flow transactions send ./transactions/rock_paper_scissors_game/contract_admin/register_game_name.cdc 5.0
-        ```
-        1. Setup users' accounts - player-one & player-two
-            
-            1. X - Setup GamePiece NFT collection
-            ```
-            flow transactions send ./transactions/game_piece_nft/setup_collection.cdc --signer player-one
-            ```
-            ```
-            flow transactions send ./transactions/game_piece_nft/setup_collection.cdc --signer player-two
-            ```
-            1. X - Mint NFT
-            ```
-            flow transactions send ./transactions/game_piece_nft/mint_nft.cdc --signer player-one
-            ```
-            ```
-            flow transactions send ./transactions/game_piece_nft/mint_nft.cdc --signer player-two
-            ```
-            1. X - Get them both GamePlayers & link Caps
-            ```
-            flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_game_player.cdc --signer player-one
-            ```
-            ```
-            flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_game_player.cdc --signer player-two
-            ```
-
-        1. Init gameplay...
-
-            1. X - Create new Match
-            ```
-            flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/setup_new_match.cdc 47 179b6b1cb6755e31 10 --signer proxy-one
-            ```
-            1. X - Escrow player NFTs
-            ```
-            flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/escrow_nft.cdc 53 48 --signer proxy-two
-            ```
-            1. X - Submit moves
-            ```
-            flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/submit_moves.cdc 53 0 --signer proxy-one
-            ```
-            ```
-            flow transactions send ./transactions/rock_paper_scissors_game/game_player_proxy/submit_moves.cdc 53 2 --signer proxy-two
-            ```
 
 We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
 
@@ -233,93 +160,66 @@ ___
 
 To demo the functionality of this repo, clone it and follow the steps below by entering each command using [Flow CLI](https://github.com/onflow/flow-cli) from the package root:
 
-1. Deploy all contracts:
-    ```sh
-    flow run
+1. Create player accounts
+```
+flow accounts create
+```
+account names:
+
+    * player-one
+    * player-two
+    
+1. Allow minting & game registration in GameNFT contract using GameNFT.Administrator
+```
+flow transactions send ./transactions/game_piece_nft/administrator/enable_mint_and_registration.cdc 5.0
+```
+1. Set up Vault in game contract account
+```
+flow transactions send ./transactions/example_token/setup_example_token.cdc
+```
+1. Mint tokens to game contract account's vault
+```
+flow transactions send ./transactions/example_token/administrator/mint_tokens.cdc f8d6e0586b0a20c7 20.0
+```
+1. Register with GamePieceNFT using game's ContractAdmin
+```
+flow transactions send ./transactions/rock_paper_scissors_game/contract_admin/register_game_name.cdc 5.0
+```
+1. Setup users' accounts
+    
+    1. Onboard users with GamePieceNFT Collection, NFT, and GamePlayer
     ```
-1. Create players accounts: 
-    1. Player 1:
-        ```sh
-        flow accounts create
-        ```
-        
-        account name: `player-one`
-    1. Player 2: 
-        ```sh
-        flow accounts create
-        ```
-        
-        account name: `player-two`
-1. Admin setup as `GameAdmin`:
-    ```sh
-    flow transactions send ./transactions/setup_game_admin.cdc
+    flow transactions send ./transactions/onboarding/onboarding_player.cdc --signer player-one
     ```
-1. Players setup as `GamePlayer`s: 
-    1. Player one:
-        ```sh
-        flow transactions send ./transactions/setup_game_player.cdc --signer player-one
-        ```
-    1. Player two:
-        ```sh
-        flow transactions send ./transactions/setup_game_player.cdc --signer player-two
-        ```
-1. Players setup NFT collection: 
-    1. Player one:
-        ```sh
-        flow transactions send ./transactions/setup_game_piece_nft_collection.cdc --signer player-one
-        ```
-    1. Player two: 
-        ```sh
-        flow transactions send ./transactions/setup_game_piece_nft_collection.cdc --signer player-two
-        ```
-1. Players mint GamePieceNFT: 
-    1. Player one:
-        ```sh
-        flow transactions send ./transactions/mint_game_piece_nft.cdc --signer player-one
-        ```
-    1. Player two:
-        ```sh
-        flow transactions send ./transactions/mint_game_piece_nft.cdc --signer player-two
-        ```
-1. Admin creates new match with args `<player_one_address> <player_two_address> <match_timeout_in_minutes>`:
-    ```sh
-    flow transactions send ./transactions/game_admin_setup_new_match.cdc 01cf0e2f2f715450 179b6b1cb6755e31 5
     ```
-1. Get matches ids from Admin with arg `<game_admin_address>`: 
-    ```sh
-    flow scripts execute ./scripts/get_matches_ids.cdc f8d6e0586b0a20c7
+    flow transactions send ./transactions/onboarding/onboarding_player.cdc --signer player-two
     ```
-1. Get Score NFTs ids from Players with arg `<player_address>`: 
-    1. Player one:
-        ```sh
-        flow scripts execute ./scripts/get_collection_ids.cdc 01cf0e2f2f715450
-        ```
-    1. Player two:
-        ```sh
-        flow scripts execute ./scripts/get_collection_ids.cdc 179b6b1cb6755e31
-        ```
-1. Players escrow GamePieceNFTs with args `<match_id> <nft_id>`:
-    1. Player one:
-        ```sh
-        flow transactions send ./transactions/game_player_escrow_nft.cdc 37 35 --signer player-one
-        ```
-    1. Player two:
-        ```sh
-        flow transactions send ./transactions/game_player_escrow_nft.cdc 37 36 --signer player-two
-        ```
-1. Admin submit moves on behalf of both players with args `<match_id> <player_one_nft_id> <player_one_move> <player_two_nft_id> <player_two_move>`: 
-    ```sh
-    flow transactions send ./transactions/game_admin_submit_moves.cdc 37 35 0 36 2
+
+1. Init gameplay...
+
+    1. Create new Match & add second player to Match
     ```
-1. Get scores associated with each player's NFT `<player_address> <nft_id>`: 
-    1. Player one:
-        ```sh
-        flow scripts execute ./scripts/get_rps_win_loss_view.cdc 01cf0e2f2f715450 35
-        ```
-    1. Player two: 
-        ```sh
-        flow scripts execute ./scripts/get_rps_win_loss_view.cdc 179b6b1cb6755e31 36
-        ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_match.cdc 40 179b6b1cb6755e31 10 --signer player-one
+    ```
+    1. Escrow second player's NFT
+    ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/escrow_nft.cdc 45 43 --signer player-two
+    ```
+    1. Submit moves
+    ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 45 0 --signer player-one
+    ```
+    ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 45 2 --signer player-two
+    ```
+
+1. Check Win/Loss record for each NFT
+```
+flow scripts execute ./scripts/get_rps_win_loss_view.cdc 01cf0e2f2f715450 40
+```
+```
+flow scripts execute ./scripts/get_rps_win_loss_view.cdc 179b6b1cb6755e31 43
+```
 
 ___
 

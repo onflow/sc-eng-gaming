@@ -50,63 +50,26 @@ pub contract GamePieceNFT: NonFungibleToken {
     pub event GameRegistrationAuthorizationChanged(registrationAllowed: Bool)
     pub event GameRegistrationFeeUpdated(registrationFee: UFix64)
     pub event GameNameRegistered(gameName: String)
-
+    /// Mapping of registered game names & associated registration fee & permission vars
     pub let gameNameRegistry: {UInt64: String}
     pub var registrationFee: UFix64
     pub var registrationAllowed: Bool
 
+    /// Provider and Balance Capability for the contract's ExampleToken.Vault
     access(self) let vaultProviderCap: Capability<&{FungibleToken.Provider, FungibleToken.Balance}>
-
+    /// Variable defining whether minting is allowed or not
     access(contract) var mintingAllowed: Bool
 
-    pub resource GameRegistrationTicket {
-        pub let id: UInt64
-        pub let gameName: String
+    /** --- NFT --- */
 
-        init(gameName: String) {
-            self.id = self.uuid
-            self.gameName = gameName
-        }
-    }
-
-    /// Implementation of this resource have the ability to alter NFT.gameMoves
-    pub resource interface NFTEscrow {
-        pub let escrowedNFTs: @{UInt64: NFT}
-        pub fun escrowNFT(nft: @NFT, receiverCap: Capability<&{NonFungibleToken.Receiver}>)
-        pub fun addMovesToNFT(
-            nftID: UInt64,
-            regTicketRef: &GameRegistrationTicket,
-            newMoves: [AnyStruct]
-        ) {
-            pre {
-                self.escrowedNFTs.keys.contains(nftID): "No NFTs in escrow with given ID!"
-            }
-            let nftRef = (&self.escrowedNFTs[nftID] as &NFT?)!
-            nftRef.addMoves(gameName: regTicketRef.gameName, newMoves)
-        }
-
-        pub fun removeMove(
-            nftID: UInt64,
-            regTicketRef: &GameRegistrationTicket,
-            targetIndex: Int
-        ): AnyStruct? {
-            pre {
-                self.escrowedNFTs.keys.contains(nftID): "No NFTs in escrow with given ID!"
-            }
-            let nftRef = (&self.escrowedNFTs[nftID] as &NFT?)!
-            let removedMove: AnyStruct? = nftRef
-                .removeMove(
-                    gameName: regTicketRef.gameName,
-                    targetIndex: targetIndex
-                )
-            return removedMove
-        }
-    }
-
+    /// The definition of the GamePieceNFT.NFT resource, an NFT designed to be used for gameplay with
+    /// attributes relevant to win/loss histories and basic gameplay moves
+    ///
     pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver {
         pub let id: UInt64
         /// Dictionary mapping game name to Capability to GamingMetadataViews.BasicWinLossRetriever
         pub let winLossRetrieverCaps: {String: Capability<&{GamingMetadataViews.BasicWinLossRetriever}>}
+        /// Mapping of registered game names to an array of game moves
         access(contract) let gameMoves: {String: [AnyStruct]}
 
         init() {
@@ -130,10 +93,21 @@ pub contract GamePieceNFT: NonFungibleToken {
             }
         }
 
+        /// Retrieve relevant GameMetadataViews
+        ///
+        /// @return array of GameMetadataView Types relevant to this NFT
+        ///
         pub fun getViews(): [Type] {
             return [Type<GamingMetadataViews.WinLossView>()]
         }
         
+        /// Function that resolve the given GameMetadataView
+        ///
+        /// @param view: The Type of GameMetadataView to resolve
+        ///
+        /// @return The resolved GameMetadataView for this NFT with this NFT's
+        /// metadata or nil if none exists
+        ///
         pub fun resolveView(_ view: Type): AnyStruct? {
             switch view {
                 case Type<GamingMetadataViews.WinLossView>():
@@ -145,10 +119,18 @@ pub contract GamePieceNFT: NonFungibleToken {
             }
         }
 
+        /// Getter to retrieve the assigned moves for the given game name
+        ///
+        /// @param gameName: The name of the game as a String
+        ///
+        /// @return the array of game moves as AnyStruct or nil if no moves have been
+        /// assigned for the given game name
+        ///
         pub fun getGameMoves(gameName: String): [AnyStruct]? {
             return self.gameMoves[gameName]
         }
 
+        /// An internal method allowing for moves to be added
         access(contract) fun addMoves(gameName: String, _ newMoves: [AnyStruct]) {
             if self.gameMoves.keys.contains(gameName) {
                 self.gameMoves[gameName]!.appendAll(newMoves)
@@ -157,6 +139,7 @@ pub contract GamePieceNFT: NonFungibleToken {
             }
         }
 
+        /// An internal method allowing for a move to be removed
         access(contract) fun removeMove(gameName: String, targetIndex: Int): AnyStruct? {
             if self.gameMoves.keys.contains(gameName) {
                 return self.gameMoves[gameName]!.remove(at: targetIndex)
@@ -164,11 +147,15 @@ pub contract GamePieceNFT: NonFungibleToken {
             return nil
         }
 
+        /// A private method allowing for game moves to be deleted
         access(self) fun deleteGameMoves(gameName: String): [AnyStruct]? {
             return self.gameMoves.remove(key: gameName)
         }
     }
 
+    /** --- Collection Interface & resource --- */
+
+    /// An interface defining the public methods for a GamePieceNFT Collection
     pub resource interface GamePieceNFTCollectionPublic {
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
@@ -246,6 +233,88 @@ pub contract GamePieceNFT: NonFungibleToken {
             destroy self.ownedNFTs
         }
     }
+
+    /** --- Game Registration Ticket --- */
+    ///
+    /// A resource defining proof of game name registration with this contract.
+    /// Registering gives a registrant the ability to control the registered namespace of moves
+    /// and win/loss data on NFTs via an NFTEscrow implementing interface.
+    /// The registration construct exists to ensure that game contracts only alter those values
+    /// which are relevant to their game, and no other names in the NFT's namespace. In effect,
+    /// the NFT contract doesn't trust a game to provide its own name when asking to alter data
+    /// on the NFT, so before an external actor can alter NFT data, they must register under their
+    /// designated name and be returned this registration ticket. From then on, the external actor
+    /// will provide reference to this ticket and the game name from which the game name will be
+    /// retrieved whenever changes are to be made to values in their namespace.
+    ///
+    pub resource GameRegistrationTicket {
+        pub let id: UInt64
+        pub let gameName: String
+
+        init(gameName: String) {
+            self.id = self.uuid
+            self.gameName = gameName
+        }
+    }
+
+    /** --- NFT Escrow --- */
+    ///
+    /// Implementation of this resource have the ability to alter NFT.gameMoves
+    ///
+    pub resource interface NFTEscrow {
+        pub let escrowedGamePieceNFTs: @{UInt64: NFT}
+        pub fun escrowNFT(nft: @NFT, receiverCap: Capability<&{NonFungibleToken.Receiver}>)
+        
+        /// A default method implementation adding provided moves to an NFT with the given id.
+        /// Note that the NFT must be in escrow for these changes to occur.
+        ///
+        /// @param nftID: The id of the NFT to which moves will be added
+        /// @param regTicketRef: A reference to the GameRegistrationTicket resource associated with
+        /// the game for which moves will be added. This ensures that any external actor adding moves
+        /// will only be able to do so for the namespace for which they're registered
+        /// @param newMoves: An array of AnyStruct representing generic game moves that will be 
+        /// added to the specified NFT
+        /// 
+        pub fun addMovesToNFT(
+            nftID: UInt64,
+            regTicketRef: &GameRegistrationTicket,
+            newMoves: [AnyStruct]
+        ) {
+            pre {
+                self.escrowedGamePieceNFTs.keys.contains(nftID): "No NFTs in escrow with given ID!"
+            }
+            let nftRef = (&self.escrowedGamePieceNFTs[nftID] as &NFT?)!
+            nftRef.addMoves(gameName: regTicketRef.gameName, newMoves)
+        }
+
+        /// A default method implementation adding provided moves to an NFT with the given id.AccountKey
+        /// Note that the NFT must be in escrow for these changes to occur.
+        ///
+        /// @param nftID: The id of the NFT from which the move will be removed
+        /// @param regTicketRef: A reference to the GameRegistrationTicket resource associated with
+        /// the game for which moves will be removed. This ensures that any external actor removing moves
+        /// will only be able to do so for the namespace for which they're registered
+        /// @param targetIndex: the index of the move in nft.gameMoves[gameName] to be removed
+        ///
+        /// @return the AnyStruct removed from the nft's gameMoves
+        /// 
+        pub fun removeMove(
+            nftID: UInt64,
+            regTicketRef: &GameRegistrationTicket,
+            targetIndex: Int
+        ): AnyStruct? {
+            pre {
+                self.escrowedGamePieceNFTs.keys.contains(nftID): "No NFTs in escrow with given ID!"
+            }
+            let nftRef = (&self.escrowedGamePieceNFTs[nftID] as &NFT?)!
+            let removedMove: AnyStruct? = nftRef
+                .removeMove(
+                    gameName: regTicketRef.gameName,
+                    targetIndex: targetIndex
+                )
+            return removedMove
+        }
+    }
     
     /** --- Interfaces Defining Contract Admin Roles --- */
 
@@ -265,10 +334,17 @@ pub contract GamePieceNFT: NonFungibleToken {
         pub fun setRegistrationFee(_ feeAmount: UFix64)
     }
 
-    /// An Admin resource used to manage this contract and the funds 
+    /// An Admin resource used to manage this contract and its funds
+    /// associated with game name registration
+    ///
     pub resource Administrator : FundsAdmin, MintingAdmin, RegistryAdmin {
 
         /** --- MintingAdmin --- */
+        ///
+        /// Sets the contract's minting permissions to those passed
+        ///
+        /// @param permissions: Boolean value determining if minting is allowed or not
+        ///
         pub fun allowMinting(_ permissions: Bool) {
             if permissions != GamePieceNFT.mintingAllowed {
                 GamePieceNFT.mintingAllowed = permissions
@@ -277,6 +353,12 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
 
         /** --- RegistryAdmin --- */
+        ///
+        /// Sets the permissions associated with game name registration
+        /// via GamePieceNFT.registerGameName()
+        ///
+        /// @param permissions: Boolean value determining if registration is allowed or not
+        ///
         pub fun allowRegistration(_ permissions: Bool) {
             if permissions != GamePieceNFT.registrationAllowed {
                 GamePieceNFT.registrationAllowed = permissions
@@ -284,6 +366,11 @@ pub contract GamePieceNFT: NonFungibleToken {
             }
         }
 
+        /// Sets the fee that must be passed in the form of ExampleToken upon
+        /// game name registration
+        ///
+        /// @param feeAmount: The amount of tokens that must be given to this contract on registration
+        ///
         pub fun setRegistrationFee(_ feeAmount: UFix64) {
             if feeAmount != GamePieceNFT.registrationFee {
                 GamePieceNFT.registrationFee = feeAmount
@@ -292,6 +379,12 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
 
         /** --- FundsAdmin --- */
+        ///
+        /// Returns the caller a reference to the FungibleToken.Provider Capability
+        /// stored in the contract account's private storage
+        ///
+        /// @return Reference to FungibleToken.Provider Capability linked to ExampleToken.Vault
+        ///
         pub fun borrowTokenProviderReference(): &AnyResource{FungibleToken.Provider}? {
             let providerCap = GamePieceNFT.account.getCapability
                 <&{FungibleToken.Provider}>(
@@ -301,6 +394,11 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
 
         /** --- Common --- */
+        ///
+        /// Returns the balance of the contract's ExampleToken.Vault
+        ///
+        /// @return The balance of the contract's ExampleToken.Vault
+        ///
         pub fun getBalance(): UFix64? {
             let balanceCap = GamePieceNFT.account.getCapability
                 <&{FungibleToken.Balance}>(

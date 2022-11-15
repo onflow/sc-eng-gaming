@@ -1,3 +1,4 @@
+import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
 import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
@@ -8,6 +9,7 @@ transaction(submittingNFTID: UInt64, playerTwoAddr: Address, matchTimeLimitInMin
     
     let gamePlayerRef: &RockPaperScissorsGame.GamePlayer
     let gamePlayerTwoPublicRef: &AnyResource{RockPaperScissorsGame.GamePlayerPublic}
+    let newMatchID: UInt64
     
     prepare(acct: AuthAccount) {
         // Get a reference to the GamePlayer resource in the signing account's storage
@@ -24,21 +26,26 @@ transaction(submittingNFTID: UInt64, playerTwoAddr: Address, matchTimeLimitInMin
                 RockPaperScissorsGame.GamePlayerPublicPath
             ).borrow()
             ?? panic("GamePlayerPublic not accessible at address ".concat(playerTwoAddr.toString()))
-    }
+        
+        let receiverCap = acct.getCapability<&
+                AnyResource{NonFungibleToken.Receiver}
+            >(GamePieceNFT.CollectionPublicPath)
 
-    execute {
         // Create a match with the given timeLimit in minutes
-        let newMatchID = self.gamePlayerRef
+        self.newMatchID = self.gamePlayerRef
             .createMatch(
                 matchTimeLimit: UFix64(matchTimeLimitInMinutes) * UFix64(60000),
                 nftID: submittingNFTID,
-                receiverPath: GamePieceNFT.CollectionPublicPath
+                receiverCap: receiverCap
             )
+    }
+
+    execute {
         // Then add the MatchPlayerActions for the match to each player's GamePlayer resource 
         // via the GamePlayerPublic reference
         self.gamePlayerRef
             .addPlayerToMatch(
-                matchID: newMatchID,
+                matchID: self.newMatchID,
                 gamePlayerRef: self.gamePlayerTwoPublicRef
             )
     }

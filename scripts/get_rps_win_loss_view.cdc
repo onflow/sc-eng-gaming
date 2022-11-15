@@ -3,8 +3,8 @@ import MetadataViews from "../contracts/utility/MetadataViews.cdc"
 import GamingMetadataViews from "../contracts/GamingMetadataViews.cdc"
 import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
 
-
 /// Script to get the RockPaperScissors BasicWinLoss data from a given address's NFT
+///
 pub fun main(address: Address, id: UInt64): GamingMetadataViews.BasicWinLoss? {
     let account = getAccount(address)
 
