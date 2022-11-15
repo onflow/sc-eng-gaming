@@ -489,38 +489,13 @@ pub contract RockPaperScissorsGame {
         pub fun getAvailableMoves(matchID: UInt64): [Moves]
     }
 
-    /// Interface defining a Capability that would enable a proxy account given
-    /// this Capability to act on behalf of the GamePlayer
-    ///
-    pub resource interface GamePlayerProxy {
-        pub fun getMatchLobbyCaps(): {UInt64: Capability<&{MatchLobbyActions}>}
-        pub fun getMatchPlayerCaps(): {UInt64: Capability<&{MatchPlayerActions}>}
-        pub fun createMatch(
-            matchTimeLimit: UFix64,
-            nftID: UInt64,
-            receiverPath: PublicPath
-        ): UInt64
-        pub fun signUpForMatch(matchID: UInt64)
-        pub fun depositNFTToMatchEscrow(
-            nftID: UInt64,
-            matchID: UInt64,
-            receiverPath: PublicPath
-        )
-        pub fun getAvailableMoves(matchID: UInt64): [Moves]
-        pub fun submitMoveToMatch(matchID: UInt64, move: Moves)
-        pub fun addPlayerToMatch(
-            matchID: UInt64,
-            gamePlayerRef: &AnyResource{GamePlayerPublic}
-        )
-    }
-
     /** --- Receiver for Match Capabilities --- */
 
     /// Resource that maintains all the player's MatchPlayerActions capabilities
     /// Players can add themselves to games or be added if they expose GamePlayerPublic
     /// capability
     ///
-    pub resource GamePlayer : GamePlayerPublic, GamePlayerProxy, GamePlayerID {
+    pub resource GamePlayer : GamePlayerID, GamePlayerPublic {
         pub let id: UInt64
         access(self) let matchLobbyCapabilities: {UInt64: Capability<&{MatchLobbyActions}>}
         access(self) let matchPlayerCapabilities: {UInt64: Capability<&{MatchPlayerActions}>}
@@ -560,8 +535,6 @@ pub contract RockPaperScissorsGame {
         pub fun getGamePlayerIDRef(): &{GamePlayerID} {
             return &self as &{GamePlayerID}
         }
-
-        /** --- GamePlayerProxy --- */
 
         /// Simple getter for mapping of MatchLobbyActions Capabilities
         ///
@@ -810,32 +783,6 @@ pub contract RockPaperScissorsGame {
             emit PlayerAddedToMatch(gameName: RockPaperScissorsGame.name, matchID: matchID, addedPlayerID: self.id)
         }
     }
-
-    /** =========== */
-    /// TODO - DELETE THIS RESOURCE - USED FOR TESTING PROXY CAPABILITY
-    pub resource interface GamePlayerProxyReceiverPublic {
-        pub fun updateGamePlayerProxyCap(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>)
-    }
-
-    pub resource GamePlayerProxyReceiver : GamePlayerProxyReceiverPublic {
-        pub var gamePlayerProxyCap: Capability<&{GamePlayerProxy}>?
-
-        init() {
-            self.gamePlayerProxyCap = nil
-        }
-
-        pub fun updateGamePlayerProxyCap(_ gamePlayerProxyCap: Capability<&{GamePlayerProxy}>) {
-            pre {
-                gamePlayerProxyCap.check(): "Problem with provided Capability!"
-            }
-            self.gamePlayerProxyCap = gamePlayerProxyCap
-        }
-    }
-
-    pub fun createProxyReceiver(): @GamePlayerProxyReceiver {
-        return <- create GamePlayerProxyReceiver()
-    }
-    /** =========== */
 
     /// Administrator resource that manages the game's registration with GamePieceNFT
     pub resource ContractAdmin {
