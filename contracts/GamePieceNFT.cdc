@@ -86,10 +86,17 @@ pub contract GamePieceNFT: NonFungibleToken {
         /// @param retrieverCap: A Capability for a GamingMetadataViews.BasicWinLossRetriever
         /// implementing resource
         ///
-        pub fun addWinLossRetriever(gameName: String, retrieverCap: Capability<&{GamingMetadataViews.BasicWinLossRetriever}>) {
+        pub fun addWinLossRetriever(
+            regTicketRef: &GameRegistrationTicket,
+            retrieverCap: Capability<&{GamingMetadataViews.BasicWinLossRetriever}>
+        ) {
+            pre {
+                GamePieceNFT.gameNameRegistry.keys.contains(regTicketRef.id):
+                    "Provided GameRegistrationTicket.id is not in this contract's Game Name Registry!"
+            }
             // make sure the name is not already in use
-            if self.winLossRetrieverCaps[gameName] == nil {
-                self.winLossRetrieverCaps.insert(key: gameName, retrieverCap)
+            if self.winLossRetrieverCaps[regTicketRef.gameName] == nil {
+                self.winLossRetrieverCaps.insert(key: regTicketRef.gameName, retrieverCap)
             }
         }
 

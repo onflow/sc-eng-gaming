@@ -210,7 +210,12 @@ pub contract RockPaperScissorsGame {
             // Check for existing retrievers for this game is done on the side of the NFT contract
             let winLossRetrieverCap: Capability<&{GamingMetadataViews.BasicWinLossRetriever}> = RockPaperScissorsGame
                 .getWinLossRetrieverCapability()
-            nft.addWinLossRetriever(gameName: RockPaperScissorsGame.name, retrieverCap: winLossRetrieverCap)
+            // Get the reference to the GameRegistration ticket used to identify this
+            // game and authorization to change data about it on the NFT
+            let gameRegistrationTicketRef = RockPaperScissorsGame.gameRegistrationTicketCap!
+                .borrow()
+                ?? panic("Problem with RockPaperScissorsGame GameRegistrationTicket Capability!")
+            nft.addWinLossRetriever(regTicketRef: gameRegistrationTicketRef, retrieverCap: winLossRetrieverCap)
 
             // Insert GamingMetadataViews.BasicWinLoss for this game
             // Check for existing record occurs in function definition
@@ -224,11 +229,6 @@ pub contract RockPaperScissorsGame {
             let nftRef = (&self.escrowedGamePieceNFTs[nftID] as &GamePieceNFT.NFT?)!
             // See if the escrowed NFT has moves for this game
             if nftRef.getGameMoves(gameName: RockPaperScissorsGame.name) == nil {
-                // Get the reference to the GameRegistration ticket used to identify this
-                // game and authorization to change data about it on the NFT
-                let gameRegistrationTicketRef = RockPaperScissorsGame.gameRegistrationTicketCap!
-                    .borrow()
-                    ?? panic("Problem with RockPaperScissorsGame GameRegistrationTicket Capability!")
                 // Simply add the moves to the NFT
                 self.addMovesToNFT(
                     nftID: nftID,
