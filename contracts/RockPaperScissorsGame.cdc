@@ -599,6 +599,9 @@ pub contract RockPaperScissorsGame {
 
             // Deposit the specified NFT to the new Match & return the Match.id
             self.depositNFTToMatchEscrow(nftID: nftID, matchID: newMatchID, receiverCap: receiverCap)
+
+            // Remove the MatchLobbyActions now that the NFT has been escrowed & return the Match.id
+            self.matchLobbyCapabilities.remove(key: newMatchID)
             return newMatchID
         }
 
