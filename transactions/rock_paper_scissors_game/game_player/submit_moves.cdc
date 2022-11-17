@@ -1,6 +1,6 @@
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
-/// Transaction to submit move using GamePlayerProxy
+/// Transaction to submit player's move
 /// int moves: 0 rock, 1 paper, 2 scissors
 ///
 transaction(matchID: UInt64, move: UInt8) {

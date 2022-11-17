@@ -4,9 +4,8 @@ import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
 /// Transaction that sets up GamePlayer resource in signing account
 /// and exposes GamePlayerPublic capability so matches can be added
-/// for the player to participate in as well as GamePlayerProxy and 
-/// GamePlayerID in private so the user can provide Capabilities at  
-/// their discretion.
+/// for the player to participate in as well as and GamePlayerID
+/// in private so the user can provide Capabilities at their discretion.
 ///
 transaction {
 
@@ -34,9 +33,8 @@ transaction {
             RockPaperScissorsGame.GamePlayerPublicPath,
             target: RockPaperScissorsGame.GamePlayerStoragePath
         )
-        // Link GamePlayerProxy and GamePlayerID Capabilities
+        // Link GamePlayerID Capability
         acct.link<&{
-            RockPaperScissorsGame.GamePlayerProxy,
             RockPaperScissorsGame.GamePlayerID
         }>(
             RockPaperScissorsGame.GamePlayerPrivatePath,
