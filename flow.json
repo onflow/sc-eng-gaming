@@ -1,43 +1,35 @@
 {
-	"contracts": {
-		"ExampleToken": "./contracts/utility/ExampleToken.cdc",
-		"FungibleToken": "./contracts/utility/FungibleToken.cdc",
-		"GamePieceNFT": "./contracts/GamePieceNFT.cdc",
-		"GamingMetadataViews": "./contracts/GamingMetadataViews.cdc",
-		"MetadataViews": "./contracts/utility/MetadataViews.cdc",
-		"NonFungibleToken": "./contracts/utility/NonFungibleToken.cdc",
-		"RockPaperScissorsGame": "./contracts/RockPaperScissorsGame.cdc"
-	},
-	"networks": {
-		"emulator": "127.0.0.1:3569",
-		"mainnet": "access.mainnet.nodes.onflow.org:9000",
-		"testnet": "access.devnet.nodes.onflow.org:9000"
-	},
-	"accounts": {
-		"emulator-account": {
-			"address": "f8d6e0586b0a20c7",
-			"key": "83c4da8100a5bb0086fd0835e0b48dbdf507ca4aa15dab56edccee06c82eb110"
-		},
-		"player-one": {
-			"address": "01cf0e2f2f715450",
-			"key": "004121dd2a0270edf5cd3afac34fbb3e7335bf64507cac3e42c2b84999fc43fb"
-		},
-		"player-two": {
-			"address": "179b6b1cb6755e31",
-			"key": "4a0da289264885375941887b95d75ebdf927ea1ea2f4f46cfcbf692169381025"
-		}
-	},
-	"deployments": {
-		"emulator": {
-			"emulator-account": [
-				"FungibleToken",
-				"ExampleToken",
-				"NonFungibleToken",
-				"MetadataViews",
-				"GamingMetadataViews",
-				"GamePieceNFT",
-				"RockPaperScissorsGame"
-			]
-		}
-	}
+    "contracts": {
+        "ExampleToken": "./contracts/utility/ExampleToken.cdc",
+        "FungibleToken": "./contracts/utility/FungibleToken.cdc",
+        "GamePieceNFT": "./contracts/GamePieceNFT.cdc",
+        "GamingMetadataViews": "./contracts/GamingMetadataViews.cdc",
+        "MetadataViews": "./contracts/utility/MetadataViews.cdc",
+        "NonFungibleToken": "./contracts/utility/NonFungibleToken.cdc",
+        "RockPaperScissorsGame": "./contracts/RockPaperScissorsGame.cdc"
+    },
+    "networks": {
+        "emulator": "127.0.0.1:3569",
+        "mainnet": "access.mainnet.nodes.onflow.org:9000",
+        "testnet": "access.devnet.nodes.onflow.org:9000"
+    },
+    "accounts": {
+        "emulator-account": {
+            "address": "f8d6e0586b0a20c7",
+            "key": "83c4da8100a5bb0086fd0835e0b48dbdf507ca4aa15dab56edccee06c82eb110"
+        }
+    },
+    "deployments": {
+        "emulator": {
+            "emulator-account": [
+                "FungibleToken",
+                "ExampleToken",
+                "NonFungibleToken",
+                "MetadataViews",
+                "GamingMetadataViews",
+                "GamePieceNFT",
+                "RockPaperScissorsGame"
+            ]
+        }
+    }
 }
