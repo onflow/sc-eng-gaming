@@ -20,6 +20,16 @@ The entirety of that composable gaming future is possible on Flow, and starts wi
 
 ## Components
 
+### **Summary**
+
+As mentioned above, the supporting contracts for this game have been compartmentalized to three primary contracts. At a high level, those are:
+
+* **GamingMetadataViews** - Defining the metadata structs relevant to an NFT's win/loss data and assigned moves.
+
+* **GamePieceNFT** - This contract contains definitions for the gaming NFT, its collection, and an interface for escrowing resources. You'll also find a supporting resources & mechanisms for game name registration, proof of registration, and administrative resources and interfaces to manage the contract.
+
+* **RockPaperScissorsGame** - As you might imagine, this contract contains the game's moves, logic as well as resource and interfaces defining the rules of engagement for two players in the course of a match. Additionally, receivers for Capabilities to matches are defined in `GamePlayer` resource and interfaces that allow players to create matches, be added and add others to matches, and engage with the matches they're in.
+
 ### **GamingMetadataViews**
 
 This contract proposes a new set of [NFT metadata views](https://github.com/onflow/flow-nft/blob/master/contracts/MetadataViews.cdc) for Gaming.
@@ -189,10 +199,10 @@ flow transactions send ./transactions/rock_paper_scissors_game/contract_admin/re
     
     1. Onboard users with GamePieceNFT Collection, NFT, and GamePlayer
     ```
-    flow transactions send ./transactions/onboarding/onboarding_player.cdc --signer player-one
+    flow transactions send ./transactions/onboarding/onboard_player.cdc --signer player-one
     ```
     ```
-    flow transactions send ./transactions/onboarding/onboarding_player.cdc --signer player-two
+    flow transactions send ./transactions/onboarding/onboard_player.cdc --signer player-two
     ```
 
 1. Init gameplay...

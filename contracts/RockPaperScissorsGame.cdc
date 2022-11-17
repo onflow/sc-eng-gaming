@@ -164,7 +164,7 @@ pub contract RockPaperScissorsGame {
         /// Define the allowable Moves in this Match
         pub let allowedMoves: [Moves]
         /// Maintain number of moves submitted
-        pub let submittedMoves: {UInt64: Moves}
+        access(self) let submittedMoves: {UInt64: Moves}
 
         /// Maintain ids of winning nft and GamePlayer ids
         pub var winningNFTID: UInt64?
