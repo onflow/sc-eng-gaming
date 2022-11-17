@@ -70,7 +70,7 @@ transaction() {
                 RockPaperScissorsGame.GamePlayerPublicPath,
                 target: RockPaperScissorsGame.GamePlayerStoragePath
             )
-            // Link GamePlayerProxy and GamePlayerID Capabilities
+            // Link GamePlayerID Capability
             signer.link<&{
                 RockPaperScissorsGame.GamePlayerID
             }>(
