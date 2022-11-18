@@ -30,12 +30,22 @@ transaction(submittingNFTID: UInt64, playerTwoAddr: Address, matchTimeLimitInMin
         let receiverCap = acct.getCapability<&
                 AnyResource{NonFungibleToken.Receiver}
             >(GamePieceNFT.CollectionPublicPath)
+        
+        // Get a reference to the account's Provider
+        let providerRef = acct.borrow<&{
+                NonFungibleToken.Provider
+            }>(
+                from: GamePieceNFT.CollectionStoragePath
+            ) ?? panic("Could not borrow reference to account's Provider")
+        // Withdraw the desired NFT
+        let submittingNFT <-providerRef.withdraw(withdrawID: submittingNFTID) as! @GamePieceNFT.NFT
 
         // Create a match with the given timeLimit in minutes
         self.newMatchID = self.gamePlayerRef
             .createMatch(
+                multiPlayer: true,
                 matchTimeLimit: UFix64(matchTimeLimitInMinutes) * UFix64(60000),
-                nftID: submittingNFTID,
+                nft: <-submittingNFT,
                 receiverCap: receiverCap
             )
     }

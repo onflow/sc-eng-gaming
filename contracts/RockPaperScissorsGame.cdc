@@ -539,16 +539,11 @@ pub contract RockPaperScissorsGame {
         pub let id: UInt64
         access(self) let matchLobbyCapabilities: {UInt64: Capability<&{MatchLobbyActions}>}
         access(self) let matchPlayerCapabilities: {UInt64: Capability<&{MatchPlayerActions}>}
-        access(self) var nftProviderCapability: Capability<&{NonFungibleToken.Provider}>
 
-        init(_ providerCap: Capability<&{NonFungibleToken.Provider}>) {
-            pre {
-                providerCap.check(): "Problem with given Provider Capability!"
-            }
+        init() {
             self.id = self.uuid
             self.matchPlayerCapabilities = {}
             self.matchLobbyCapabilities = {}
-            self.nftProviderCapability = providerCap
         }
         
         /** --- GamePlayer --- */
@@ -563,15 +558,10 @@ pub contract RockPaperScissorsGame {
             self.matchPlayerCapabilities.remove(key: matchID)
         }
 
-        /// Allows the Provider Capability to be updated
+        /// Returns a reference to this resource as GamePlayerID
         ///
-        /// @param newCap: The Capability that will become the GamePlayer's new 
-        /// nftCollectionCapability
+        /// @return reference to this GamePlayer's GamePlayerID Capability
         ///
-        pub fun updateNFTProviderCapability(newCap: Capability<&{NonFungibleToken.Provider}>) {
-            self.nftProviderCapability = newCap
-        }
-
         pub fun getGamePlayerIDRef(): &{GamePlayerID} {
             return &self as &{GamePlayerID}
         }
@@ -605,14 +595,12 @@ pub contract RockPaperScissorsGame {
         pub fun createMatch(
             multiPlayer: Bool,
             matchTimeLimit: UFix64,
-            nftID: UInt64,
+            nft: @GamePieceNFT.NFT,
             receiverCap: Capability<&{NonFungibleToken.Receiver}>
         ): UInt64 {
             pre {
                 receiverCap.check(): 
                     "Problem with provided Receiver Capability!"
-                self.nftProviderCapability.check():
-                    "GamePlayer does not have NFT.Provider configured!"
             }
             // Create the new match & preserve its ID
             let newMatch <- create Match(matchTimeLimit: matchTimeLimit, multiPlayer: multiPlayer)
@@ -645,7 +633,7 @@ pub contract RockPaperScissorsGame {
             self.matchLobbyCapabilities[newMatchID] = lobbyCap
 
             // Deposit the specified NFT to the new Match & return the Match.id
-            self.depositNFTToMatchEscrow(nftID: nftID, matchID: newMatchID, receiverCap: receiverCap)
+            self.depositNFTToMatchEscrow(nft: <-nft, matchID: newMatchID, receiverCap: receiverCap)
 
             // Remove the MatchLobbyActions now that the NFT has been escrowed & return the Match.id
             self.matchLobbyCapabilities.remove(key: newMatchID)
@@ -686,15 +674,13 @@ pub contract RockPaperScissorsGame {
         /// @param matchID: The id of the Match into which the NFT will be escrowed
         ///
         pub fun depositNFTToMatchEscrow(
-            nftID: UInt64,
+            nft: @GamePieceNFT.NFT,
             matchID: UInt64,
             receiverCap: Capability<&{NonFungibleToken.Receiver}>
         ) {
             pre {
                 receiverCap.check(): 
                     "Problem with provided Receiver Capability!"
-                self.nftProviderCapability.check():
-                    "GamePlayer does not have NFT.Provider configured!"
                 self.matchLobbyCapabilities.keys.contains(matchID) &&
                 !self.matchPlayerCapabilities.keys.contains(matchID):
                     "GamePlayer does not have the Capability to play this Match!"
@@ -712,11 +698,6 @@ pub contract RockPaperScissorsGame {
                 receiverCap.check(),
                 message: "Could not access Receiver Capability at the given path for this account!"
             )
-
-            // Get a reference to the Provider from which the NFT will be withdrawn
-            let providerRef = self.nftProviderCapability
-                .borrow()
-                ?? panic("Couldn't borrow reference to Provider! Update & try again.")
             
             // Get the MatchPlayerActions Capability from this GamePlayer's mapping
             let matchLobbyCap: Capability<&{MatchLobbyActions}> = self.matchLobbyCapabilities[matchID]!
@@ -724,8 +705,6 @@ pub contract RockPaperScissorsGame {
                 .borrow()
                 ?? panic("Could not borrow reference to MatchPlayerActions")
 
-            // Withdraw the given NFT
-            let nft <- providerRef.withdraw(withdrawID: nftID) as! @GamePieceNFT.NFT
             // Escrow the NFT to the Match, getting back a Capability
             let playerActionsCap: Capability<&{MatchPlayerActions}> = matchLobbyActionsRef
                 .escrowNFTToMatch(
@@ -826,8 +805,8 @@ pub contract RockPaperScissorsGame {
     ///
     /// @return a fresh GamePlayer resource
     ///
-    pub fun createGamePlayer(providerCap: Capability<&{NonFungibleToken.Provider}>): @GamePlayer {
-        return <- create GamePlayer(providerCap)
+    pub fun createGamePlayer(): @GamePlayer {
+        return <- create GamePlayer()
     }
 
     /// Method to determine outcome of a RockPaperScissors with given moves
@@ -1001,44 +980,9 @@ pub contract RockPaperScissorsGame {
         // Assign base paths for later concatenation
         self.MatchStorageBasePathString = "Match"
         self.MatchPrivateBasePathString = "Match"
-        
-        // Create a GamePieceNFT collection & save it
-        let collection <-GamePieceNFT.createEmptyCollection()
-        self.account.save(<-collection, to: GamePieceNFT.CollectionStoragePath)
-        // Link Collection public capabilities
-        self.account.link<&{
-            NonFungibleToken.Receiver,
-            NonFungibleToken.CollectionPublic,
-            GamePieceNFT.GamePieceNFTCollectionPublic,
-            MetadataViews.ResolverCollection
-        }>(
-            GamePieceNFT.CollectionPublicPath,
-            target: GamePieceNFT.CollectionStoragePath
-        )
-        // Link Collection private capabilities
-        self.account.link<&{
-            NonFungibleToken.Provider
-        }>(
-            GamePieceNFT.ProviderPrivatePath,
-            target: GamePieceNFT.CollectionStoragePath
-        )
-        // Mint NFT to that collection
-        GamePieceNFT.mintNFT(
-            recipient: self.account.borrow<&{
-                NonFungibleToken.CollectionPublic
-            }>(
-                from: GamePieceNFT.CollectionStoragePath
-            )!
-        )
 
         // Create a contract GamePlayer to automate second player moves in single player modes
-        self.automatedGamePlayer <-create GamePlayer(
-            self.account.getCapability<&{
-                NonFungibleToken.Provider
-            }>(
-                GamePieceNFT.ProviderPrivatePath
-            )
-        )
+        self.automatedGamePlayer <-create GamePlayer()
     }
 }
  

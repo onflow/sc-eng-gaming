@@ -2,21 +2,18 @@ import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
 import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
-/// TODO: UPDATE ID TO USE REF
-/// Transaction that sets up GamePlayer resource in signing account
-/// and exposes GamePlayerPublic capability so matches can be added
-/// for the player to participate in
+/// Transaction that creates a new Match and adds the MatchLobbyActions
+/// Capability to their GamePlayerPublic
 ///
-transaction(matchID: UInt64, escrowNFTID: UInt64) {
-
+transaction(submittingNFTID: UInt64, matchTimeLimitInMinutes: UInt) {
+    
     prepare(acct: AuthAccount) {
-        // Get the GamePlayer reference from the signing account's storage
+        // Get a reference to the GamePlayer resource in the signing account's storage
         let gamePlayerRef = acct
             .borrow<&RockPaperScissorsGame.GamePlayer>(
                 from: RockPaperScissorsGame.GamePlayerStoragePath
             ) ?? panic("Could not borrow GamePlayer reference!")
-
-        // Get the account's Receiver Capability
+        
         let receiverCap = acct.getCapability<&
                 AnyResource{NonFungibleToken.Receiver}
             >(GamePieceNFT.CollectionPublicPath)
@@ -28,13 +25,14 @@ transaction(matchID: UInt64, escrowNFTID: UInt64) {
                 from: GamePieceNFT.CollectionStoragePath
             ) ?? panic("Could not borrow reference to account's Provider")
         // Withdraw the desired NFT
-        let nft <-providerRef.withdraw(withdrawID: escrowNFTID) as! @GamePieceNFT.NFT
-        
-        // Escrow NFT
-        gamePlayerRef
-            .depositNFTToMatchEscrow(
-                nft: <-nft,
-                matchID: matchID,
+        let submittingNFT <-providerRef.withdraw(withdrawID: submittingNFTID) as! @GamePieceNFT.NFT
+
+        // Create a match with the given timeLimit in minutes
+        let newMatchID = gamePlayerRef
+            .createMatch(
+                multiPlayer: false,
+                matchTimeLimit: UFix64(matchTimeLimitInMinutes) * UFix64(60000),
+                nft: <-submittingNFT,
                 receiverCap: receiverCap
             )
     }
