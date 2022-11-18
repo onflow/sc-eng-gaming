@@ -26,6 +26,8 @@ pub contract GameAttachments {
         access(contract) let moves: [AnyStruct]
         /// Getter method returning an generic AnyStruct array
         pub fun getMoves(): [AnyStruct]
+        access(contract) fun addMoves(newMoves: [AnyStruct])
+        access(contract) fun removeMove(targetIdx: Int): AnyStruct?
     }
 
 }
