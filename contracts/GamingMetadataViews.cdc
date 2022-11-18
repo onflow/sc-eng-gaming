@@ -86,53 +86,6 @@ pub contract GamingMetadataViews {
         }
     }
 
-    /// A struct which contains a mapping of game names to the games associated
-    /// implementation of BasicWinLossRetriever
-    ///
-    pub struct WinLossView {
-
-        /// Maintain associated NFT.id so we can easily return BasicWinLoss
-        pub let nftID: UInt64
-        /// Dictionary mapping game name to BasicWinLossRetriever Capability
-        pub let retrieverCaps: {String: Capability<&AnyResource{BasicWinLossRetriever}>}
-
-        init (id: UInt64, _ retrieverCaps: {String: Capability<&AnyResource{BasicWinLossRetriever}>}) {
-            self.nftID = id
-            self.retrieverCaps = retrieverCaps
-        }
-
-        /// This function retrieves the BasicWinLoss value for the given game name by 
-        /// accessing the game's BasicWinLossRetriever Capability from the retrieverCaps
-        /// mapping and calling getWinlossData() for this WinLossView's associate NFT id.
-        ///
-        /// @param gameName: The name of the game to which the retriever is indexed
-        ///
-        /// @return The BasicWinLoss for the nft in the given gameName or nil if none was found
-        ///
-        pub fun getBasicWinLoss(gameName: String): BasicWinLoss? {
-            if let gameCap: Capability<&AnyResource{BasicWinLossRetriever}> = self.retrieverCaps[gameName] {
-                if let gameCapRef: &AnyResource{BasicWinLossRetriever} = gameCap.borrow() {
-                    return gameCapRef.getWinLossData(nftID: self.nftID)
-                }
-            }
-            return nil
-        }
-    }
-
-    /// A struct which contains an NFT's game moves
-    ///
-    pub struct MovesView {
-        /// The NFT's id    
-        pub let nftID: UInt64
-        /// Mapping of game names to array of AnyStruct as generic game moves
-        pub var moves: {String: [AnyStruct]}
-
-        init(id: UInt64, _ moves: {String: [AnyStruct]}) {
-            self.nftID = id
-            self.moves = moves
-        }
-    }
-
     /// TODO: Implement in RockPaperScissorsGame along with these attributes & a resolver impl
     /// A standard struct containing basic metadata about a game
     ///
@@ -160,20 +113,5 @@ pub contract GamingMetadataViews {
             self.externalURL = externalURL
         }
     }
-
-    /// Helper to get a Win/Loss view in a type-safe way
-    ///
-    /// @param viewResolver: A reference to the resolver resource
-    ///
-    /// @return A WinLossView structure
-    ///
-    pub fun getBasicWinLossView(viewResolver: &{MetadataViews.Resolver}): WinLossView? {
-        let maybeWinLossView = viewResolver.resolveView(Type<WinLossView>())
-        if let winLossView = maybeWinLossView {
-            return winLossView as! WinLossView
-        }
-        return nil
-    }
-
 }
  
