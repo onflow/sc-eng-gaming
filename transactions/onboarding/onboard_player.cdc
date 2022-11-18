@@ -51,16 +51,8 @@ transaction() {
         //
         // Check if a GamePlayer already exists, pass this block if it does
         if signer.borrow<&RockPaperScissorsGame.GamePlayer>(from: RockPaperScissorsGame.GamePlayerStoragePath) == nil {
-            let providerCap = signer.getCapability<&{
-                NonFungibleToken.Provider
-            }>(
-                GamePieceNFT.ProviderPrivatePath
-            )
             // Create GamePlayer resource
-            let gamePlayer <- RockPaperScissorsGame
-                .createGamePlayer(
-                    providerCap: providerCap
-                )
+            let gamePlayer <- RockPaperScissorsGame.createGamePlayer()
             // Save it
             signer.save(<-gamePlayer, to: RockPaperScissorsGame.GamePlayerStoragePath)
             // Link GamePlayerPublic Capability so player can be added to Matches
