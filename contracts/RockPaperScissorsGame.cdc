@@ -1,4 +1,5 @@
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
+import MetadataViews from "./utility/MetadataViews.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
 import GameAttachments from "./GameAttachments.cdc"
 import GamePieceNFT from "./GamePieceNFT.cdc"
@@ -32,13 +33,6 @@ import GamePieceNFT from "./GamePieceNFT.cdc"
 ///
 pub contract RockPaperScissorsGame {
 
-    /// Simple enum to identify moves
-    pub enum Moves: UInt8 {
-        pub case rock
-        pub case paper
-        pub case scissors
-    }
-
     /// Set canonical paths for easy storage of resources in transactions
     pub let GamePlayerStoragePath: StoragePath
     pub let GamePlayerPublicPath: PublicPath
@@ -57,6 +51,9 @@ pub contract RockPaperScissorsGame {
 
     /// Maintain history of completed Matches
     access(contract) let completedMatchIDs: [UInt64]
+
+    /// Contracts own GamePlayer for use in single player Match modes
+    access(contract) let automatedGamePlayer: @GamePlayer
 
     /// Relevant events to watch
     pub event NewMatchCreated(gameName: String, matchID: UInt64, creatorID: UInt64)
@@ -81,6 +78,13 @@ pub contract RockPaperScissorsGame {
         winningNFTID: UInt64?,
         returnedNFTIDs: [UInt64]
     )
+
+    /// Simple enum to identify moves
+    pub enum Moves: UInt8 {
+        pub case rock
+        pub case paper
+        pub case scissors
+    }
 
     /** --- WinLossRetreiver Implementation --- */
     /// Resource acts as a retriever for an NFT's WinLoss data
@@ -169,8 +173,9 @@ pub contract RockPaperScissorsGame {
 
     /// Interface exposing the player type of actions for a Match
     ///
-    /// Through MatchPlayerActions, player NFTs can be escrowed and
-    /// a call can be made for NFTs to be returned to their owners
+    /// Through MatchPlayerActions, users can submit moves, get available moves assigned
+    /// to their NFT, and call to return all escrowed NFTs to the escrowing players
+    /// if they were not successfully returned at the end of the Match
     ///
     pub resource interface MatchPlayerActions {
         pub let id: UInt64
@@ -188,6 +193,8 @@ pub contract RockPaperScissorsGame {
         /// in this contract account's storage and to index associated Capabilities.
         /// It is also helpful for watching related Match events.
         pub let id: UInt64
+        /// Tag defining single or multiplayer behavior for the Match
+        pub let isMultiPlayer: Bool
         
         /// Match timeLimit parameters defining how long the Match can escrow
         /// player NFTs before they exercise their right to have them returned.
@@ -213,11 +220,12 @@ pub contract RockPaperScissorsGame {
         pub var winningNFTID: UInt64?
         pub var winningPlayerID: UInt64?
 
-        init(matchTimeLimit: UFix64) {
+        init(matchTimeLimit: UFix64, multiPlayer: Bool) {
             pre {
                 matchTimeLimit <= UFix64(86400000): "matchTimeLimit must be less than a day (86400000 ms)"
             }
             self.id = self.uuid
+            self.isMultiPlayer = multiPlayer
             self.inPlay = true
             self.createdTimestamp = getCurrentBlock().timestamp
             self.timeLimit = matchTimeLimit
@@ -595,6 +603,7 @@ pub contract RockPaperScissorsGame {
         /// @return: Match.id of the newly created Match
         ///
         pub fun createMatch(
+            multiPlayer: Bool,
             matchTimeLimit: UFix64,
             nftID: UInt64,
             receiverCap: Capability<&{NonFungibleToken.Receiver}>
@@ -606,7 +615,7 @@ pub contract RockPaperScissorsGame {
                     "GamePlayer does not have NFT.Provider configured!"
             }
             // Create the new match & preserve its ID
-            let newMatch <- create Match(matchTimeLimit: matchTimeLimit)
+            let newMatch <- create Match(matchTimeLimit: matchTimeLimit, multiPlayer: multiPlayer)
             let newMatchID = newMatch.id
             
             // Derive paths using matchID
@@ -993,10 +1002,43 @@ pub contract RockPaperScissorsGame {
         self.MatchStorageBasePathString = "Match"
         self.MatchPrivateBasePathString = "Match"
         
-        // Create & link RPSWinLossRetriever resource
-        let keeper <- create RPSWinLossRetriever()
-        self.account.save(<-keeper, to: self.RPSWinLossRetrieverStoragePath)
-        self.account.link<&RPSWinLossRetriever>(self.RPSWinLossRetrieverPrivatePath, target: self.RPSWinLossRetrieverStoragePath)
+        // Create a GamePieceNFT collection & save it
+        let collection <-GamePieceNFT.createEmptyCollection()
+        self.account.save(<-collection, to: GamePieceNFT.CollectionStoragePath)
+        // Link Collection public capabilities
+        self.account.link<&{
+            NonFungibleToken.Receiver,
+            NonFungibleToken.CollectionPublic,
+            GamePieceNFT.GamePieceNFTCollectionPublic,
+            MetadataViews.ResolverCollection
+        }>(
+            GamePieceNFT.CollectionPublicPath,
+            target: GamePieceNFT.CollectionStoragePath
+        )
+        // Link Collection private capabilities
+        self.account.link<&{
+            NonFungibleToken.Provider
+        }>(
+            GamePieceNFT.ProviderPrivatePath,
+            target: GamePieceNFT.CollectionStoragePath
+        )
+        // Mint NFT to that collection
+        GamePieceNFT.mintNFT(
+            recipient: self.account.borrow<&{
+                NonFungibleToken.CollectionPublic
+            }>(
+                from: GamePieceNFT.CollectionStoragePath
+            )!
+        )
+
+        // Create a contract GamePlayer to automate second player moves in single player modes
+        self.automatedGamePlayer <-create GamePlayer(
+            self.account.getCapability<&{
+                NonFungibleToken.Provider
+            }>(
+                GamePieceNFT.ProviderPrivatePath
+            )
+        )
     }
 }
  
