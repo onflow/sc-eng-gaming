@@ -20,10 +20,7 @@ transaction {
                 GamePieceNFT.ProviderPrivatePath
             )
         // Create GamePlayer resource
-        let gamePlayer <- RockPaperScissorsGame
-            .createGamePlayer(
-                providerCap: providerCap
-            )
+        let gamePlayer <- RockPaperScissorsGame.createGamePlayer()
         // Save it
         acct.save(<-gamePlayer, to: RockPaperScissorsGame.GamePlayerStoragePath)
         // Link GamePlayerPublic Capability so player can be added to Matches
