@@ -2,7 +2,6 @@ import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
 import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
-/// TODO: UPDATE ID TO USE REF
 /// Transaction that sets up GamePlayer resource in signing account
 /// and exposes GamePlayerPublic capability so matches can be added
 /// for the player to participate in
@@ -17,12 +16,14 @@ transaction(matchID: UInt64, escrowNFTID: UInt64) {
             ) ?? panic("Could not borrow GamePlayer reference!")
 
         // Get the account's Receiver Capability
-        let receiverCap = acct.getCapability<&
+        let receiverCap = acct
+            .getCapability<&
                 AnyResource{NonFungibleToken.Receiver}
             >(GamePieceNFT.CollectionPublicPath)
         
         // Get a reference to the account's Provider
-        let providerRef = acct.borrow<&{
+        let providerRef = acct
+            .borrow<&{
                 NonFungibleToken.Provider
             }>(
                 from: GamePieceNFT.CollectionStoragePath
