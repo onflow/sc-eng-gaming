@@ -193,7 +193,7 @@ account names:
 
     1. Create new Match & add second player to Match
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_match.cdc 31 179b6b1cb6755e31 10 --signer player-one
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_multiplayer_match.cdc 31 179b6b1cb6755e31 10 --signer player-one
     ```
     1. Escrow second player's NFT
     ```
@@ -209,10 +209,10 @@ account names:
 
 1. Check Win/Loss record for each NFT
 ```
-flow scripts execute ./scripts/get_rps_win_loss_view.cdc 01cf0e2f2f715450 40
+flow scripts execute ./scripts/get_rps_win_loss.cdc 01cf0e2f2f715450 31
 ```
 ```
-flow scripts execute ./scripts/get_rps_win_loss_view.cdc 179b6b1cb6755e31 43
+flow scripts execute ./scripts/get_rps_win_loss.cdc 179b6b1cb6755e31 34
 ```
 
 ___
