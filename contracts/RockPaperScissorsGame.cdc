@@ -1,8 +1,7 @@
-import FungibleToken from "./utility/FungibleToken.cdc"
-import ExampleToken from "./utility/ExampleToken.cdc"
-import GamePieceNFT from "./GamePieceNFT.cdc"
-import GamingMetadataViews from "./GamingMetadataViews.cdc"
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
+import GamingMetadataViews from "./GamingMetadataViews.cdc"
+import GameAttachments from "./GameAttachments.cdc"
+import GamePieceNFT from "./GamePieceNFT.cdc"
 
 /// RockPaperScissorsGame
 ///
@@ -44,18 +43,12 @@ pub contract RockPaperScissorsGame {
     pub let GamePlayerStoragePath: StoragePath
     pub let GamePlayerPublicPath: PublicPath
     pub let GamePlayerPrivatePath: PrivatePath
-    /// Contract Admin paths
-    pub let ContractAdminStoragePath: StoragePath
-    pub let ContractAdminPrivatePath: PrivatePath
     /// Set base path as strings - will be concatenated with matchID they apply to
     pub let MatchStorageBasePathString: String
     pub let MatchPrivateBasePathString: String
     /// Canonical paths for RPSWinLossRetriever resource
     pub let RPSWinLossRetrieverStoragePath: StoragePath
     pub let RPSWinLossRetrieverPrivatePath: PrivatePath
-    /// Path for the GameRegistrationTicket
-    pub let GameRegistrationTicketStoragePath: StoragePath
-    pub let GameRegistrationTicketPrivatePath: PrivatePath
 
     /// Name of the game
     pub let name: String
@@ -64,9 +57,6 @@ pub contract RockPaperScissorsGame {
 
     /// Maintain history of completed Matches
     access(contract) let completedMatchIDs: [UInt64]
-
-    /// Capability granted by GamePieceNFT to amend NFT metadata
-    access(contract) var gameRegistrationTicketCap: Capability<&GamePieceNFT.GameRegistrationTicket>?
 
     /// Relevant events to watch
     pub event NewMatchCreated(gameName: String, matchID: UInt64, creatorID: UInt64)
@@ -106,6 +96,59 @@ pub contract RockPaperScissorsGame {
         ///
         pub fun getWinLossData(nftID: UInt64): GamingMetadataViews.BasicWinLoss? {
             return RockPaperScissorsGame.winLossRecords[nftID]
+        }
+    }
+
+    /** --- AssignedMoves Attachment --- */
+    /// Resource designed to store & manage game moves
+    ///
+    pub resource AssignedMoves : GameAttachments.AssignedMoves {
+        /// Encapsulated generic game moves so no one can edit them except this contract
+        access(contract) let moves: [AnyStruct]
+
+        init(seedMoves: [AnyStruct]) {
+            self.moves = seedMoves
+        }
+
+        /// Getter for the generic encapsulated moves
+        ///
+        /// @return generic array of AnyStruct
+        ///
+        pub fun getMoves(): [AnyStruct] {
+            return self.moves
+        }
+
+        /// Getter for the RPS game-specific encapsulated moves
+        ///
+        /// @return moves array as RockPaperScissorsGame.Moves
+        ///
+        pub fun getRPSMoves(): [Moves] {
+            return self.moves as! [Moves]
+        }
+
+        /// Append the given array to stored moves array
+        ///
+        /// @param newMoves: Moves to be appended to self.moves
+        ///
+        access(contract) fun addMoves(newMoves: [AnyStruct]) {
+            assert(
+            newMoves as? [Moves] != nil,
+            message: "Attempted to add moves to that are not compatible with this Attachment!"
+            )
+            self.moves.appendAll(newMoves)
+        }
+
+        /// Remove the move at the given index
+        ///
+        /// @param targetIdx: Index of AnyStruct to be removed from self.moves
+        ///
+        /// @return the AnyStruct removed at the given index if one exists, nil otherwise
+        ///
+        access(contract) fun removeMove(targetIdx: Int): AnyStruct? {
+            if self.moves.length > targetIdx {
+                return self.moves.remove(at: targetIdx)
+            }
+            return nil
         }
     }
 
@@ -206,36 +249,30 @@ pub contract RockPaperScissorsGame {
             receiverCap: Capability<&{NonFungibleToken.Receiver}>
         ) {
             let nftID = nft.id
-            // Ensure the NFT has a way to retrieve win/loss data with a GamingMetadataViews.BasicWinLossRetriever
-            // Check for existing retrievers for this game is done on the side of the NFT contract
-            let winLossRetrieverCap: Capability<&{GamingMetadataViews.BasicWinLossRetriever}> = RockPaperScissorsGame
-                .getWinLossRetrieverCapability()
-            // Get the reference to the GameRegistration ticket used to identify this
-            // game and authorization to change data about it on the NFT
-            let gameRegistrationTicketRef = RockPaperScissorsGame.gameRegistrationTicketCap!
-                .borrow()
-                ?? panic("Problem with RockPaperScissorsGame GameRegistrationTicket Capability!")
-            nft.addWinLossRetriever(regTicketRef: gameRegistrationTicketRef, retrieverCap: winLossRetrieverCap)
 
             // Insert GamingMetadataViews.BasicWinLoss for this game
             // Check for existing record occurs in function definition
             RockPaperScissorsGame.insertWinLossRecord(nftID: nftID)
 
+            // Ensure the NFT has a way to retrieve win/loss data with a GamingMetadataViews.BasicWinLossRetriever
+            // Check for existing retrievers for this game is done on the side of the NFT contract
+            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.RPSWinLossRetriever>()) {
+                let retriever <- create RockPaperScissorsGame.RPSWinLossRetriever()
+                nft.addAttachment(<-retriever)
+            }
+
+            // See if the NFT has moves for this game
+            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.AssignedMoves>()) {
+                // Add the AssignedMoves attachment to the NFT
+                let moves <- create RockPaperScissorsGame.AssignedMoves(
+                        seedMoves: self.allowedMoves
+                    )
+                nft.addAttachment(<-moves)
+            }
+
             // Then store player's NFT & Receiver
             self.escrowedGamePieceNFTs[nftID] <-! nft
             self.nftReceivers.insert(key: nftID, receiverCap)
-
-            // Add game moves to the NFT if none exist for this game
-            let nftRef = (&self.escrowedGamePieceNFTs[nftID] as &GamePieceNFT.NFT?)!
-            // See if the escrowed NFT has moves for this game
-            if nftRef.getGameMoves(gameName: RockPaperScissorsGame.name) == nil {
-                // Simply add the moves to the NFT
-                self.addMovesToNFT(
-                    nftID: nftID,
-                    regTicketRef: gameRegistrationTicketRef,
-                    newMoves: self.allowedMoves
-                )
-            }
         }
 
         /** --- MatchLobbyActions ---*/
@@ -263,6 +300,14 @@ pub contract RockPaperScissorsGame {
                 self.inPlay == true:
                     "Match is over!"
             }
+            post {
+                RockPaperScissorsGame.movesEqual(
+                    self.getNFTGameMoves(
+                        forPlayerID: gamePlayerIDRef.id
+                    ), self.allowedMoves
+                ):
+                    "Moves improperly assigned to escrowed NFT!"
+            }
 
             // Get MatchPlayerActions Capability from contract account's storage
             let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(self.id)!
@@ -272,6 +317,7 @@ pub contract RockPaperScissorsGame {
                 }>(
                     matchPrivatePath
                 )
+            // Check the Capability is valid
             assert(
                 matchPlayerActionsCap.check(),
                 message: "Problem retrieving Match's MatchPlayerActions Capability!"
@@ -285,6 +331,12 @@ pub contract RockPaperScissorsGame {
             // Maintain association of this NFT with the depositing GamePlayer
             self.gamePlayerIDToNFTID.insert(key: gamePlayerIDRef.id, nftID)
 
+            // Ensure the NFT was added to escrow properly
+            assert(
+                &self.escrowedGamePieceNFTs[nftID] as &GamePieceNFT.NFT? != nil,
+                message: "NFT was not successfully added to escrow!"
+            )
+
             emit PlayerEscrowedNFTToMatch(
                 gameName: RockPaperScissorsGame.name,
                 matchID: self.id,
@@ -293,24 +345,7 @@ pub contract RockPaperScissorsGame {
                 numberOfNFTsInEscrow: UInt8(self.escrowedGamePieceNFTs.length)
             )
 
-            if let escrowedNFTRef = &self.escrowedGamePieceNFTs[nftID] as &GamePieceNFT.NFT? {
-                let nftMoves = escrowedNFTRef.getGameMoves(gameName: RockPaperScissorsGame.name) as! [Moves]?
-                // Assert that the NFT has the necessary game moves to play the game
-                assert(
-                    nftMoves != nil,
-                    message: "Moves not correctly added to escrowed NFT!"
-                )
-                for i, m in nftMoves! {
-                    assert(
-                        self.allowedMoves.contains(m) &&
-                        nftMoves!.contains(self.allowedMoves[i]),
-                        message: "NFT contains moves that are not allowed in this Match!"       
-                    )
-                }
-                // return MatchPlayerActions Capability
-                return matchPlayerActionsCap
-            }
-            panic("Could not get reference to escrowed NFT")
+            return matchPlayerActionsCap
         }
 
         /** --- MatchPlayerActions --- */
@@ -326,11 +361,14 @@ pub contract RockPaperScissorsGame {
             // Get a reference to their escrowed NFT
             let playerNFTID = self.gamePlayerIDToNFTID[forPlayerID]!
             if let nftRef = &self.escrowedGamePieceNFTs[playerNFTID] as &GamePieceNFT.NFT? {
-                // Check that there are moves associated with given NFT.id
-                if let moves = nftRef.getGameMoves(gameName: RockPaperScissorsGame.name) as! [Moves]? {
-                    return moves
+                // Get a reference to the NFT's AssignedMoves attachment
+                if let attachmentRef = nftRef.getAttachmentRef(
+                        Type<@RockPaperScissorsGame.AssignedMoves>()
+                    ) {
+                    let assignedMovesRef = attachmentRef as! &RockPaperScissorsGame.AssignedMoves
+                    return assignedMovesRef.moves as! [Moves]
                 }
-                panic("No moves associated with this game are assigned to player's NFT!")
+                panic("NFT does not have AssignedMoves attached!")
             }
             panic("Could not get reference to player's NFT!")
         }
@@ -773,59 +811,6 @@ pub contract RockPaperScissorsGame {
         }
     }
 
-    /// Administrator resource that manages the game's registration with GamePieceNFT
-    pub resource ContractAdmin {
-
-        /// A function that registers the game name with GamePieceNFT, assigning
-        /// the GameRegistrationTicket Capability to the contract
-        ///
-        /// @param feeVault: ExampleToken.Vault containing the fee required to register
-        ///
-        pub fun registerGameWithGamePieceNFT(feeVault: @ExampleToken.Vault) {
-            pre {
-                RockPaperScissorsGame.gameRegistrationTicketCap == nil:
-                    "gameRegistrationTicket has already been assigned - try updating!"
-            }
-            post {
-                RockPaperScissorsGame.gameRegistrationTicketCap != nil:
-                    "Problem registering with GamePieceNFT - GameRegistrationTicket was not updated!"
-            }
-
-            // Downcast the given vault
-            let ftVault <- feeVault as @FungibleToken.Vault
-
-            // Register, receiving a GameRegistrationTicket in return
-            let registrationTicket: @GamePieceNFT.GameRegistrationTicket <- GamePieceNFT
-                .registerGameName(
-                    gameName: RockPaperScissorsGame.name,
-                    registrationFee: <-ftVault
-                )
-
-            // Save & link the resource
-            RockPaperScissorsGame.account.save(<-registrationTicket, to: RockPaperScissorsGame.GameRegistrationTicketStoragePath)
-            RockPaperScissorsGame.account.link<&GamePieceNFT.GameRegistrationTicket>(
-                RockPaperScissorsGame.GameRegistrationTicketPrivatePath,
-                target: RockPaperScissorsGame.GameRegistrationTicketStoragePath
-            )
-            // Get the Capability to the resource & assign to the contract
-            RockPaperScissorsGame.gameRegistrationTicketCap = RockPaperScissorsGame.account
-                .getCapability<&GamePieceNFT.GameRegistrationTicket>(
-                    RockPaperScissorsGame.GameRegistrationTicketPrivatePath
-                )
-        }
-
-        /// Allows the ContractAdmin to update the GameRegistrationTicket Capability
-        ///
-        /// @param cap: The Capability that will be replacing the old one in the contract
-        ///
-        pub fun updateGameRegistrationTicketCapability(_ cap: Capability<&GamePieceNFT.GameRegistrationTicket>) {
-            pre {
-                cap.check(): "Problem with given Capability!"
-            }
-            RockPaperScissorsGame.gameRegistrationTicketCap = cap
-        }
-    }
-
     /** --- Contract helper functions --- */
 
     /// Create a GamePlayer resource
@@ -911,17 +896,6 @@ pub contract RockPaperScissorsGame {
         // Return the IDs of the destroyed Matches
         return destroyedMatchIDs
     }
-    
-    /// Returns a Capability for GamingMetadataViews.BasicWinLossRetriever implemented in
-    /// RPSWinLossRetriever
-    ///
-    /// @return A Capability for GamingMetadataViews.BasicWinLossRetriever
-    ///
-    access(contract) fun getWinLossRetrieverCapability(): Capability<&{GamingMetadataViews.BasicWinLossRetriever}> {
-        return self.account.getCapability<&{GamingMetadataViews.BasicWinLossRetriever}>(
-            self.RPSWinLossRetrieverPrivatePath
-        )
-    }
 
     /// Inserts a WinLoss record into the winLossRecords mapping if one does
     /// not already exist for the given nft.id
@@ -956,6 +930,29 @@ pub contract RockPaperScissorsGame {
         }
     }
 
+    /// Helper method to compare arrays of Moves
+    ///
+    /// @param first: one array of Moves
+    /// @param second: other array of Moves
+    ///
+    /// @return true if the two arrays are equal, false otherwise
+    ///
+    access(contract) fun movesEqual(_ first: [Moves], _ second: [Moves]): Bool {
+        // Return false if they have differing lengths
+        if first.length != second.length {
+            return false
+        }
+        // With same length we can compare their elements
+        for idx, move in first {
+            // Compare elements at each index are contained in the other
+            if !second.contains(move) || !first.contains(second[idx]) {
+                return false
+            }
+        }
+        // Passed all non-equal cases so must be equal
+        return true
+    }
+
     /// Function for easy derivation of a Match's StoragePath. Provides no guarantees
     /// that a Match is stored there.
     ///
@@ -987,37 +984,19 @@ pub contract RockPaperScissorsGame {
         self.completedMatchIDs = []
 
         // Assign canonical paths
-        self.ContractAdminStoragePath = /storage/ContractAdmin
-        self.ContractAdminPrivatePath = /private/ContractAdmin
         self.GamePlayerStoragePath = /storage/RockPaperScissorsGamePlayer
         self.GamePlayerPublicPath = /public/RockPaperScissorsGamePlayer
         self.GamePlayerPrivatePath = /private/RockPaperScissorsGamePlayer
         self.RPSWinLossRetrieverStoragePath = /storage/RPSWinLossRetriever
         self.RPSWinLossRetrieverPrivatePath = /private/RPSWinLossRetriever
-        // Assign paths for GameRegistrationTicket
-        self.GameRegistrationTicketStoragePath = /storage/GameRegistrationTicket
-        self.GameRegistrationTicketPrivatePath = /private/GameRegistrationTicket
         // Assign base paths for later concatenation
         self.MatchStorageBasePathString = "Match"
         self.MatchPrivateBasePathString = "Match"
-
-        // Initialize value to nil - should be updated by ContractAdmin
-        self.gameRegistrationTicketCap = nil
         
         // Create & link RPSWinLossRetriever resource
         let keeper <- create RPSWinLossRetriever()
         self.account.save(<-keeper, to: self.RPSWinLossRetrieverStoragePath)
         self.account.link<&RPSWinLossRetriever>(self.RPSWinLossRetrieverPrivatePath, target: self.RPSWinLossRetrieverStoragePath)
-
-        // Create the ContractAdmin resource
-        let admin <- create ContractAdmin()
-        self.account.save(<-admin, to: self.ContractAdminStoragePath)
-        self.account.link<
-            &ContractAdmin
-        >(
-            self.ContractAdminPrivatePath,
-            target: self.ContractAdminStoragePath
-        )
     }
 }
  

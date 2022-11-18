@@ -51,8 +51,8 @@ transaction() {
         //
         // Check if a GamePlayer already exists, pass this block if it does
         if signer.borrow<&RockPaperScissorsGame.GamePlayer>(from: RockPaperScissorsGame.GamePlayerStoragePath) == nil {
-            let providerCap = signer.getCapability<
-                &{NonFungibleToken.Provider
+            let providerCap = signer.getCapability<&{
+                NonFungibleToken.Provider
             }>(
                 GamePieceNFT.ProviderPrivatePath
             )

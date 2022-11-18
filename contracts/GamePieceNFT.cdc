@@ -1,5 +1,4 @@
 import FungibleToken from "./utility/FungibleToken.cdc"
-import ExampleToken from "./utility/ExampleToken.cdc"
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 import MetadataViews from "./utility/MetadataViews.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
@@ -29,10 +28,10 @@ pub contract GamePieceNFT: NonFungibleToken {
     /// Collection related paths
     pub let CollectionStoragePath: StoragePath
     pub let CollectionPublicPath: PublicPath
+    pub let ProviderPrivatePath: PrivatePath
     
     pub event ContractInitialized()
     /// NFT related events
-    pub event MintingAuthorizationUpdated(mintingAllowed: Bool)
     pub event MintedNFT(id: UInt64, totalSupply: UInt64)
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
@@ -50,14 +49,11 @@ pub contract GamePieceNFT: NonFungibleToken {
     ///
     pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, NFTPublic {
         pub let id: UInt64
-        /// Dictionary mapping game name to Capability to GamingMetadataViews.BasicWinLossRetriever
-        pub let winLossRetrieverCaps: {String: Capability<&{GamingMetadataViews.BasicWinLossRetriever}>}
         /// Mapping of generic attached resource indexed by their type
         access(self) let attachments: @{Type: AnyResource}
 
         init() {
             self.id = self.uuid
-            self.winLossRetrieverCaps = {}
             self.attachments <- {}
         }
 
@@ -118,7 +114,7 @@ pub contract GamePieceNFT: NonFungibleToken {
         /// @return array of GameMetadataView Types relevant to this NFT
         ///
         pub fun getViews(): [Type] {
-            return [Type<GamingMetadataViews.WinLossView>()]
+            return []
         }
         
         /// Function that resolve the given GameMetadataView
@@ -130,8 +126,6 @@ pub contract GamePieceNFT: NonFungibleToken {
         ///
         pub fun resolveView(_ view: Type): AnyStruct? {
             switch view {
-                case Type<GamingMetadataViews.WinLossView>():
-                    return GamingMetadataViews.WinLossView(id: self.id, self.winLossRetrieverCaps)
                 default:
                     return nil
             }
@@ -278,6 +272,7 @@ pub contract GamePieceNFT: NonFungibleToken {
         // Set Collection paths
         self.CollectionStoragePath = /storage/GamePieceNFTCollection
         self.CollectionPublicPath = /public/GamePieceNFTCollection
+        self.ProviderPrivatePath = /private/GamePieceNFTCollectionProvider
 
         emit ContractInitialized()
     }

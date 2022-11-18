@@ -178,23 +178,7 @@ account names:
 
     * player-one
     * player-two
-    
-1. Allow minting & game registration in GameNFT contract using GameNFT.Administrator
-```
-flow transactions send ./transactions/game_piece_nft/administrator/enable_mint_and_registration.cdc 5.0
-```
-1. Set up Vault in game contract account
-```
-flow transactions send ./transactions/example_token/setup_example_token.cdc
-```
-1. Mint tokens to game contract account's vault
-```
-flow transactions send ./transactions/example_token/administrator/mint_tokens.cdc f8d6e0586b0a20c7 20.0
-```
-1. Register with GamePieceNFT using game's ContractAdmin
-```
-flow transactions send ./transactions/rock_paper_scissors_game/contract_admin/register_game_name.cdc 5.0
-```
+
 1. Setup users' accounts
     
     1. Onboard users with GamePieceNFT Collection, NFT, and GamePlayer
@@ -209,18 +193,18 @@ flow transactions send ./transactions/rock_paper_scissors_game/contract_admin/re
 
     1. Create new Match & add second player to Match
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_match.cdc 40 179b6b1cb6755e31 10 --signer player-one
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_match.cdc 31 179b6b1cb6755e31 10 --signer player-one
     ```
     1. Escrow second player's NFT
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/escrow_nft.cdc 45 43 --signer player-two
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/escrow_nft.cdc 36 34 --signer player-two
     ```
     1. Submit moves
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 45 0 --signer player-one
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 36 0 --signer player-one
     ```
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 45 2 --signer player-two
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 36 2 --signer player-two
     ```
 
 1. Check Win/Loss record for each NFT
