@@ -1,6 +1,6 @@
 # Rock Paper Scissors (Mostly) On-Chain
 
-**TODO - transaction diagrams**
+**TODO - transaction diagrams & single player submit move**
 
 We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
 

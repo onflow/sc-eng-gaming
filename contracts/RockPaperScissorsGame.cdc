@@ -195,6 +195,7 @@ pub contract RockPaperScissorsGame {
         pub let id: UInt64
         /// Tag defining single or multiplayer behavior for the Match
         pub let isMultiPlayer: Bool
+        pub var escrowCapacity: Int
         
         /// Match timeLimit parameters defining how long the Match can escrow
         /// player NFTs before they exercise their right to have them returned.
@@ -226,6 +227,11 @@ pub contract RockPaperScissorsGame {
             }
             self.id = self.uuid
             self.isMultiPlayer = multiPlayer
+            if !multiPlayer {
+                self.escrowCapacity = 2
+            } else {
+                self.escrowCapacity = 1
+            }
             self.inPlay = true
             self.createdTimestamp = getCurrentBlock().timestamp
             self.timeLimit = matchTimeLimit
@@ -303,7 +309,7 @@ pub contract RockPaperScissorsGame {
             pre {
                 !self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id):
                     "Player has already joined this Match!"
-                self.escrowedGamePieceNFTs.length < 2:
+                self.escrowedGamePieceNFTs.length < self.escrowCapacity:
                     "Both players have adready escrowed their NFTs, Match is full!"
                 self.inPlay == true:
                     "Match is over!"
@@ -397,14 +403,17 @@ pub contract RockPaperScissorsGame {
         ///
         pub fun submitMove(move: Moves, gamePlayerIDRef: &{GamePlayerID}) {
             pre {
-                self.escrowedGamePieceNFTs.length == 2:
+                self.escrowedGamePieceNFTs.length == self.escrowCapacity:
                     "Both players must escrow NFTs before play begins!"
-                self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id):
+                self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id) ||
+                gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id:
                     "Player is not associated with this Match!"
                 !self.submittedMoves.keys.contains(gamePlayerIDRef.id):
                     "Player has already submitted move for this Match!"
                 self.submittedMoves.length < 2:
                     "Both moves have already been submitted for this Match!"
+                !self.submittedMoves.keys.contains(RockPaperScissorsGame.automatedGamePlayer.id):
+                    "Player must submit their move before the automated player!"
                 self.inPlay == true:
                     "Match is not in play any longer!"
             }
@@ -883,6 +892,30 @@ pub contract RockPaperScissorsGame {
         }
         // Return the IDs of the destroyed Matches
         return destroyedMatchIDs
+    }
+
+    /// Enable submission of random move to single player Match. To make randomness a bit safer,
+    /// this should be run in a separate transaction than the player's move is submitted.
+    ///
+    /// @param matchID: The id for the Match to which the random move will be submitted
+    ///
+    pub fun submitAutomatedPlayerMove(matchID: UInt64) {
+        // Assign a random move
+        let randomMove = Moves(
+                rawValue: UInt8(unsafeRandom() % 3)
+            ) ?? panic("Random move does not map to a legal RockPaperScissorsGame.Moves value!")
+        // Get the Match
+        if let matchStoragePath = self.getMatchStoragePath(matchID) {
+            let matchRef = self.account
+                .borrow<&{
+                    MatchPlayerActions
+                }>(
+                    from: matchStoragePath
+                ) ?? panic("Could not get MatchPlayerActions reference for given Match!")
+            // Submit the random move using the contract's GamePlayer
+            matchRef.submitMove(move: randomMove, gamePlayerIDRef: &self.automatedGamePlayer as &{GamePlayerID})
+        }
+        panic("Could not derive StoragePath for given Match!")
     }
 
     /// Inserts a WinLoss record into the winLossRecords mapping if one does
