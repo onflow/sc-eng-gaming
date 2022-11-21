@@ -124,6 +124,7 @@ pub contract RockPaperScissorsGame {
     /// Resource designed to store & manage game moves
     ///
     pub resource AssignedMovesAttachment : GamingMetadataViews.AssignedMovesAttachment {
+        /// Struct containing metadata about the attachment's related game
         pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
         /// Encapsulated generic game moves so no one can edit them except this contract
         access(contract) let moves: [AnyStruct]
