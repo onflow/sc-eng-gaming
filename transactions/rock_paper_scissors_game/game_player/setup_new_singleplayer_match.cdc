@@ -2,8 +2,8 @@ import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
 import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
-/// Transaction that creates a new Match and adds the MatchLobbyActions
-/// Capability to their GamePlayerPublic
+/// Transaction that creates a new Match in single player mode and 
+/// escrows the specified NFT from the signing account's Collection
 ///
 transaction(submittingNFTID: UInt64, matchTimeLimitInMinutes: UInt) {
     

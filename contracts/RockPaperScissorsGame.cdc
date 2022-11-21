@@ -105,7 +105,13 @@ pub contract RockPaperScissorsGame {
 
     /** --- WinLossRetreiver Implementation --- */
     /// Resource acts as a retriever for an NFT's WinLoss data
-    pub resource RPSWinLossRetriever: GamingMetadataViews.BasicWinLossRetriever {
+    pub resource RPSWinLossRetriever: GamingMetadataViews.Attachment, GamingMetadataViews.BasicWinLossRetriever {
+        /// The Type this attachment is designed to be attached to
+        pub let attachmentFor: Type
+
+        init() {
+            self.attachmentFor = Type<@GamePieceNFT.NFT>()
+        }
 
         /// Retriever for winloss data to be added to deposited NFTs metadata retrievers
         ///
@@ -123,15 +129,18 @@ pub contract RockPaperScissorsGame {
     /** --- AssignedMovesAttachment --- */
     /// Resource designed to store & manage game moves
     ///
-    pub resource AssignedMovesAttachment : GamingMetadataViews.AssignedMovesAttachment {
+    pub resource AssignedMovesAttachment : GamingMetadataViews.Attachment, GamingMetadataViews.AssignedMoves {
         /// Struct containing metadata about the attachment's related game
         pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
+        /// The Type this attachment is designed to be attached to
+        pub let attachmentFor: Type
         /// Encapsulated generic game moves so no one can edit them except this contract
         access(contract) let moves: [AnyStruct]
 
         init(seedMoves: [AnyStruct]) {
-            self.moves = seedMoves
             self.gameContractInfo = RockPaperScissorsGame.info
+            self.attachmentFor = Type<@GamePieceNFT.NFT>()
+            self.moves = seedMoves
         }
 
         /// Getter for the generic encapsulated moves

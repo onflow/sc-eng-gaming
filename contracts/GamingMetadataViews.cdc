@@ -115,10 +115,29 @@ pub contract GamingMetadataViews {
 
     /** --- Attachment Interfaces --- */
 
+    /// Interface defining a resource that can have attachments added to it
+    ///
+    pub resource interface Attachable {
+        access(contract) let attachments: @{Type: AnyResource{Attachment}}
+        pub fun addAttachment(_ attachment: @AnyResource{Attachment}) {
+            pre {
+                attachment.attachmentFor == self.getType():
+                    "Attempting to add attachment not designed for this resource"
+            }
+        }
+    }
+
+    /// An interface for a resource defining the Type that an attachment is
+    /// designed to be attached to
+    ///
+    pub resource interface Attachment {
+        pub let attachmentFor: Type
+    }
+
     /// A resource interface defining an attachment representative of a simple
     /// win/loss record that could live locally on an NFT as an attachment
     ///
-    pub resource interface WinLossAttachment {
+    pub resource interface WinLoss {
         pub let gameContractInfo: GameContractMetadata
         /** --- Game record variables --- */
         access(contract) var wins: UInt64
@@ -134,7 +153,7 @@ pub contract GamingMetadataViews {
     /// An encapsulated resource containing an array of generic moves
     /// and a getter method for those moves
     ///
-    pub resource interface AssignedMovesAttachment {
+    pub resource interface AssignedMoves {
         pub let gameContractInfo: GameContractMetadata
         /// Array designed to contain an array of generic moves
         access(contract) let moves: [AnyStruct]
