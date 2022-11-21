@@ -1,7 +1,6 @@
 {
     "contracts": {
         "FungibleToken": "./contracts/utility/FungibleToken.cdc",
-        "GameAttachments": "./contracts/GameAttachments.cdc",
         "GamePieceNFT": "./contracts/GamePieceNFT.cdc",
         "GamingMetadataViews": "./contracts/GamingMetadataViews.cdc",
         "MetadataViews": "./contracts/utility/MetadataViews.cdc",
@@ -26,7 +25,6 @@
                 "NonFungibleToken",
                 "MetadataViews",
                 "GamingMetadataViews",
-                "GameAttachments",
                 "GamePieceNFT",
                 "RockPaperScissorsGame"
             ]
