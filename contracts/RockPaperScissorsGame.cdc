@@ -49,14 +49,14 @@ pub contract RockPaperScissorsGame {
     /// Field that stores win/loss records for every NFT that has played this game
     access(contract) let winLossRecords: {UInt64: GamingMetadataViews.BasicWinLoss}
 
-    /// Maintain history of completed Matches
+    /// Maintain history of completed Matches 
     access(contract) let completedMatchIDs: [UInt64]
 
     /// Contracts own GamePlayer for use in single player Match modes
     access(contract) let automatedGamePlayer: @GamePlayer
-
+    access(contract) let dummyNFTID: UInt64
     /// Relevant events to watch
-    pub event NewMatchCreated(gameName: String, matchID: UInt64, creatorID: UInt64)
+    pub event NewMatchCreated(gameName: String, matchID: UInt64, creatorID: UInt64, isMultiPlayer: Bool)
     pub event PlayerSignedUpForMatch(gameName: String, matchID: UInt64, addedPlayerID: UInt64)
     pub event PlayerAddedToMatch(gameName: String, matchID: UInt64, addedPlayerID: UInt64)
     pub event PlayerEscrowedNFTToMatch(
@@ -64,12 +64,14 @@ pub contract RockPaperScissorsGame {
         matchID: UInt64,
         gamePlayerID: UInt64,
         nftID: UInt64,
-        numberOfNFTsInEscrow: UInt8
+        numberOfNFTsInEscrow: UInt8,
+        reachedEscrowCapacity: Bool
     )
     pub event MoveSubmitted(
         gameName: String,
         matchID: UInt64,
-        totalRoundMovesSubmitted: UInt8
+        submittingGamePlayerID: UInt64,
+        totalRoundMovesSubmitted: Int
     )
     pub event MatchOver(
         gameName: String,
@@ -84,6 +86,20 @@ pub contract RockPaperScissorsGame {
         pub case rock
         pub case paper
         pub case scissors
+    }
+
+    /// Struct to contain information about a submitted move including when
+    /// it was submitted and the ID of the submitting GamePlayer
+    pub struct SubmittedMove {
+        pub let gamePlayerID: UInt64
+        pub let move: Moves
+        pub let submittedHeight: UInt64
+
+        init(gamePlayerID: UInt64, move: Moves) {
+            self.gamePlayerID = gamePlayerID
+            self.move = move
+            self.submittedHeight = getCurrentBlock().height
+        }
     }
 
     /** --- WinLossRetreiver Implementation --- */
@@ -215,7 +231,8 @@ pub contract RockPaperScissorsGame {
         /// Define the allowable Moves in this Match
         pub let allowedMoves: [Moves]
         /// Maintain number of moves submitted
-        access(self) let submittedMoves: {UInt64: Moves}
+        // access(self) let submittedMoves: {UInt64: Moves}
+        access(self) let submittedMoves: {UInt64: SubmittedMove}
 
         /// Maintain ids of winning nft and GamePlayer ids
         pub var winningNFTID: UInt64?
@@ -227,7 +244,7 @@ pub contract RockPaperScissorsGame {
             }
             self.id = self.uuid
             self.isMultiPlayer = multiPlayer
-            if !multiPlayer {
+            if multiPlayer {
                 self.escrowCapacity = 2
             } else {
                 self.escrowCapacity = 1
@@ -292,7 +309,9 @@ pub contract RockPaperScissorsGame {
         /** --- MatchLobbyActions ---*/
 
         /// Allows for an NFT to be deposited to escrow, returning a Capability
-        /// that enables the holder to engage in gameplay
+        /// that enables the holder to engage in gameplay. Note that a single player Match
+        /// only requires the actual players to escrow NFTs to avoid needing to store
+        /// NFTs for the sake of automated play.
         ///
         /// @param nft: The NFT to be escrowed into the Match
         /// @param receiver: The Receiver to which the NFT will be returned
@@ -356,7 +375,8 @@ pub contract RockPaperScissorsGame {
                 matchID: self.id,
                 gamePlayerID: gamePlayerIDRef.id,
                 nftID: nftID,
-                numberOfNFTsInEscrow: UInt8(self.escrowedGamePieceNFTs.length)
+                numberOfNFTsInEscrow: UInt8(self.escrowedGamePieceNFTs.length),
+                reachedEscrowCapacity: self.escrowedGamePieceNFTs.length == self.escrowCapacity
             )
 
             return matchPlayerActionsCap
@@ -408,48 +428,73 @@ pub contract RockPaperScissorsGame {
                 self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id) ||
                 gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id:
                     "Player is not associated with this Match!"
+                gamePlayerIDRef.id != RockPaperScissorsGame.automatedGamePlayer.id ||
+                (gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id &&
+                self.submittedMoves.length == 1):
+                    "Player must submit move before automated player in single player mode!"
                 !self.submittedMoves.keys.contains(gamePlayerIDRef.id):
                     "Player has already submitted move for this Match!"
                 self.submittedMoves.length < 2:
                     "Both moves have already been submitted for this Match!"
                 !self.submittedMoves.keys.contains(RockPaperScissorsGame.automatedGamePlayer.id):
                     "Player must submit their move before the automated player!"
+                gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id ||
+                self.getNFTGameMoves(forPlayerID: gamePlayerIDRef.id).contains(move):
+                    "Player's NFT does not have the submitted move available to play!"
                 self.inPlay == true:
                     "Match is not in play any longer!"
             }
-
-            // Ensure that the player has the ability to play the given move 
-            assert(
-                self.getNFTGameMoves(
-                    forPlayerID: gamePlayerIDRef.id
-                ).contains(
-                    move
-                ),
-                message: "Player's NFT does not have the submitted move available to play!"
-            )
+            
+            // If the submitting player is the contract's automated player (i.e. we're in single player mode
+            // and the user has already submitted their move), we ensure that the automated move is being submitted
+            // in a separate transaction to prevent cheating.
+            if gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id {
+                assert(
+                    getCurrentBlock().height > self.submittedMoves[self.submittedMoves.keys[0]]!.submittedHeight,
+                    message: "Too soon to submit"
+                )
+            }
 
             // Add the move to the mapping of submitted moves indexed by the
             // submitting player's GamePlayerID.id
-            self.submittedMoves.insert(key: gamePlayerIDRef.id, move)
+            self.submittedMoves.insert(
+                key: gamePlayerIDRef.id, 
+                SubmittedMove(
+                    gamePlayerID: gamePlayerIDRef.id,
+                    move: move
+            ))
+
+            emit MoveSubmitted(
+                gameName: RockPaperScissorsGame.name,
+                matchID: self.id,
+                submittingGamePlayerID: gamePlayerIDRef.id,
+                totalRoundMovesSubmitted: self.submittedMoves.length
+            )
 
             // If this is the second of 2 moves, resolve the Match
             if self.submittedMoves.length == 2 {
-
                 // Determine the ids of winning GamePlayer.id & NFT.id
                 self.winningPlayerID = RockPaperScissorsGame
                     .determineRockPaperScissorsWinner(
                         moves: self.submittedMoves
                     )
-                if self.winningPlayerID != nil {
+                // Assign winningNFTID to NFT submitted by the winning GamePlayer
+                if self.winningPlayerID != nil && self.winningPlayerID != RockPaperScissorsGame.automatedGamePlayer.id {
                     self.winningNFTID = self.gamePlayerIDToNFTID[self.winningPlayerID!]!
+                // If the winning player is the contract's automated player, assign the winningNFTID 
+                // to the contract's dummyNFTID
+                } else if self.winningPlayerID == RockPaperScissorsGame.automatedGamePlayer.id {
+                    self.winningNFTID = RockPaperScissorsGame.dummyNFTID
                 }
-                // Ammend NFTs win/loss
+
+                // Ammend NFTs win/loss data
                 for nftID in self.escrowedGamePieceNFTs.keys {
                     RockPaperScissorsGame.updateWinLossRecord(
                         nftID: nftID,
                         winner: self.winningNFTID
                     )
                 }
+
                 // Mark the Match as no longer in play
                 self.inPlay = false
                 // Return the escrowed NFTs to the depositing players
@@ -646,6 +691,13 @@ pub contract RockPaperScissorsGame {
 
             // Remove the MatchLobbyActions now that the NFT has been escrowed & return the Match.id
             self.matchLobbyCapabilities.remove(key: newMatchID)
+
+            emit NewMatchCreated(
+                gameName: RockPaperScissorsGame.name,
+                matchID: newMatchID,
+                creatorID: self.id,
+                isMultiPlayer: multiPlayer
+            )
             return newMatchID
         }
 
@@ -827,7 +879,7 @@ pub contract RockPaperScissorsGame {
     ///
     /// @return the id of the winning GamePlayer or nil if result is a tie
     ///
-    pub fun determineRockPaperScissorsWinner(moves: {UInt64: Moves}): UInt64? {
+    pub fun determineRockPaperScissorsWinner(moves: {UInt64: SubmittedMove}): UInt64? {
         pre {
             moves.length == 2: "RockPaperScissors requires two moves"
         }
@@ -836,23 +888,23 @@ pub contract RockPaperScissorsGame {
         let player2 = moves.keys[1]
 
         // Choose one move to compare against other
-        switch moves[player1]! {
+        switch moves[player1]!.move {
             case RockPaperScissorsGame.Moves.rock:
-                if moves[player2] == RockPaperScissorsGame.Moves.paper {
+                if moves[player2]!.move == RockPaperScissorsGame.Moves.paper {
                     return player2
-                } else if moves[player2] == RockPaperScissorsGame.Moves.scissors {
+                } else if moves[player2]!.move == RockPaperScissorsGame.Moves.scissors {
                     return player1
                 }
             case RockPaperScissorsGame.Moves.paper:
-                if moves[player2] == RockPaperScissorsGame.Moves.rock {
+                if moves[player2]!.move == RockPaperScissorsGame.Moves.rock {
                     return player1
-                } else if moves[player2] == RockPaperScissorsGame.Moves.scissors {
+                } else if moves[player2]!.move == RockPaperScissorsGame.Moves.scissors {
                     return player2
                 }
             case RockPaperScissorsGame.Moves.scissors:
-                if moves[player2] == RockPaperScissorsGame.Moves.rock {
+                if moves[player2]!.move == RockPaperScissorsGame.Moves.rock {
                     return player2
-                } else if moves[player2] == RockPaperScissorsGame.Moves.paper {
+                } else if moves[player2]!.move == RockPaperScissorsGame.Moves.paper {
                     return player1
                 }
         }
@@ -879,7 +931,7 @@ pub contract RockPaperScissorsGame {
         for matchID in self.completedMatchIDs {
             
             // Derive the StoragePath of the Match with given id
-            if let matchStoragePath = RockPaperScissorsGame.getMatchStoragePath(matchID) {
+            if let matchStoragePath = self.getMatchStoragePath(matchID) {
                 
                 // Load and destroy the Match
                 let completedMatch <- self.account.load<@Match>(from: matchStoragePath)
@@ -905,17 +957,14 @@ pub contract RockPaperScissorsGame {
                 rawValue: UInt8(unsafeRandom() % 3)
             ) ?? panic("Random move does not map to a legal RockPaperScissorsGame.Moves value!")
         // Get the Match
-        if let matchStoragePath = self.getMatchStoragePath(matchID) {
-            let matchRef = self.account
-                .borrow<&{
-                    MatchPlayerActions
-                }>(
-                    from: matchStoragePath
-                ) ?? panic("Could not get MatchPlayerActions reference for given Match!")
-            // Submit the random move using the contract's GamePlayer
-            matchRef.submitMove(move: randomMove, gamePlayerIDRef: &self.automatedGamePlayer as &{GamePlayerID})
-        }
-        panic("Could not derive StoragePath for given Match!")
+        let matchStoragePath = self.getMatchStoragePath(matchID)!
+        let matchRef = self.account
+            .borrow<&{
+                MatchPlayerActions
+            }>(
+                from: matchStoragePath
+            ) ?? panic("Could not get MatchPlayerActions reference for given Match!")
+        matchRef.submitMove(move: randomMove, gamePlayerIDRef: &self.automatedGamePlayer as &{GamePlayerID})
     }
 
     /// Inserts a WinLoss record into the winLossRecords mapping if one does
@@ -1016,6 +1065,7 @@ pub contract RockPaperScissorsGame {
 
         // Create a contract GamePlayer to automate second player moves in single player modes
         self.automatedGamePlayer <-create GamePlayer()
+        self.dummyNFTID = 0
     }
 }
  
