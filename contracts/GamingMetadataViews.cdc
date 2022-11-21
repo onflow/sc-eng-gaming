@@ -86,8 +86,7 @@ pub contract GamingMetadataViews {
         }
     }
 
-    /// TODO: Implement in RockPaperScissorsGame along with these attributes & a resolver impl
-    /// A standard struct containing basic metadata about a game
+    /// A struct defining metadata relevant to a game
     ///
     pub struct GameContractMetadata {
         pub let name: String
