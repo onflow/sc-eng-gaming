@@ -1,7 +1,6 @@
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 import MetadataViews from "./utility/MetadataViews.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
-import GameAttachments from "./GameAttachments.cdc"
 import GamePieceNFT from "./GamePieceNFT.cdc"
 
 /// RockPaperScissorsGame
@@ -46,6 +45,8 @@ pub contract RockPaperScissorsGame {
 
     /// Name of the game
     pub let name: String
+    /// Metadata about this game contract
+    pub let info: GamingMetadataViews.GameContractMetadata
     /// Field that stores win/loss records for every NFT that has played this game
     access(contract) let winLossRecords: {UInt64: GamingMetadataViews.BasicWinLoss}
 
@@ -119,15 +120,17 @@ pub contract RockPaperScissorsGame {
         }
     }
 
-    /** --- AssignedMoves Attachment --- */
+    /** --- AssignedMovesAttachment --- */
     /// Resource designed to store & manage game moves
     ///
-    pub resource AssignedMoves : GameAttachments.AssignedMoves {
+    pub resource AssignedMovesAttachment : GamingMetadataViews.AssignedMovesAttachment {
+        pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
         /// Encapsulated generic game moves so no one can edit them except this contract
         access(contract) let moves: [AnyStruct]
 
         init(seedMoves: [AnyStruct]) {
             self.moves = seedMoves
+            self.gameContractInfo = RockPaperScissorsGame.info
         }
 
         /// Getter for the generic encapsulated moves
@@ -293,9 +296,9 @@ pub contract RockPaperScissorsGame {
             }
 
             // See if the NFT has moves for this game
-            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.AssignedMoves>()) {
+            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.AssignedMovesAttachment>()) {
                 // Add the AssignedMoves attachment to the NFT
-                let moves <- create RockPaperScissorsGame.AssignedMoves(
+                let moves <- create RockPaperScissorsGame.AssignedMovesAttachment(
                         seedMoves: self.allowedMoves
                     )
                 nft.addAttachment(<-moves)
@@ -397,12 +400,12 @@ pub contract RockPaperScissorsGame {
             if let nftRef = &self.escrowedGamePieceNFTs[playerNFTID] as &GamePieceNFT.NFT? {
                 // Get a reference to the NFT's AssignedMoves attachment
                 if let attachmentRef = nftRef.getAttachmentRef(
-                        Type<@RockPaperScissorsGame.AssignedMoves>()
+                        Type<@RockPaperScissorsGame.AssignedMovesAttachment>()
                     ) {
-                    let assignedMovesRef = attachmentRef as! &RockPaperScissorsGame.AssignedMoves
+                    let assignedMovesRef = attachmentRef as! &RockPaperScissorsGame.AssignedMovesAttachment
                     return assignedMovesRef.moves as! [Moves]
                 }
-                panic("NFT does not have AssignedMoves attached!")
+                panic("NFT does not have AssignedMovesAttachment!")
             }
             panic("Could not get reference to player's NFT!")
         }
@@ -1050,6 +1053,21 @@ pub contract RockPaperScissorsGame {
     init() {
         // Initialize variables
         self.name = "RockPaperScissors"
+        // TODO: Replace with actual values
+        self.info = GamingMetadataViews.GameContractMetadata(
+            name: self.name,
+            description: "Rock, Paper, Scissors on-chain!",
+            icon: MetadataViews.HTTPFile(
+                url: "https://static.vecteezy.com/system/resources/previews/000/691/500/large_2x/rock-paper-scissors-vector-icons.jpg"
+            ),
+            thumbnail: MetadataViews.HTTPFile(
+                url: "https://miro.medium.com/max/1400/0*pwDqZoXvHo79MoT7.webp"
+            ),
+            contractAddress: self.account.address,
+            externalURL: MetadataViews.ExternalURL(
+                "https://www.cheezewizards.com/"
+            )
+        )
         self.winLossRecords = {}
         self.completedMatchIDs = []
 
