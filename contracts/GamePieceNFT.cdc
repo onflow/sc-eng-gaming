@@ -47,10 +47,10 @@ pub contract GamePieceNFT: NonFungibleToken {
     /// The definition of the GamePieceNFT.NFT resource, an NFT designed to be used for gameplay with
     /// attributes relevant to win/loss histories and basic gameplay moves
     ///
-    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, NFTPublic {
+    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, NFTPublic, GamingMetadataViews.Attachable {
         pub let id: UInt64
         /// Mapping of generic attached resource indexed by their type
-        access(self) let attachments: @{Type: AnyResource}
+        access(contract) let attachments: @{Type: AnyResource{GamingMetadataViews.Attachment}}
 
         init() {
             self.id = self.uuid
@@ -89,7 +89,7 @@ pub contract GamePieceNFT: NonFungibleToken {
         ///
         /// @param attachment: the resource to be attached
         ///
-        pub fun addAttachment(_ attachment: @AnyResource) {
+        pub fun addAttachment(_ attachment: @AnyResource{GamingMetadataViews.Attachment}) {
             pre {
                 !self.hasAttachmentType(attachment.getType()):
                     "NFT already contains attachment of this type!"
