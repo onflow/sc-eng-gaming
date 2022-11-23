@@ -3,17 +3,26 @@ import FlowToken from 0x0ae53cb6e3f42a79
 
 pub contract ChildAccount {
 
+    // Establish metadataview when child account is created
+    // - dapp name/publisher name
+    // - publisher logo
+    // - etc
+    // Track resources added and removed to child account
+    //
+    // Child account per game per device - tied to physical location of where keys are stored
+    //
+    // Offer quick utility to bulk move assets between child
     pub let ChildAccountManagerStoragePath: StoragePath
 
     pub resource ChildAccountManager {
-        pub let childAccounts: @{Address: ChildAccountHandle}
+        pub let childAccounts: @{Address: ChildAccountAdmin}
 
         init() {
             self.childAccounts <-{}
         }
 
-        /// Add a ChildAccountHandle to this manager resource
-        pub fun addChildAccount(handle: @ChildAccountHandle) {
+        /// Add a ChildAccountAdmin to this manager resource
+        pub fun addChildAccount(handle: @ChildAccountAdmin) {
             pre {
                 !self.childAccounts.containsKey(handle.address):
                     "Child account with given address already exists!"
@@ -22,8 +31,8 @@ pub contract ChildAccount {
             self.childAccounts[addr] <-! handle
         }
 
-        /// Remove ChildAccountHandle, returning if it exists
-        pub fun removeChildAccountHandle(withAddress: Address): @ChildAccountHandle? {
+        /// Remove ChildAccountAdmin, returning if it exists
+        pub fun removeChildAccountAdmin(withAddress: Address): @ChildAccountAdmin? {
             return <-self.childAccounts.remove(key: withAddress)
         }
 
@@ -35,7 +44,7 @@ pub contract ChildAccount {
         }
     }
 
-    pub resource ChildAccountHandle {
+    pub resource ChildAccountAdmin {
         pub let address: Address
 
         init(address: Address) {
@@ -78,7 +87,7 @@ pub contract ChildAccount {
         
         newAccount.save(signer.address, to: /storage/MainAccountAddress)
 
-        managerRef.addChildAccount(handle: <-create ChildAccountHandle(address: newAccount.address))
+        managerRef.addChildAccount(handle: <-create ChildAccountAdmin(address: newAccount.address))
     }
 
     pub fun createChildAccountManager(): @ChildAccountManager {
