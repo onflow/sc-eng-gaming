@@ -119,19 +119,17 @@ pub contract GamingMetadataViews {
     ///
     pub resource interface Attachable {
         access(contract) let attachments: @{Type: AnyResource{Attachment}}
-        pub fun addAttachment(_ attachment: @AnyResource{Attachment}) {
-            pre {
-                attachment.attachmentFor == self.getType():
-                    "Attempting to add attachment not designed for this resource"
-            }
-        }
+        pub fun addAttachment(_ attachment: @AnyResource{Attachment}) 
+        pub fun hasAttachmentType(_ type: Type): Bool
+        pub fun getAttachmentRef(_ type: Type): auth &AnyResource?
+        pub fun getAttachmentTypes(): [Type]
     }
 
     /// An interface for a resource defining the Type that an attachment is
     /// designed to be attached to
     ///
     pub resource interface Attachment {
-        pub let attachmentFor: Type
+        pub let attachmentFor: [Type]
     }
 
     /// A resource interface defining an attachment representative of a simple

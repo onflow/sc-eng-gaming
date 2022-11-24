@@ -38,16 +38,10 @@ pub contract GamePieceNFT: NonFungibleToken {
 
     /** --- NFT --- */
 
-    pub resource interface NFTPublic {
-        pub fun hasAttachmentType(_ type: Type): Bool
-        pub fun getAttachmentRef(_ type: Type): auth &AnyResource?
-        pub fun getAttachmentTypes(): [Type]
-    }
-
     /// The definition of the GamePieceNFT.NFT resource, an NFT designed to be used for gameplay with
     /// attributes relevant to win/loss histories and basic gameplay moves
     ///
-    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, NFTPublic, GamingMetadataViews.Attachable {
+    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, GamingMetadataViews.Attachable {
         pub let id: UInt64
         /// Mapping of generic attached resource indexed by their type
         access(contract) let attachments: @{Type: AnyResource{GamingMetadataViews.Attachment}}
@@ -94,6 +88,17 @@ pub contract GamePieceNFT: NonFungibleToken {
                 !self.hasAttachmentType(attachment.getType()):
                     "NFT already contains attachment of this type!"
             }
+            var attachable = false
+            for type in attachment.attachmentFor {
+                if self.getType() == type || self.getType().isSubtype(of: type) {
+                    attachable = true
+                    break
+                }
+            }
+            assert(
+                attachable == true,
+                message: "Cannot attach given attachment - not designed to be attached to this NFT!"
+            )
             self.attachments[attachment.getType()] <-! attachment
         }
 
@@ -226,18 +231,6 @@ pub contract GamePieceNFT: NonFungibleToken {
         destroy() {
             destroy self.ownedNFTs
         }
-    }
-
-    /** --- NFT Escrow --- */
-    ///
-    /// A resource interface supporting escrow of NFTs along with the
-    /// Receiver of the escrowing user
-    ///
-    pub resource interface NFTEscrow {
-        pub let escrowedGamePieceNFTs: @{UInt64: NFT}
-        pub let nftReceivers: {UInt64: Capability<&{NonFungibleToken.Receiver}>}
-
-        pub fun escrowNFT(nft: @NFT, receiverCap: Capability<&{NonFungibleToken.Receiver}>)
     }
 
     /// Public function that anyone can call to create a new empty collection
