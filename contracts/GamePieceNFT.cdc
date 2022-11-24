@@ -89,16 +89,21 @@ pub contract GamePieceNFT: NonFungibleToken {
                     "NFT already contains attachment of this type!"
             }
             var attachable = false
+            // Iterate over array of types the attachment is designed to be attached to
             for type in attachment.attachmentFor {
-                if self.getType() == type || self.getType().isSubtype(of: type) {
+                // Assign attachable to true and break if this type or an interface it
+                // implements is found
+                if self.getType().isSubtype(of: type) {
                     attachable = true
                     break
                 }
             }
+            // Assert that attachable is true
             assert(
                 attachable == true,
                 message: "Cannot attach given attachment - not designed to be attached to this NFT!"
             )
+            // Given the conditions have been satisfied, attach
             self.attachments[attachment.getType()] <-! attachment
         }
 
