@@ -75,14 +75,14 @@ pub contract ChildAccount {
         )
 
         //Add some initial funds to the new account, pulled from the signing account.  Amount determined by initialFundingAmount
-        newAccount.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)!
+        newAccount.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
             .borrow()!
             .deposit(
                 from: <- signer.borrow<&{
                     FungibleToken.Provider
                 }>(
                     from: /storage/flowTokenVault
-                )!.withdraw(amount: 0.0)
+                )!.withdraw(amount: initialFundingAmount)
             )
         
         newAccount.save(signer.address, to: /storage/MainAccountAddress)
