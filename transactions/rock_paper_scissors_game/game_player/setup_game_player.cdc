@@ -14,11 +14,6 @@ transaction {
         if acct.borrow<&{RockPaperScissorsGame.GamePlayerPublic}>(from: RockPaperScissorsGame.GamePlayerStoragePath) != nil {
             return
         }
-        let providerCap = acct.getCapability<
-                &{NonFungibleToken.Provider
-            }>(
-                GamePieceNFT.ProviderPrivatePath
-            )
         // Create GamePlayer resource
         let gamePlayer <- RockPaperScissorsGame.createGamePlayer()
         // Save it

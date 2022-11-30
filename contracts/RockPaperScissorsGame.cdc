@@ -40,9 +40,6 @@ pub contract RockPaperScissorsGame {
     /// Set base path as strings - will be concatenated with matchID they apply to
     pub let MatchStorageBasePathString: String
     pub let MatchPrivateBasePathString: String
-    /// Canonical paths for RPSWinLossRetriever resource
-    pub let RPSWinLossRetrieverStoragePath: StoragePath
-    pub let RPSWinLossRetrieverPrivatePath: PrivatePath
 
     /// Name of the game
     pub let name: String
@@ -134,7 +131,7 @@ pub contract RockPaperScissorsGame {
         }
     }
 
-    /** --- AssignedMovesAttachment --- */
+    /** --- RPSAssignedMoves --- */
     /// Resource designed to store & manage game moves
     ///
     pub resource AssignedMovesAttachment : DynamicNFT.Attachment, GamingMetadataViews.AssignedMoves {
@@ -315,7 +312,7 @@ pub contract RockPaperScissorsGame {
             }
 
             // See if the NFT has moves for this game
-            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.AssignedMovesAttachment>()) {
+            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.RPSAssignedMoves>()) {
                 // Add the AssignedMoves attachment to the NFT
                 let moves <- create RockPaperScissorsGame.AssignedMovesAttachment(
                         seedMoves: self.allowedMoves,
@@ -420,12 +417,12 @@ pub contract RockPaperScissorsGame {
             if let nftRef = &self.escrowedNFTs[playerNFTID] as &{NonFungibleToken.INFT, DynamicNFT.Dynamic}? {
                 // Get a reference to the NFT's AssignedMoves attachment
                 if let attachmentRef = nftRef.getAttachmentRef(
-                        Type<@RockPaperScissorsGame.AssignedMovesAttachment>()
+                        Type<@RockPaperScissorsGame.RPSAssignedMoves>()
                     ) {
-                    let assignedMovesRef = attachmentRef as! &RockPaperScissorsGame.AssignedMovesAttachment
+                    let assignedMovesRef = attachmentRef as! &RockPaperScissorsGame.RPSAssignedMoves
                     return assignedMovesRef.moves as! [Moves]
                 }
-                panic("NFT does not have AssignedMovesAttachment!")
+                panic("NFT does not have RPSAssignedMoves!")
             }
             panic("Could not get reference to player's NFT!")
         }
@@ -449,18 +446,24 @@ pub contract RockPaperScissorsGame {
                 self.escrowedNFTs.length == self.escrowCapacity:
                     "Both players must escrow NFTs before play begins!"
                 self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id) ||
-                gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id:
+                (
+                    gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id &&
+                    !self.isMultiPlayer
+                ):
                     "Player is not associated with this Match!"
                 gamePlayerIDRef.id != RockPaperScissorsGame.automatedGamePlayer.id ||
-                (gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id &&
-                self.submittedMoves.length == 1 && !self.isMultiPlayer):
-                    "Player must submit move before automated player in single player mode!"
+                (
+                    gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id &&
+                    self.submittedMoves.length == 1 &&
+                    !self.isMultiPlayer
+                ):
+                    "Player must submit move before automated player in single-player mode!"
+                !self.submittedMoves.keys.contains(RockPaperScissorsGame.automatedGamePlayer.id):
+                    "Player cannot submit move after automated player!"
                 !self.submittedMoves.keys.contains(gamePlayerIDRef.id):
                     "Player has already submitted move for this Match!"
                 self.submittedMoves.length < 2:
                     "Both moves have already been submitted for this Match!"
-                !self.submittedMoves.keys.contains(RockPaperScissorsGame.automatedGamePlayer.id):
-                    "Player must submit their move before the automated player!"
                 gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id ||
                 self.getNFTGameMoves(forPlayerID: gamePlayerIDRef.id).contains(move):
                     "Player's NFT does not have the submitted move available to play!"
@@ -474,7 +477,7 @@ pub contract RockPaperScissorsGame {
             if gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id {
                 assert(
                     getCurrentBlock().height > self.submittedMoves[self.submittedMoves.keys[0]]!.submittedHeight,
-                    message: "Too soon to submit"
+                    message: "Too soon after player's move to submit automated player's move"
                 )
             }
 
@@ -1114,8 +1117,6 @@ pub contract RockPaperScissorsGame {
         self.GamePlayerStoragePath = /storage/RockPaperScissorsGamePlayer
         self.GamePlayerPublicPath = /public/RockPaperScissorsGamePlayer
         self.GamePlayerPrivatePath = /private/RockPaperScissorsGamePlayer
-        self.RPSWinLossRetrieverStoragePath = /storage/RPSWinLossRetriever
-        self.RPSWinLossRetrieverPrivatePath = /private/RPSWinLossRetriever
         // Assign base paths for later concatenation
         self.MatchStorageBasePathString = "Match"
         self.MatchPrivateBasePathString = "Match"

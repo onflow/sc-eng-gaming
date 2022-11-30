@@ -116,34 +116,53 @@ ___
 
 With the context and components explained, we can more closely examine how they interact in a full user interaction. For simplicity, we'll assume everything goes as it's designed and walk the happy path.
 
-1. Enable `GamePieceNFT` minting
-1. Enable `GamePieceNFT` game name registration
-1. Register `RockPaperScissorsGame.name` with `GamePieceNFT`
-    1. Get `RockPaperScissorsGame` contract account some `ExampleToken`
-    1. Register `RockPaperScissorsGame` with `GamePieceNFT`, passing along the registration fee in `ExampleToken` denomination
 1. User onboarding in a single transaction - `onboard_player.cdc`
     1. Setup `GamePieceNFT.Collection` & link Capabilities
-    1. Mint `GamePieceNFT.NFT`
+    1. Mint `GamePieceNFT.NFT` to player's Collection
+        1. `MintedNFT` and `Deposit` events emitted
     1. Setup `RockPlayerScissorsGame.GamePlayer` & link Capabilities
-1. Gameplay
-    1. Player one creates a new match, escrowing their NFT and adding Player two
-        1. Game moves are added to their NFT if they don't currently exists
+1. Single-Player Gameplay
+    1. Player creates a new match, escrowing their NFT along with their NFT `Receiver`, emitting `NewMatchCreated` and `PlayerEscrowedNFTToMatch`
+        1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
+        1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
+    1. Player submits their move
+        1. `MoveSubmitted` event is emitted with relevant `matchID` and `submittingGamePlayerID`
+    1. In a separate transaction, player calls `submitAutomatedPlayerMove()`
+        1. `MoveSubmitted` event is emitted with relevant `matchID` and `submittingGamePlayerID`
+    1. A winner is determined
+        1. The win/loss record is recorded for the player's NFT
+        1. The win/loss record is recorded for the designated `dummyNFTID`
+        1. The escrowed NFT is returned to the escrowing player
+        1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, `winningNFTID` and `returnedNFTIDs`
+1. Multi-Player Gameplay
+    1. Player one creates a new match, escrowing their NFT
+        1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
+        1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
+    1. Player one adds `MatchLobbyActions` Capability to Player two's `GamePlayerPublic`
+        1. Player one gets `GamePlayerPublic` Capability from Player two
+        1. Player one calls `addPlayerToMatch()` on their `GamePlayer`, passing the `matchID` and the reference to Player two's `GamePlayerPublic`
+        1. `PlayerAddedToMatch` emitted along with matchID and the `id` of the `GamePlayer` added to the Match
     1. Player two escrows their NFT into the match
-        1. Game moves are added to their NFT if they don't currently exists
+        1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
+        1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
     1. Each player submits their move
         1. A winner is determined
         1. The win/loss records are recorded for each NFT
         1. Each NFT is returned to their respective owners
+        1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, `winningNFTID` and `returnedNFTIDs`
 
 ## TODO - Transaction Diagrams
 
 Below you'll find diagrams that visualize the flow between all components for each major game-related transaction.
 
-### `setup_game_admin` and `setup_game_player`
-![Setup GameAdmin and Setup_GamePlayer](/images/rps_setup_game_admin_and_game_player.png)
+### `onboard_player`
+![Onboard player with GamePieceNFT Collection & NFT](/images/rps_onboard_player.png)
 
-### `game_admin_setup_new_match`
-![GameAdmin setup new Match](/images/rps_game_admin_setup_new_match.png)
+### `setup_new_singleplayer_match`
+![GameAdmin setup new Match](/images/rps_setup_new_singleplayer_match.png)
+
+### `setup_new_multiplayer_match`
+![GameAdmin setup new Match](/images/rps_setup_new_singleplayer_match.png)
 
 ### `game_player_escrow_nft`
 ![GamePlayer escrow GamePieceNFT](/images/rps_game_player_escrow_nft.png)
@@ -170,51 +189,73 @@ ___
 
 To demo the functionality of this repo, clone it and follow the steps below by entering each command using [Flow CLI](https://github.com/onflow/flow-cli) from the package root:
 
-1. Create player accounts
+### Single-player
+
+Let's start with demonstrating single-player gameplay:
+
+1. Create account - account name: p1
 ```
 flow accounts create
 ```
-account names:
 
-    * player-one
-    * player-two
-
-1. Setup users' accounts
-    
-    1. Onboard users with GamePieceNFT Collection, NFT, and GamePlayer
-    ```
-    flow transactions send ./transactions/onboarding/onboard_player.cdc --signer player-one
-    ```
-    ```
-    flow transactions send ./transactions/onboarding/onboard_player.cdc --signer player-two
-    ```
+1. Onboard user
+```
+flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p1
+```
 
 1. Init gameplay...
 
-    1. Create new Match & add second player to Match
+    1. Create new Match
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_multiplayer_match.cdc 31 179b6b1cb6755e31 10 --signer player-one
-    ```
-    1. Escrow second player's NFT
-    ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/escrow_nft.cdc 36 34 --signer player-two
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc 28 10 --signer p1
     ```
     1. Submit moves
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 36 0 --signer player-one
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 30 0 --signer p1
     ```
+    1. Submit automated player moves
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 36 2 --signer player-two
+    flow transactions send transactions/rock_paper_scissors_game/submit_automated_player_move.cdc 30
+    ```
+    1. Check Win/Loss record
+    ```
+    flow scripts execute scripts/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
     ```
 
-1. Check Win/Loss record for each NFT
-```
-flow scripts execute ./scripts/get_rps_win_loss.cdc 01cf0e2f2f715450 31
-```
-```
-flow scripts execute ./scripts/get_rps_win_loss.cdc 179b6b1cb6755e31 34
-```
+### Multi-player
 
-___
+Now that we've seen single-player gameplay, let's see what multi-player looks like:
 
- 
+1. Create two accounts - account name: p2
+```
+flow accounts create
+```
+1. Onboard user
+```
+flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p2
+```
+1. Init gameplay...
+
+    1. Create new Match
+    ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_multiplayer_match.cdc 28 0x179b6b1cb6755e31 10 --signer p1
+    ```
+    1. Escrow second player's NFT
+    ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/escrow_nft.cdc 39 37 --signer p2
+    ```
+    1. Submit moves
+    ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 0 --signer p1
+    ```
+    ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 1 --signer p2
+    ```
+1. Check Win/Loss record
+    ```
+    flow scripts execute scripts/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
+    ```
+    1. Check Win/Loss record
+    ```
+    flow scripts execute scripts/get_rps_win_loss.cdc 179b6b1cb6755e31 37
+    ```
