@@ -11,6 +11,8 @@ pub contract ChildAccount {
     //
     // Child account per game per device - tied to physical location of where keys are stored
     //
+    // Question - how do we use the child account once the parent account has been given key access?
+    //
     // Offer quick utility to bulk move assets between child
     pub let ChildAccountManagerStoragePath: StoragePath
 
@@ -22,13 +24,63 @@ pub contract ChildAccount {
         }
 
         /// Add a ChildAccountAdmin to this manager resource
-        pub fun addChildAccount(handle: @ChildAccountAdmin) {
+        pub fun addAsChildAccount(newAccount: AuthAccount) {
             pre {
-                !self.childAccounts.containsKey(handle.address):
+                !self.childAccounts.containsKey(newAccount.address):
                     "Child account with given address already exists!"
             }
-            let addr = handle.address
-            self.childAccounts[addr] <-! handle
+            newAccount.keys.add(
+                publicKey: self.owner!.keys.get(keyIndex: 0)!.publicKey,
+                hashAlgorithm: HashAlgorithm.SHA3_256,
+                weight: 1000.0
+            )
+            let admin <-create ChildAccountAdmin(address: newAccount.address)
+            self.childAccounts[newAccount.address] <-! admin
+        }
+
+        pub fun createChildAccount(
+            signer: AuthAccount,
+            publicKey: String,
+            initialFundingAmount: UFix64
+        ) {
+            // Create a public key for the proxy account from the passed in string
+            let key = PublicKey(
+                publicKey: publicKey.decodeHex(),
+                signatureAlgorithm: SignatureAlgorithm.ECDSA_P256
+            )
+            
+            // Create the proxy account
+            let newAccount = AuthAccount(payer: signer)
+            
+            //Add the key to the new account
+            newAccount.keys.add(
+                publicKey: key,
+                hashAlgorithm: HashAlgorithm.SHA3_256,
+                weight: 1000.0
+            )
+
+            // Add the signer's public key to the new account 
+            newAccount.keys.add(
+                publicKey: signer.keys.get(keyIndex: 0)!.publicKey,
+                hashAlgorithm: HashAlgorithm.SHA3_256,
+                weight: 1000.0
+            )
+
+            // Add some initial funds to the new account, pulled from the signing account.  Amount determined by initialFundingAmount
+            newAccount.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+                .borrow()!
+                .deposit(
+                    from: <- signer.borrow<&{
+                        FungibleToken.Provider
+                    }>(
+                        from: /storage/flowTokenVault
+                    )!.withdraw(amount: initialFundingAmount)
+                )
+            
+            newAccount.save(signer.address, to: /storage/MainAccountAddress)
+
+            let admin <-create ChildAccountAdmin(address: newAccount.address)
+            self.childAccounts[newAccount.address] <-! admin
         }
 
         /// Remove ChildAccountAdmin, returning if it exists
@@ -50,44 +102,6 @@ pub contract ChildAccount {
         init(address: Address) {
             self.address = address
         }
-    }
-
-    pub fun createChildAccount(
-        signer: AuthAccount,
-        managerRef: &ChildAccountManager,
-        publicKey: String,
-        initialFundingAmount: UFix64
-    ) {
-        //Create a public key for the proxy account from the passed in string
-        let key = PublicKey(
-            publicKey: publicKey.decodeHex(),
-            signatureAlgorithm: SignatureAlgorithm.ECDSA_P256
-        )
-        
-        //Create the proxy account
-        let newAccount = AuthAccount(payer: signer)
-        
-        //Add the key to the new account
-        newAccount.keys.add(
-            publicKey: key,
-            hashAlgorithm: HashAlgorithm.SHA3_256,
-            weight: 1000.0
-        )
-
-        //Add some initial funds to the new account, pulled from the signing account.  Amount determined by initialFundingAmount
-        newAccount.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
-            .borrow()!
-            .deposit(
-                from: <- signer.borrow<&{
-                    FungibleToken.Provider
-                }>(
-                    from: /storage/flowTokenVault
-                )!.withdraw(amount: initialFundingAmount)
-            )
-        
-        newAccount.save(signer.address, to: /storage/MainAccountAddress)
-
-        managerRef.addChildAccount(handle: <-create ChildAccountAdmin(address: newAccount.address))
     }
 
     pub fun createChildAccountManager(): @ChildAccountManager {

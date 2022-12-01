@@ -240,6 +240,7 @@ flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p2
     ```
     flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_multiplayer_match.cdc 28 0x179b6b1cb6755e31 10 --signer p1
     ```
+<<<<<<< HEAD
     1. Escrow second player's NFT
     ```
     flow transactions send ./transactions/rock_paper_scissors_game/game_player/escrow_nft.cdc 39 37 --signer p2
@@ -259,3 +260,62 @@ flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p2
     ```
     flow scripts execute scripts/get_rps_win_loss.cdc 179b6b1cb6755e31 37
     ```
+=======
+
+    1. Mint Flow to the new account
+    ```
+    flow transactions send ./transactions/flowToken/mint_tokens.cdc 01cf0e2f2f715450 100.0
+    ```
+
+    1. Setup a `ChildAccountManager` in the parent account
+    ```
+    flow transactions send ./transactions/child_account/create_child_account_manager.cdc --signer parent
+    ```
+
+    1. Generate a public, private key pair - you'll want to copy the generated public key
+    ```
+    flow keys generate
+    ```
+
+    1. Create the child account, passing the generated public key as an argument along with the initial funding amount
+    ```
+    flow transactions send ./transaction/child_account/create_child_account.cdc <PUBLIC_KEY> 10.0 --signer parent
+    ```
+
+    1. The child account will then be created. You can add this account to the `flow.json`. Be sure to find the child address in the emitted events and input the previously generated private key under the account's `key` attribute in the `flow.json`. The lines added to your config should look something like this:
+    ```
+    "child": {
+        "address": "0x179b6b1cb6755e31",
+        "key": "{GENERATED_PRIVATE_KEY}"
+    }
+    ```
+
+    1. Onboard user, signing with the newly created child account as this is the account a game client would be using to interact with the game contracts on behalf of the user.
+    ```
+    flow transactions send ./transactions/onboarding/onboard_player.cdc --signer child
+    ```
+
+    1. Init gameplay...
+
+        1. Create new Match
+        ```
+        flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc 28 10 --signer child
+        ```
+        1. Submit moves
+        ```
+        flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 30 0 --signer child
+        ```
+        1. Submit automated player moves
+        ```
+        transactions/rock_paper_scissors_game/submit_automated_player_move.cdc 30
+        ```
+        1. Check Win/Loss record
+        ```
+        flow scripts execute scripts/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
+        ```
+    
+    1. Transfer assets from child account to parent account, signing with parent account
+    ```
+    flow transactions send ./transactions/child_account/transfer_assets_to_parent.cdc --signer parent
+    ```
+>>>>>>> 1d4ead9 (Move createChildAccount() from contract to ChildAccountManager. Update child_account txns)
