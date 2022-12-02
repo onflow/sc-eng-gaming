@@ -2,6 +2,7 @@ import FungibleToken from "./utility/FungibleToken.cdc"
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 import MetadataViews from "./utility/MetadataViews.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
+import DynamicNFT from "./DynamicNFT.cdc"
 
 /// GamePieceNFT
 ///
@@ -36,54 +37,26 @@ pub contract GamePieceNFT: NonFungibleToken {
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
 
-    /** --- NFT --- */
+
 
     /// The definition of the GamePieceNFT.NFT resource, an NFT designed to be used for gameplay with
     /// attributes relevant to win/loss histories and basic gameplay moves
     ///
-    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, GamingMetadataViews.Attachable {
+    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, DynamicNFT.Dynamic {
         pub let id: UInt64
         /// Mapping of generic attached resource indexed by their type
-        access(contract) let attachments: @{Type: AnyResource{GamingMetadataViews.Attachment}}
+        access(contract) let attachments: @{Type: AnyResource{DynamicNFT.Attachment}}
 
         init() {
             self.id = self.uuid
             self.attachments <- {}
         }
 
-        /// Function revealing whether NFT has an attachment of the given Type
-        ///
-        /// @param type: The type in question
-        ///
-        /// @return true if NFT has given Type attached and false otherwise
-        ///
-        pub fun hasAttachmentType(_ type: Type): Bool {
-            return self.attachments.containsKey(type)
-        }
-
-        /// Returns a reference to the attachment of the given Type
-        ///
-        /// @param type: Type of the desired attachment reference
-        ///
-        /// @return generice auth reference ready for downcasting
-        ///
-        pub fun getAttachmentRef(_ type: Type): auth &AnyResource? {
-            return &self.attachments[type] as auth &AnyResource?
-        }
-
-        /// Getter method for array of types attached to this NFT
-        ///
-        /// @return array of attached Types
-        ///
-        pub fun getAttachmentTypes(): [Type] {
-            return self.attachments.keys
-        }
-
         /// Method allowing an attachment to be added by a party registered to add the given type
         ///
         /// @param attachment: the resource to be attached
         ///
-        pub fun addAttachment(_ attachment: @AnyResource{GamingMetadataViews.Attachment}) {
+        pub fun addAttachment(_ attachment: @{DynamicNFT.Attachment}) {
             pre {
                 !self.hasAttachmentType(attachment.getType()):
                     "NFT already contains attachment of this type!"
@@ -112,11 +85,11 @@ pub contract GamePieceNFT: NonFungibleToken {
         ///
         /// @return the resource that was removed from attachments
         ///
-        access(contract) fun removeAttachment(type: Type): @AnyResource {
+        access(contract) fun removeAttachment(type: Type): @{DynamicNFT.Attachment} {
             pre {
                 self.hasAttachmentType(type): "NFT does not have attachment of given type: ".concat(type.identifier)
             }
-            return <-self.attachments.remove(key: type)
+            return <-self.attachments.remove(key: type)!
         }
 
         /// Retrieve relevant GameMetadataViews
@@ -163,7 +136,7 @@ pub contract GamePieceNFT: NonFungibleToken {
                     "Cannot borrow GamePieceNFT reference: the ID of the returned reference is incorrect"
             }
         }
-        pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver}
+        pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver}
     }
 
     pub resource Collection : GamePieceNFTCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
