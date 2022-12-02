@@ -4,7 +4,7 @@ import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 
-transaction() {
+transaction {
 
     prepare(signer: AuthAccount) {
         

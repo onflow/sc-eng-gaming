@@ -1,6 +1,6 @@
 # Rock Paper Scissors (Mostly) On-Chain
 
-**TODO - transaction diagrams & single player submit move**
+**TODO - transaction diagrams & image URL on NFT**
 
 We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
 
@@ -185,7 +185,7 @@ Since this Capability is linked on the game contract account which shouldn’t n
 In this edge case, the `Receiver` Capability provided upon escrowing would no longer be linked to the depositing player’s `Collection`. Such an edge case is not handled in this version of the game, but should be considered to avoid permanent loss of their `NFT` should this situation occur.
 ___
 
-## Demo Using Flow CLI
+## Demo on Emulator Using Flow CLI
 
 To demo the functionality of this repo, clone it and follow the steps below by entering each command using [Flow CLI](https://github.com/onflow/flow-cli) from the package root:
 
@@ -267,55 +267,98 @@ flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p2
     flow transactions send ./transactions/flowToken/mint_tokens.cdc 01cf0e2f2f715450 100.0
     ```
 
-    1. Setup a `ChildAccountManager` in the parent account
-    ```
-    flow transactions send ./transactions/child_account/create_child_account_manager.cdc --signer parent
-    ```
-
     1. Generate a public, private key pair - you'll want to copy the generated public key
     ```
     flow keys generate
     ```
 
-    1. Create the child account, passing the generated public key as an argument along with the initial funding amount
+    1. Onboard the new user with a `GamePieceNFT.Collection` & `ChildAccount.ChildAccountManager` with a child account, passing the generated public key & initial funding amount we'll pass from the parent to the child account.
     ```
-    flow transactions send ./transaction/child_account/create_child_account.cdc <PUBLIC_KEY> 10.0 --signer parent
-    ```
-
-    1. The child account will then be created. You can add this account to the `flow.json`. Be sure to find the child address in the emitted events and input the previously generated private key under the account's `key` attribute in the `flow.json`. The lines added to your config should look something like this:
-    ```
-    "child": {
-        "address": "0x179b6b1cb6755e31",
-        "key": "{GENERATED_PRIVATE_KEY}"
-    }
+    flow transactions send ./transactions/onboarding/onboard_new_user.cdc <PUBLIC_KEY> 10.0 --signer parent-main
     ```
 
-    1. Onboard user, signing with the newly created child account as this is the account a game client would be using to interact with the game contracts on behalf of the user.
+    1. The child account will then be created. You will want to add this account to your `flow.json` in [advanced format](https://developers.flow.com/tools/flow-cli/configuration#advanced-format-1). Be sure to find the child address (likely `0x179b6b1cb6755e31`) in the emitted events and input the previously generated private key under the account's `privateKey` attribute in the `flow.json`. You will also want to add an alias for the `parent-main` account's private key since that account also has key access to the newly created `child` account. The `accounts` attribute in your `flow.json` should look like this:
+    ```
+    "accounts": {
+		"emulator-account": {
+			"address": "f8d6e0586b0a20c7",
+			"key": "<EMULATOR_ACCOUNT_PRIVATE_KEY>"
+		},
+		"parent-main": {
+			"address": "01cf0e2f2f715450",
+			"key": "<PARENT_MAIN_PRIVATE_KEY>"
+		},
+		"child": {
+			"address": "0x179b6b1cb6755e31",
+			"key": {
+				"type": "hex",
+				"index": 0,
+				"signatureAlgorithm": "ECDSA_P256",
+				"hashAlgorithm": "SHA3_256",
+				"privateKey": "7a6ec48770fa674713d10b244c1d4ba14aa13b269aa1b6bf3e110f827168f107"
+			}
+		},
+		"parent-child": {
+			"address": "0x179b6b1cb6755e31",
+			"key": {
+				"type": "hex",
+				"index": 1,
+				"signatureAlgorithm": "ECDSA_P256",
+				"hashAlgorithm": "SHA3_256",
+				"privateKey": "<PARENT_MAIN_PRIVATE_KEY>"
+			}
+		}
+	}
+    ```
+
+    1. Onboard the child account, as this is the account a game client would be using to interact with the game contracts on behalf of the user. This will give the child account a `GamePieceNFT.Collection` & `NFT` as well as a `RockPaperScissorsGame.GamePlayer` so they can interact with the game via their child account. While these assets will reside in the child account, the user can transfer them to their parent account at any point (we'll cover that later).
     ```
     flow transactions send ./transactions/onboarding/onboard_player.cdc --signer child
     ```
 
-    1. Init gameplay...
+    1. Now let's play a single-player match, using the child account as a game client would...
 
         1. Create new Match
         ```
-        flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc 28 10 --signer child
+        flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc 37 10 --signer child
         ```
         1. Submit moves
         ```
-        flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 30 0 --signer child
+        flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 0 --signer child
         ```
         1. Submit automated player moves
         ```
-        transactions/rock_paper_scissors_game/submit_automated_player_move.cdc 30
+        flow transactions send transactions/rock_paper_scissors_game/submit_automated_player_move.cdc 39
         ```
         1. Check Win/Loss record
         ```
-        flow scripts execute scripts/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
+        flow scripts execute scripts/get_rps_win_loss.cdc 0x179b6b1cb6755e31 37
         ```
-    
-    1. Transfer assets from child account to parent account, signing with parent account
+
+    1. Next we'll transfer assets from child account to parent account, signing with parent account
+        
+        1. To do this, we'll need to construct a [complex transaction](https://developers.flow.com/tools/flow-cli/complex-transactions). Let's start by building our transaction & saving the payload.
+        ```
+        flow transactions build ./transactions/child_account/parent_claims_player_and_all_nfts.cdc --proposer parent-main --payer parent-main --authorizer parent-main --authorizer parent-child --filter payload --save parent_claims_player_and_all_nfts
+        ```
+
+        1. Then, we'll sign the transaction. Even though the `parent-main` account's single private key gives it access to both its account and the `child` account, we'll need to sign twice. That's because the chain doesn't care about accounts, it just wants to know that it got the right signature for the address to access the account. We do this by signing first with our `parent-main` and secondly with our `parent-child`. Looking back at the `flow.json` you'll see that both aliases have the same address, but the addresses they map to and their relative indexes tell `flow-cli` where to get the necessary signatures. This is not relevant to the demo, but helpful to know for these sorts of key setups. Let's finally sign that transaction...
+        ```
+        flow transactions sign parent_claims_player_and_all_nfts --signer parent-main --signer parent-child --filter payload --save parent_claims_player_and_all_nfts
+        ```
+
+        1. Now we can finally send the built & signed transaction
+        ```
+        flow transactions send-signed parent_claims_player_and_all_nfts
+        ```
+
+    1. And lastly, we'll get the win/loss record from the transferred NFT to show that the record stays with the NFT
     ```
+<<<<<<< HEAD
     flow transactions send ./transactions/child_account/transfer_assets_to_parent.cdc --signer parent
     ```
 >>>>>>> 1d4ead9 (Move createChildAccount() from contract to ChildAccountManager. Update child_account txns)
+=======
+    flow scripts execute scripts/get_rps_win_loss.cdc 01cf0e2f2f715450 37
+    ```
+>>>>>>> a527f78 (Update README w/ child account demo; create new onboarding & child acct txns)
