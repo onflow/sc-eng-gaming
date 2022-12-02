@@ -20,7 +20,7 @@ pub fun main(address: Address, id: UInt64): GamingMetadataViews.BasicWinLoss? {
             // Cast returned AnyResource as RPSWinLossRetriever & return the 
             // BasicWinLoss value for given NFT
             let retrieverRef = attachmentRef as! &RockPaperScissorsGame.RPSWinLossRetriever
-            return retrieverRef.getWinLossData(nftID: id)
+            return retrieverRef.getWinLossData()
         }
     }
 

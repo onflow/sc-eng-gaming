@@ -8,20 +8,31 @@ import MetadataViews from "./utility/MetadataViews.cdc"
 /// 
 pub contract GamingMetadataViews {
 
-    /// Interface that should be implemented by game contracts
-    /// which returns BasicWinLoss data of given NFT.id
-    /// The implementing resource expose a capability which
-    /// is added to the escrowed NFT so that the BasicWinloss
-    /// stored on the game contract can be retrieved by the NFT
+    /// A struct defining metadata relevant to a game
     ///
-    pub resource interface BasicWinLossRetriever {
+    pub struct GameContractMetadata {
+        pub let name: String
+        pub let description: String
+        pub let icon: AnyStruct{MetadataViews.File}
+        pub let thumbnail: AnyStruct{MetadataViews.File}
+        pub let contractAddress: Address
+        pub let externalURL: MetadataViews.ExternalURL
         
-        /// Retrieves the BasicWinLoss for a given NFT
-        ///
-        /// @param nftID: The id of the NFT the caller is attempting to
-        /// retrieve a BasicWinLoss for
-        ///
-        pub fun getWinLossData(nftID: UInt64): BasicWinLoss?
+        init(
+            name: String,
+            description: String,
+            icon: AnyStruct{MetadataViews.File},
+            thumbnail: AnyStruct{MetadataViews.File},
+            contractAddress: Address,
+            externalURL: MetadataViews.ExternalURL
+        ) {
+            self.name = name
+            self.description = description
+            self.icon = icon
+            self.thumbnail = thumbnail
+            self.contractAddress = contractAddress
+            self.externalURL = externalURL
+        }
     }
 
     /// Struct that contains attributes and methods relevant to win/loss/tie
@@ -84,52 +95,32 @@ pub contract GamingMetadataViews {
             }
             self.ties = self.ties - 1
         }
-    }
 
-    /// A struct defining metadata relevant to a game
-    ///
-    pub struct GameContractMetadata {
-        pub let name: String
-        pub let description: String
-        pub let icon: AnyStruct{MetadataViews.File}
-        pub let thumbnail: AnyStruct{MetadataViews.File}
-        pub let contractAddress: Address
-        pub let externalURL: MetadataViews.ExternalURL
-        
-        init(
-            name: String,
-            description: String,
-            icon: AnyStruct{MetadataViews.File},
-            thumbnail: AnyStruct{MetadataViews.File},
-            contractAddress: Address,
-            externalURL: MetadataViews.ExternalURL
-        ) {
-            self.name = name
-            self.description = description
-            self.icon = icon
-            self.thumbnail = thumbnail
-            self.contractAddress = contractAddress
-            self.externalURL = externalURL
+        pub fun reset() {
+            self.wins = 0
+            self.losses = 0
+            self.ties = 0
         }
     }
 
-    /** --- Attachment Interfaces --- */
-
-    /// Interface defining a resource that can have attachments added to it
+    /// Interface that should be implemented by game contracts
+    /// which returns BasicWinLoss data of given NFT.id
+    /// The implementing resource expose a capability which
+    /// is added to the escrowed NFT so that the BasicWinLoss
+    /// stored on the game contract can be retrieved by the NFT
     ///
-    pub resource interface Attachable {
-        access(contract) let attachments: @{Type: AnyResource{Attachment}}
-        pub fun addAttachment(_ attachment: @AnyResource{Attachment}) 
-        pub fun hasAttachmentType(_ type: Type): Bool
-        pub fun getAttachmentRef(_ type: Type): auth &AnyResource?
-        pub fun getAttachmentTypes(): [Type]
-    }
+    pub resource interface BasicWinLossRetriever {
+        
+        /// Retrieves the BasicWinLoss for a given NFT
+        ///
+        /// @param nftID: The id of the NFT the caller is attempting to
+        /// retrieve a BasicWinLoss for
+        ///
+        pub fun getWinLossData(): BasicWinLoss?
 
-    /// An interface for a resource defining the Type that an attachment is
-    /// designed to be attached to
-    ///
-    pub resource interface Attachment {
-        pub let attachmentFor: [Type]
+        /// Allows the owner to reset the WinLoss records of the NFT where this is attached
+        ///
+        pub fun resetWinLossData()
     }
 
     /// A resource interface defining an attachment representative of a simple
