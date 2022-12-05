@@ -11,7 +11,7 @@ pub fun main(address: Address, id: UInt64): GamingMetadataViews.BasicWinLoss? {
     let collectionPublicRef = account
         .getCapability(GamePieceNFT.CollectionPublicPath)
         .borrow<&{GamePieceNFT.GamePieceNFTCollectionPublic}>()
-        ?? panic("Could not borrow a reference to the collection")
+        ?? panic("Could not borrow a reference to the collection at path: ".concat(GamePieceNFT.CollectionPublicPath.toString()))
 
     // Get the NFT reference if it exists in the reference collection
     if let nftRef: &GamePieceNFT.NFT = collectionPublicRef.borrowGamePieceNFT(id: id) {

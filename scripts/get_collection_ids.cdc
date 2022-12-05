@@ -9,7 +9,7 @@ pub fun main(address: Address): [UInt64] {
     let collectionRef = account
         .getCapability(GamePieceNFT.CollectionPublicPath)
         .borrow<&{NonFungibleToken.CollectionPublic}>()
-        ?? panic("Could not borrow capability from public collection at specified path")
+        ?? panic("Could not borrow a reference to the collection at path: ".concat(GamePieceNFT.CollectionPublicPath.toString()))
 
     return collectionRef.getIDs()
 }
