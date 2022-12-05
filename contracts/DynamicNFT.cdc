@@ -37,8 +37,8 @@ pub contract DynamicNFT {
         ///
         /// @return Generic auth reference ready for downcasting
         ///
-        pub fun getAttachmentRef(_ type: Type): auth &AnyResource? {
-            return &self.attachments[type] as auth &AnyResource?
+        pub fun getAttachmentRef(_ type: Type): auth &AnyResource{Attachment}? {
+            return &self.attachments[type] as auth &AnyResource{Attachment}?
         }
 
         /// Getter method for array of types attached to this NFT

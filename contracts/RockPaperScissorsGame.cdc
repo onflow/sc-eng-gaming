@@ -1,6 +1,6 @@
-import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 import MetadataViews from "./utility/MetadataViews.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
+import NonFungibleToken from "./utility/NonFungibleToken.cdc"
 import GamePieceNFT from "./GamePieceNFT.cdc"
 import DynamicNFT from "./DynamicNFT.cdc"
 
@@ -75,6 +75,10 @@ pub contract RockPaperScissorsGame {
     pub event MatchOver(
         gameName: String,
         matchID: UInt64,
+        player1ID: UInt64,
+        player1MoveRawValue: UInt8,
+        player2ID: UInt64,
+        player2MoveRawValue: UInt8,
         winningGamePlayer: UInt64?,
         winningNFTID: UInt64?,
         returnedNFTIDs: [UInt64]
@@ -134,7 +138,7 @@ pub contract RockPaperScissorsGame {
     /** --- RPSAssignedMoves --- */
     /// Resource designed to store & manage game moves
     ///
-    pub resource AssignedMovesAttachment : DynamicNFT.Attachment, GamingMetadataViews.AssignedMoves {
+    pub resource RPSAssignedMoves : DynamicNFT.Attachment, GamingMetadataViews.AssignedMoves {
         /// The ID of the NFT where this resource is attached
         pub let nftID: UInt64
         /// Struct containing metadata about the attachment's related game
@@ -314,7 +318,7 @@ pub contract RockPaperScissorsGame {
             // See if the NFT has moves for this game
             if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.RPSAssignedMoves>()) {
                 // Add the AssignedMoves attachment to the NFT
-                let moves <- create RockPaperScissorsGame.AssignedMovesAttachment(
+                let moves <- create RockPaperScissorsGame.RPSAssignedMoves(
                         seedMoves: self.allowedMoves,
                         nftID: nftID
                     )
@@ -352,6 +356,8 @@ pub contract RockPaperScissorsGame {
                     "Both players have already escrowed their NFTs, Match is full!"
                 self.inPlay == true:
                     "Match is over!"
+                receiver.check():
+                    "Given Receiver Capability is not valid!"
             }
             post {
                 RockPaperScissorsGame.movesEqual(
@@ -378,8 +384,29 @@ pub contract RockPaperScissorsGame {
 
             let nftID: UInt64 = nft.id
 
-            // Escrow the NFT
-            self.escrowNFT(nft: <-nft, receiverCap: receiver)
+            // Insert GamingMetadataViews.BasicWinLoss for this game
+            // Check for existing record occurs in function definition
+            RockPaperScissorsGame.insertWinLossRecord(nftID: nftID)
+
+            // Ensure the NFT has a way to retrieve win/loss data with a GamingMetadataViews.BasicWinLossRetriever attachment
+            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.RPSWinLossRetriever>()) {
+                let retriever <- create RockPaperScissorsGame.RPSWinLossRetriever(nftID: nftID)
+                nft.addAttachment(<-retriever)
+            }
+
+            // See if the NFT has moves for this game
+            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.RPSAssignedMoves>()) {
+                // Add the AssignedMoves attachment to the NFT
+                let moves <- create RockPaperScissorsGame.RPSAssignedMoves(
+                        seedMoves: self.allowedMoves,
+                        nftID: nftID
+                    )
+                nft.addAttachment(<-moves)
+            }
+
+            // Then store player's NFT & Receiver
+            self.escrowedNFTs[nftID] <-! nft
+            self.nftReceivers.insert(key: nftID, receiver)
 
             // Maintain association of this NFT with the depositing GamePlayer
             self.gamePlayerIDToNFTID.insert(key: gamePlayerIDRef.id, nftID)
@@ -531,6 +558,10 @@ pub contract RockPaperScissorsGame {
                 emit MatchOver(
                     gameName: RockPaperScissorsGame.name,
                     matchID: self.id,
+                    player1ID: self.submittedMoves[0]!.gamePlayerID,
+                    player1MoveRawValue: self.submittedMoves[0]!.move.rawValue,
+                    player2ID: self.submittedMoves[1]!.gamePlayerID,
+                    player2MoveRawValue: self.submittedMoves[1]!.move.rawValue,
                     winningGamePlayer: self.winningPlayerID,
                     winningNFTID: self.winningNFTID,
                     returnedNFTIDs: returnedNFTIDs
@@ -573,6 +604,20 @@ pub contract RockPaperScissorsGame {
             }
             // Return an array containing ids of the successfully returned NFTs
             return returnedNFTs
+        }
+
+        /** --- Match --- */
+
+        /// Retrieves the submitted moves for the Match, allowing for review of historical gameplay
+        ///
+        /// @return the mapping of GamePlayerID to SubmittedMove
+        ///
+        access(contract) fun getSubmittedMoves(): {UInt64: SubmittedMove} {
+            pre {
+                !self.inPlay:
+                    "Cannot get submitted moves until Match is complete!"
+            }
+            return self.submittedMoves
         }
         
         /// Custom destroyer to prevent destroying escrowed NFTs
@@ -945,6 +990,23 @@ pub contract RockPaperScissorsGame {
     ///
     pub fun getTotalWinLossRecords(): {UInt64: GamingMetadataViews.BasicWinLoss} {
         return self.winLossRecords
+    }
+
+    /// Getter method for historical gameplay history on a specified Match
+    ///
+    /// @param id: the Match.id for which the mapping is to be retrieved
+    ///
+    /// @return a mapping of GamePlayerID to SubmittedMove for the given Match or nil
+    /// if the Match does not exist in storage
+    ///
+    pub fun getMatchMoveHistory(id: UInt64): {UInt64: SubmittedMove}? {
+        if let matchPath = self.getMatchStoragePath(id) {
+            if let matchRef = self.account.borrow<&Match>(from: matchPath) {
+                return matchRef.getSubmittedMoves()
+            }
+            return nil
+        }
+        return nil
     }
 
     /// Allows the public to clean up Matches that are no longer necessary, 

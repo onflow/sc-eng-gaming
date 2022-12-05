@@ -11,15 +11,15 @@ pub fun main(address: Address, id: UInt64): [RockPaperScissorsGame.Moves]? {
     let collectionPublicRef = account
         .getCapability(GamePieceNFT.CollectionPublicPath)
         .borrow<&{GamePieceNFT.GamePieceNFTCollectionPublic}>()
-        ?? panic("Could not borrow a reference to the collection")
+        ?? panic("Could not borrow a reference to the collection at path: ".concat(GamePieceNFT.CollectionPublicPath.toString()))
 
     // Get the NFT reference if it exists in the reference collection
     if let nftRef: &GamePieceNFT.NFT = collectionPublicRef.borrowGamePieceNFT(id: id) {
         // Attempt to get the RPSWinLossRetriever attachment
-        if let attachmentRef = nftRef.getAttachmentRef(Type<@RockPaperScissorsGame.AssignedMoves>()) {
+        if let attachmentRef = nftRef.getAttachmentRef(Type<@RockPaperScissorsGame.RPSAssignedMoves>()) {
             // Cast returned AnyResource as RPSWinLossRetriever & return the 
             // BasicWinLoss value for given NFT
-            let retrieverRef = attachmentRef as! &RockPaperScissorsGame.AssignedMoves
+            let retrieverRef = attachmentRef as! &RockPaperScissorsGame.RPSAssignedMoves
             return retrieverRef.getMoves() as! [RockPaperScissorsGame.Moves]
         }
     }
