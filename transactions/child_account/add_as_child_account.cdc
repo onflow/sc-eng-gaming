@@ -4,17 +4,16 @@ import ChildAccount from "../../contracts/ChildAccount.cdc"
 /// ChildAccountManager resource. The parent is given key access to the child
 /// account
 ///
-transaction {
+transaction(parent: Address) {
 
-    // ?? We can do this as a multi-sig txn or create a private ChildAccountManager Cap
-    //    then give that to the child account & have them add themselves as a child account
-
-    prepare(parent: AuthAccount, child: AuthAccount) {
+    prepare(child: AuthAccount) {
         // Get a reference to the ChildAcccountManager resource
-        if let managerRef = parent
-            .borrow<&
-                ChildAccount.ChildAccountManager
-            >(from: ChildAccount.ChildAccountManagerStoragePath) {
+        if let managerRef = getAccount(parent)
+            .getCapability<
+                {&ChildAccount.ChildAccountManagerPublic}
+            >(
+                ChildAccount.ChildAccountManagerPublicPath
+            ).borrow() {
             
             // Create the child account
             managerRef.addAsChildAccount(newAccount: child)

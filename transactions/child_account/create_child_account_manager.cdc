@@ -16,6 +16,18 @@ transaction {
         // Create and save the ChildAccountManager resource
         let manager <- ChildAccount.createChildAccountManager()
         signer.save(<-manager, to: ChildAccount.ChildAccountManagerStoragePath)
+        signer.link<
+            &{ChildAccount.ChildAccountManagerPublic}
+        >(
+            ChildAccount.ChildAccountManagerPublicPath,
+            target: ChildAccount.ChildAccountManagerStoragePath
+        )
+        signer.link<
+            &{ChildAccount.ChildAccountManagerViewer}
+        >(
+            ChildAccount.ChildAccountManagerPrivatePath,
+            target: ChildAccount.ChildAccountManagerStoragePath
+        )
     }
 
 }

@@ -1,5 +1,4 @@
 import ChildAccount from "../../contracts/ChildAccount.cdc"
-import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 
 /// Creates a new account, establishing an on-chain association between the two
 /// accounts via ChildAccountManager (in the parent account) & ChildAccountAdmin
@@ -14,14 +13,7 @@ import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 /// any assets in child accounts should be considered at risk if any party other than the signer has 
 /// access to the given public key's paired private key
 ///
-transaction(
-    pubKey: String,
-    fundingAmt: UFix64,
-    childAccountName: String,
-    childAccountDescription: String,
-    clientIconURL: String,
-    clientExternalURL: String
-    ) {
+transaction(childAddress: Address) {
 
     prepare(signer: AuthAccount) {
         // Get a reference to the ChildAcccountManager resource
@@ -29,22 +21,10 @@ transaction(
             .borrow<&
                 ChildAccount.ChildAccountManager
             >(from: ChildAccount.ChildAccountManagerStoragePath) {
-
-            // Construct ChildAccountInfo struct from given arguments
-            let info = ChildAccount.ChildAccountInfo(
-                name: childAccountName,
-                description: childAccountDescription,
-                clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
-                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL)
-            )
             
-            // Create the child account
-            managerRef.createChildAccount(
-                signer: signer,
-                publicKey: pubKey,
-                initialFundingAmount: fundingAmt,
-                childAccountInfo: info
-            )
+            // Add the given Address as a pending child account, authorizing
+            // the account with the address to add itself as a child account
+            managerRef.addPendingChildAccount(address: childAddress)
         }
     }
 
