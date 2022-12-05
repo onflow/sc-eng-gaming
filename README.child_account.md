@@ -1,3 +1,5 @@
+
+
 # Rock Paper Scissors (Mostly) On-Chain
 
 **TODO - transaction diagrams & image URL on NFT**
@@ -58,11 +60,11 @@ Alternatively, you could construct an `NFT` so that the metadata would be stored
 
 As mentioned above, there can be many implementations of an `NFT` that would make it relevant for use in a game. Our `GamePieceNFT` is as minimal as possible so that it could be used in a number of simple games. Fundamentally, the `NFT` defined here serves to maintain a mechanism to retrieve the win/loss record for games in which it's been played. For a simple game like Rock, Paper, Scissors, something like the metadata defined in `GamingMetadataViews.BasicWinLoss` is sufficient. 
 
-In order for all players to trust the validity of win/loss metadata, the metadata should only be mutable by the relevant game. Given this requirement, our `NFT` was implemented as a simple example demonstrating how an `NFT` could expose certain data to be mutated by authorized parties, but not it's owners. The `WinLossViews` metadata effectively serves as a pointer to the game which the metadata refers to, allowing the game to define the access and conditions under which the metadata could be altered.
+In order for all players to trust the validity of win/loss metadata, the metadata should only be mutable by the relevant game. Given this requirement, our `NFT` was implemented as a simple example demonstrating how an `NFT` could expose certain data to be mutated by authorized parties, but not it's owners. The `WinLossViews` metadata effectively serves as a pointer to the game which the metadata refers to, allowing the game to define the access and conditions under which the metadata could be altered.
 
-Games can add their respective retrievers with `addWinLossRetriever()`, and the `NFT`'s `WinLossView` can be resolved using `resolveView()`. The simplest way to explain the storage patern of an `NFT`'s win/loss data is that the `NFT`'s `BasicWinLoss` is stored on the relevant game contract while the `NFT` stores a retriever that can access and return its `BasicWinLoss` record within that game.
+Games can add their respective retrievers with `addWinLossRetriever()`, and the `NFT`'s `WinLossView` can be resolved using `resolveView()`. The simplest way to explain the storage patern of an `NFT`'s win/loss data is that the `NFT`'s `BasicWinLoss` is stored on the relevant game contract while the `NFT` stores a retriever that can access and return its `BasicWinLoss` record within that game.
 
-The usual components of a standard `NFT` contract such as `Collection` and associated interface implementations are present as well.
+The usual components of a standard `NFT` contract such as `Collection` and associated interface implementations are present as well.
 
 In a departure from the centrally stored win/loss data, these NFTs expose the ability to store generic game moves (`gameMoves`) as a local attribute. An NFT's game moves, defined by the game contract, can be edited via an `NFTEscrow` implementing resource which allows games to add and remove moves to those NFTs it has in its escrow custody. 
 
@@ -84,22 +86,21 @@ All the of above components are pulled together in this smart contract implement
 
 Before getting into the contract level details, let's first cover the basic gameplay setup defined here. The idea is that two players engage in a single round of Rock, Paper, Scissors where Rock > Scissors > Paper > Rock > ... and so on. A match is mediated by a central game client that coordinates the match and submits moves on behalf of both players. Once the match has been created, the players submit their `NFT`s so that the game can record the match win/loss history of that `NFT`. After the moves are submitted by the match administrator, a winner is decided, win/loss results are recorded, and the `NFT`s are returned to their owners.
 
-Now let's go over what that looks like in the contract. In broad strokes, each `GamePlayer` maintains a mapping of `Match.id` to `MatchLobbyActions` and another of `Match.id` to `MatchPlayerActions`. Their `MatchLobbyActions` allows the player to `escrowNFTToMatch()` (which must occur by both players before a match can be played) and `returnPlayerNFTs()`, which simply returns the escrowed NFTs to the `NonFungibleToken.Receiver` passed upon escrow deposit (assuming the match is over or has timed out).
+Now let's go over what that looks like in the contract. In broad strokes, each `GamePlayer` maintains a mapping of `Match.id` to `MatchLobbyActions` and another of `Match.id` to `MatchPlayerActions`. Their `MatchLobbyActions` allows the player to `escrowNFTToMatch()` (which must occur by both players before a match can be played) and `returnPlayerNFTs()`, which simply returns the escrowed NFTs to the `NonFungibleToken.Receiver` passed upon escrow deposit (assuming the match is over or has timed out).
 
-The pattern outlined above allows a `GamePlayer` to create a `Match` via `GamePlayer.createMatch()`, saving the new `Match` to the contract's account storage, and linking `MatchLobbyActions` and `MatchPlayerActions` to the contracts account's private storage. When creating a `Match`; however, a player must also escrow their NFT providing also their `NonFungibleToken.Receiver`. Requiring "skin in the game", so to speak, helps to minimize the spam vector where an attacker can simply create an arbitrary number of Matches to take up account storage. Once the player's NFT has been escrowed to the `Match`, a `MatchPlayerActions` Capability is returned and is added to the `GamePlayer`'s `matchPlayerCapabilities`. 
+The pattern outlined above allows a `GamePlayer` to create a `Match` via `GamePlayer.createMatch()`, saving the new `Match` to the contract's account storage, and linking `MatchLobbyActions` and `MatchPlayerActions` to the contracts account's private storage. When creating a `Match`; however, a player must also escrow their NFT providing also their `NonFungibleToken.Receiver`. Requiring "skin in the game", so to speak, helps to minimize the spam vector where an attacker can simply create an arbitrary number of Matches to take up account storage. Once the player's NFT has been escrowed to the `Match`, a `MatchPlayerActions` Capability is returned and is added to the `GamePlayer`'s `matchPlayerCapabilities`. 
 
-To add a `GamePlayer` to a match, the player could call `signUpForMatch()` with the desired `matchID` which would add the `MatchLobbyActions` to the `GamePlayer`'s `matchLobbyCapabilities`. Alternatively, the `GamePlayerPublic` interface exposes the ability for a `GamePlayer` to be added to a `Match` by anyone. 
+To add a `GamePlayer` to a match, the player could call `signUpForMatch()` with the desired `matchID` which would add the `MatchLobbyActions` to the `GamePlayer`'s `matchLobbyCapabilities`. Alternatively, the `GamePlayerPublic` interface exposes the ability for a `GamePlayer` to be added to a `Match` by anyone. 
 
 Once a match has been set up, two NFTs must be escrowed. Then each player can submit moves via `MatchPlayerActions.submitMoves()`, requiring both the move and a reference to the player's `GamePlayerID` Capability. We require this reference since both players have access to the same Capability, exposing a cheating vector whereby one player could submit the other player's move if the contract lacked a mechanism for identity verification. Since access control is a matter of what you have (not who you are) in Cadence, we take a reference to this `GamePlayerID` Capability and pull the submitting player's id from the reference (which should be kept private by the player).
 
 Upon second player's asynchronous move submission, the `Match`:
 
 1. determines the winner
-2. alters the `BasicWinLoss` metadata of the `NFT` in `winLossRecords` based on the outcome
-3. returns the escrowed `NFT`s to the respective `Receiver`s
+2. alters the `BasicWinLoss` metadata of the `NFT` in `winLossRecords` based on the outcome
+3. returns the escrowed `NFT`s to the respective `Receiver`s
 
->Note that a `Match` can only be utilized once.
-
+>Note that a `Match` can only be utilized once.
 Taking a look at the contract, you'll see that the core logic of Rock, Paper, Scissors is exposed in the contract function `determineRockPaperScissorsWinner()`. This was done intentionally in hopes that the core logic could be used in other variations. You could imagine another contract that defines a `Match` resource using other `NFT`s or that combines logic of a hypothetical tic-tac-toe game or that runs for multiple rounds and requires a buy-in from players which goes to the winner. Again, this is designed to be built on by the Flow community, so have fun with it and make building the game part of the fun!
 
 #### ***Considerations***
@@ -118,51 +119,27 @@ With the context and components explained, we can more closely examine how they 
 
 1. User onboarding in a single transaction - `onboard_player.cdc`
     1. Setup `GamePieceNFT.Collection` & link Capabilities
-    1. Mint `GamePieceNFT.NFT` to player's Collection
-        1. `MintedNFT` and `Deposit` events emitted
+    1. Mint `GamePieceNFT.NFT`
     1. Setup `RockPlayerScissorsGame.GamePlayer` & link Capabilities
-1. Single-Player Gameplay
-    1. Player creates a new match, escrowing their NFT along with their NFT `Receiver`, emitting `NewMatchCreated` and `PlayerEscrowedNFTToMatch`
-        1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
-        1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
-    1. Player submits their move
-        1. `MoveSubmitted` event is emitted with relevant `matchID` and `submittingGamePlayerID`
-    1. In a separate transaction, player calls `submitAutomatedPlayerMove()`
-        1. `MoveSubmitted` event is emitted with relevant `matchID` and `submittingGamePlayerID`
-    1. A winner is determined
-        1. The win/loss record is recorded for the player's NFT
-        1. The win/loss record is recorded for the designated `dummyNFTID`
-        1. The escrowed NFT is returned to the escrowing player
-        1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, `winningNFTID` and `returnedNFTIDs`
-1. Multi-Player Gameplay
-    1. Player one creates a new match, escrowing their NFT
-        1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
-        1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
-    1. Player one adds `MatchLobbyActions` Capability to Player two's `GamePlayerPublic`
-        1. Player one gets `GamePlayerPublic` Capability from Player two
-        1. Player one calls `addPlayerToMatch()` on their `GamePlayer`, passing the `matchID` and the reference to Player two's `GamePlayerPublic`
-        1. `PlayerAddedToMatch` emitted along with matchID and the `id` of the `GamePlayer` added to the Match
+1. Gameplay
+    1. Player one creates a new match, escrowing their NFT and adding Player two
+        1. Game moves are added to their NFT if they don't currently exists
     1. Player two escrows their NFT into the match
-        1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
-        1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
+        1. Game moves are added to their NFT if they don't currently exists
     1. Each player submits their move
         1. A winner is determined
         1. The win/loss records are recorded for each NFT
         1. Each NFT is returned to their respective owners
-        1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, `winningNFTID` and `returnedNFTIDs`
 
 ## TODO - Transaction Diagrams
 
 Below you'll find diagrams that visualize the flow between all components for each major game-related transaction.
 
-### `onboard_player`
-![Onboard player with GamePieceNFT Collection & NFT](/images/rps_onboard_player.png)
+### `setup_game_admin` and `setup_game_player`
+![Setup GameAdmin and Setup_GamePlayer](/images/rps_setup_game_admin_and_game_player.png)
 
-### `setup_new_singleplayer_match`
-![GameAdmin setup new Match](/images/rps_setup_new_singleplayer_match.png)
-
-### `setup_new_multiplayer_match`
-![GameAdmin setup new Match](/images/rps_setup_new_singleplayer_match.png)
+### `game_admin_setup_new_match`
+![GameAdmin setup new Match](/images/rps_game_admin_setup_new_match.png)
 
 ### `game_player_escrow_nft`
 ![GamePlayer escrow GamePieceNFT](/images/rps_game_player_escrow_nft.png)
@@ -189,78 +166,14 @@ ___
 
 To demo the functionality of this repo, clone it and follow the steps below by entering each command using [Flow CLI](https://github.com/onflow/flow-cli) from the package root:
 
-### Single-player
+### TODO - consolidate onboarding transaction to include child account creation & on-chain association
 
-Let's start with demonstrating single-player gameplay:
+1. Single player
 
-1. Create account - account name: p1
-```
-flow accounts create
-```
-
-1. Onboard user
-```
-flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p1
-```
-
-1. Init gameplay...
-
-    1. Create new Match
+    1. Create account - account name: parent-main
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc 28 10 --signer p1
+    flow accounts create
     ```
-    1. Submit moves
-    ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 30 0 --signer p1
-    ```
-    1. Submit automated player moves
-    ```
-    flow transactions send transactions/rock_paper_scissors_game/submit_automated_player_move.cdc 30
-    ```
-    1. Check Win/Loss record
-    ```
-    flow scripts execute scripts/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
-    ```
-
-### Multi-player
-
-Now that we've seen single-player gameplay, let's see what multi-player looks like:
-
-1. Create two accounts - account name: p2
-```
-flow accounts create
-```
-1. Onboard user
-```
-flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p2
-```
-1. Init gameplay...
-
-    1. Create new Match
-    ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_multiplayer_match.cdc 28 0x179b6b1cb6755e31 10 --signer p1
-    ```
-<<<<<<< HEAD
-    1. Escrow second player's NFT
-    ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/escrow_nft.cdc 39 37 --signer p2
-    ```
-    1. Submit moves
-    ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 0 --signer p1
-    ```
-    ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 1 --signer p2
-    ```
-1. Check Win/Loss record
-    ```
-    flow scripts execute scripts/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
-    ```
-    1. Check Win/Loss record
-    ```
-    flow scripts execute scripts/get_rps_win_loss.cdc 179b6b1cb6755e31 37
-    ```
-=======
 
     1. Mint Flow to the new account
     ```
@@ -354,11 +267,5 @@ flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p2
 
     1. And lastly, we'll get the win/loss record from the transferred NFT to show that the record stays with the NFT
     ```
-<<<<<<< HEAD
-    flow transactions send ./transactions/child_account/transfer_assets_to_parent.cdc --signer parent
-    ```
->>>>>>> 1d4ead9 (Move createChildAccount() from contract to ChildAccountManager. Update child_account txns)
-=======
     flow scripts execute scripts/get_rps_win_loss.cdc 01cf0e2f2f715450 37
     ```
->>>>>>> a527f78 (Update README w/ child account demo; create new onboarding & child acct txns)
