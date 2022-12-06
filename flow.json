@@ -2,7 +2,8 @@
     "contracts": {
         "ChildAccount": "./contracts/ChildAccount.cdc",
         "FungibleToken": "./contracts/utility/FungibleToken.cdc",
-        "GamePieceNFT": "./contracts/GamePieceNFT.cdc",
+        "DynamicNFT": "./contracts/DynamicNFT.cdc",
+	"GamePieceNFT": "./contracts/GamePieceNFT.cdc",
         "GamingMetadataViews": "./contracts/GamingMetadataViews.cdc",
         "MetadataViews": "./contracts/utility/MetadataViews.cdc",
         "NonFungibleToken": "./contracts/utility/NonFungibleToken.cdc",
@@ -26,6 +27,7 @@
                 "ChildAccount",
                 "NonFungibleToken",
                 "MetadataViews",
+		"DynamicNFT",
                 "GamingMetadataViews",
                 "GamePieceNFT",
                 "RockPaperScissorsGame"
