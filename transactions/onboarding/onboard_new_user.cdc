@@ -20,7 +20,14 @@ import ChildAccount from "../../contracts/ChildAccount.cdc"
 /// does compromises on security, convenience is far improved. Given this security risk, only trusted game
 /// clients should be used & users should consider moving very valuable assets to their parent account.
 ///
-transaction(publicKey: String, fundingAmt: UFix64) {
+transaction(
+        pubKey: String,
+        fundingAmt: UFix64,
+        childAccountName: String,
+        childAccountDescription: String,
+        clientIconURL: String,
+        clientExternalURL: String
+    ) {
 
     prepare(signer: AuthAccount) {
         
@@ -60,6 +67,18 @@ transaction(publicKey: String, fundingAmt: UFix64) {
             // Create and save the ChildAccountManager resource
             let manager <- ChildAccount.createChildAccountManager()
             signer.save(<-manager, to: ChildAccount.ChildAccountManagerStoragePath)
+            signer.link<
+                &{ChildAccount.ChildAccountManagerPublic}
+            >(
+                ChildAccount.ChildAccountManagerPublicPath,
+                target: ChildAccount.ChildAccountManagerStoragePath
+            )
+            signer.link<
+                &{ChildAccount.ChildAccountManagerViewer}
+            >(
+                ChildAccount.ChildAccountManagerPrivatePath,
+                target: ChildAccount.ChildAccountManagerStoragePath
+            )
 
             // Get reference to ChildAccoutManager & create child account
             let managerRef = signer
@@ -68,13 +87,23 @@ transaction(publicKey: String, fundingAmt: UFix64) {
                 >(
                     from: ChildAccount.ChildAccountManagerStoragePath
                 )!
+
+            // Construct ChildAccountInfo struct from given arguments
+            let info = ChildAccount.ChildAccountInfo(
+                name: childAccountName,
+                description: childAccountDescription,
+                clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
+                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL)
+            )
+
+            // Create the child account
             managerRef.createChildAccount(
                 signer: signer,
-                publicKey: publicKey,
-                initialFundingAmount: fundingAmt
+                publicKey: pubKey,
+                initialFundingAmount: fundingAmt,
+                childAccountInfo: info
             )
-        }
-
-        
+        }    
     }
 }
+ 

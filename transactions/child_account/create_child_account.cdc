@@ -15,12 +15,12 @@ import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 /// access to the given public key's paired private key
 ///
 transaction(
-    pubKey: String,
-    fundingAmt: UFix64,
-    childAccountName: String,
-    childAccountDescription: String,
-    clientIconURL: String,
-    clientExternalURL: String
+        pubKey: String,
+        fundingAmt: UFix64,
+        childAccountName: String,
+        childAccountDescription: String,
+        clientIconURL: String,
+        clientExternalURL: String
     ) {
 
     prepare(signer: AuthAccount) {

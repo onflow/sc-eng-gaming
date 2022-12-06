@@ -187,7 +187,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 
     1. Onboard the new user with a `GamePieceNFT.Collection` & `ChildAccount.ChildAccountManager` with a child account, passing the generated public key & initial funding amount we'll pass from the parent to the child account.
     ```
-    flow transactions send ./transactions/onboarding/onboard_new_user.cdc <PUBLIC_KEY> 10.0 --signer parent-main
+    flow transactions send ./transactions/onboarding/onboard_new_user.cdc <PUBLIC_KEY> 10.0 RPSClient "Child account used for RockPaperScissors web app" "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR2KvcOwctyase2_P7lQxbxIutmLKFPch6rNw&usqp=CAU" "https://www.cheezewizards.com/" --signer parent-main
     ```
 
     1. The child account will then be created. You will want to add this account to your `flow.json` in [advanced format](https://developers.flow.com/tools/flow-cli/configuration#advanced-format-1). Be sure to find the child address (likely `0x179b6b1cb6755e31`) in the emitted events and input the previously generated private key under the account's `privateKey` attribute in the `flow.json`. You will also want to add an alias for the `parent-main` account's private key since that account also has key access to the newly created `child` account. The `accounts` attribute in your `flow.json` should look like this:

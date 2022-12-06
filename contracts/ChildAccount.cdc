@@ -2,39 +2,80 @@ import FungibleToken from 0xee82856bf20e2aa6
 import FlowToken from 0x0ae53cb6e3f42a79
 import MetadataViews from "./utility/MetadataViews.cdc"
 
+/// This contract is an attempt at establishing and representing a
+/// parent-child (AKA puppet or proxy) account hierarchy between accounts.
+/// The ChildAccountManager allows a parent account to create child accounts, and
+/// maintains a mapping of child accounts as they are created.AccountKey
+///
+/// An account is deemed a child of a parent if the parent has 1000.0 weight
+/// key access to the child account. This means that both the parent's private key
+/// and the pairwise private key of the public key provided on creation have access
+/// to the accounts created via that ChildAccountManager resource.
+///
+/// While one generally would not want to share account access with other parties,
+/// this can be helpful in a low-stakes environment where the parent account's owner
+/// wants to delegate transaction signing to a secondary party. The idea for this setup
+/// was born out of pursuit of a more seamless on-chain gameplay UX where a user could
+/// let a game client submit transactions on their behalf without signing over the whole
+/// of their primary account, and do so in a way that didn't require custom a Capability.
+///
+/// With that said, users should bare in mind that any assets in a child account incur
+/// obvious custody risk, and that it's generally an anti-patter to pass around AuthAccounts.
+/// In this case, a user owns both accounts so they are technically passing an AuthAccount
+/// to themselves in calls to resources that reside in their own account, so it was deemed
+/// a valid application of the pattern.
+///
 pub contract ChildAccount {
 
     // Establish metadataview when child account is created
     // - dapp name/publisher name
     // - publisher logo
     // - etc
-
     // Offer quick utility to bulk move assets between child
+
     pub let ChildAccountManagerStoragePath: StoragePath
     pub let ChildAccountManagerPublicPath: PublicPath
     pub let ChildAccountManagerPrivatePath: PrivatePath
+    pub let ChildAccountTagStoragePath: StoragePath
+    pub let ChildAccountTagPublicPath: PublicPath
+    pub let ChildAccountTagPrivatePath: PrivatePath
 
+    /** --- ChildAccountManager --- */
+
+    /// Interface that exposes ability for an account to add itself as a child account
+    /// on the account in which the implementing resource resides
+    ///
     pub resource interface ChildAccountManagerPublic {
         pub fun addAsChildAccount(newAccount: AuthAccount, childAccountInfo: ChildAccountInfo)
     }
 
+    /// Interface that allows one to view information about the owning account's
+    /// child accounts including the addresses for all child accounts and information
+    /// about specific child accounts by Address
+    ///
     pub resource interface ChildAccountManagerViewer {
         pub fun getChildAccountAddresses(): [Address]
         pub fun getChildAccountInfo(address: Address): ChildAccountInfo?
     }
 
+    /// Resource that both identifies a parent account and allows for management of on-
+    /// chain associations between those accounts. Note that while creating child accounts
+    /// is available in this resource, revoking keys on those child accounts is not.
+    /// 
     pub resource ChildAccountManager : ChildAccountManagerPublic, ChildAccountManagerViewer {
-        pub let childAccounts: @{Address: ChildAccountTag}
+        /// Mapping of child accounts, representing all child accounts 
+        pub let childAccounts: {Address: Capability<&ChildAccountTag>}
         pub let pendingChildAccounts: [Address]
 
         init() {
-            self.childAccounts <-{}
+            self.childAccounts = {}
             self.pendingChildAccounts = []
         }
 
         /** --- ChildAccountManagerPublic --- */
 
         /// Add a ChildAccountAdmin to this manager resource
+        ///
         pub fun addAsChildAccount(newAccount: AuthAccount, childAccountInfo: ChildAccountInfo) {
             pre {
                 !self.childAccounts.containsKey(newAccount.address):
@@ -53,28 +94,51 @@ pub contract ChildAccount {
                     address: newAccount.address,
                     info: childAccountInfo
                 )
-            // Add ChildAccountTag indexed by the account's address
-            self.childAccounts[newAccount.address] <-! child
+            // Save the ChildAccountTag in the child account's storage & link
+            newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
+            newAccount.link<&{ChildAccountTagPublic}>(
+                ChildAccount.ChildAccountTagPublicPath,
+                target: ChildAccount.ChildAccountTagStoragePath
+            )
+            newAccount.link<&ChildAccount>(
+                ChildAccount.ChildAccountTagPrivatePath,
+                target: ChildAccount.ChildAccountTagStoragePath
+            )
+            // Add ChildAccountTag Capability indexed by the account's address
+            let tagCap = newAccount.getCapability<&ChildAccountTag>(ChildAccount.ChildAccountTagPrivatePath)
+            self.childAccounts.insert(key: newAccount.address, tagCap)
+            
             // Remove from the pending child accounts array
-            self.pendingChildAccounts.remove(at: self.pendingChildAccounts.firstIndex(of: newAccount.address)!)
+            self.pendingChildAccounts.remove(
+                at: self.pendingChildAccounts.firstIndex(of: newAccount.address)!
+            )
         }
 
         /** --- ChildAccountManagerViewer --- */
 
         /// Returns an array of all child account addresses
+        ///
         pub fun getChildAccountAddresses(): [Address] {
             return self.childAccounts.keys
         }
         
         /// Returns ChildAccountInfo struct containing info about the child account
         /// or nil if there is no child account with the given address
+        ///
         pub fun getChildAccountInfo(address: Address): ChildAccountInfo? {
-            if let childAccount = &self.childAccounts[address] as &ChildAccountTag? {
-                return childAccount.info
+            if let tagCap = self.childAccounts[address] {
+                let tagRef = tagCap.borrow() ?? panic("ChildAccountTag has been unlinked!")
+                return tagRef.info
             }
             return nil
         }
 
+        /// Creates an account out of the given public key, funding it with Flow from the
+        /// signer's vault and adding the signer's public key to the new account with 1000.0
+        /// weight. The on-chain association between ChildAccountManager & ChildAccountTag
+        /// identifies the parent-child hierarchy between accounts on-chain in a manner that
+        /// is easily interpretable by wallets & DApps.AccountKey
+        ///
         pub fun createChildAccount(
             signer: AuthAccount,
             publicKey: String,
@@ -117,17 +181,38 @@ pub contract ChildAccount {
             
             newAccount.save(signer.address, to: /storage/MainAccountAddress)
 
+            // Create the ChildAccountTag for the new account
             let child <-create ChildAccountTag(
                     parentAddress: signer.address,
                     address: newAccount.address,
                     info: childAccountInfo
                 )
-            self.childAccounts[newAccount.address] <-! child
+            // Save the ChildAccountTag in the child account's storage & link
+            newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
+            newAccount.link<&{ChildAccountTagPublic}>(
+                ChildAccount.ChildAccountTagPublicPath,
+                target: ChildAccount.ChildAccountTagStoragePath
+            )
+            newAccount.link<&ChildAccount>(
+                ChildAccount.ChildAccountTagPrivatePath,
+                target: ChildAccount.ChildAccountTagStoragePath
+            )
+            // Add ChildAccountTag Capability indexed by the account's address
+            let tagCap = newAccount.getCapability<&ChildAccountTag>(ChildAccount.ChildAccountTagPrivatePath)
+            self.childAccounts.insert(key: newAccount.address, tagCap)
+            
+            // Remove from the pending child accounts array
+            self.pendingChildAccounts.remove(
+                at: self.pendingChildAccounts.firstIndex(of: newAccount.address)!
+            )
         }
 
-        /// Remove ChildAccountTag, returning if it exists
-        pub fun removeChildAccount(withAddress: Address): @ChildAccountTag? {
-            return <-self.childAccounts.remove(key: withAddress)
+        /// Remove ChildAccountTag, returning its Capability if it exists. Note, doing so
+        /// does not revoke the key on the child account. This should be done in the same
+        /// transaction in which this method is called.
+        ///
+        pub fun removeChildAccount(withAddress: Address): Capability<&ChildAccountTag>? {
+            return self.childAccounts.remove(key: withAddress)
         }
 
         /// Add address to list of pendingChildAccounts so that account can add itself as a
@@ -136,30 +221,43 @@ pub contract ChildAccount {
         pub fun addPendingChildAccount(address: Address) {
             self.pendingChildAccounts.append(address)
         }
-
-        destroy() {
-            pre {
-                self.childAccounts.length == 0
-            }
-            destroy self.childAccounts
-        }
     }
 
-    /// Resource that identifies an account as a child account
-    pub resource ChildAccountTag {
+    /** --- Child Account Taq--- */
+
+    /// Simple interface exposing ability to determine an address is the parent
+    /// of a given address
+    ///
+    pub resource interface ChildAccountTagPublic {
+        pub fun isChildAccountOf(_ address: Address): Bool
+    }
+
+    /// Resource that identifies an account as a child account and maintains info
+    /// about its parent & association
+    ///
+    pub resource ChildAccountTag : ChildAccountTagPublic {
         pub let parentAddress: Address
         pub let address: Address
         pub let info: ChildAccountInfo
-        access(self) var revoked: Bool
+        access(contract) let isActive: Bool
 
         init(parentAddress: Address, address: Address, info: ChildAccountInfo) {
             self.parentAddress = parentAddress
             self.address = address
             self.info = info
-            self.revoked = false
+            self.isActive = false
+        }
+
+        /// Given an address, returns true if the given address is the parent
+        /// account of the account in which this resource resides
+        ///
+        pub fun isChildAccountOf(_ address: Address): Bool {
+            return address == self.parentAddress
         }
     }
 
+    /// Struct that identifies information that could be used to determine the off-chain
+    /// associations of a child account
     pub struct ChildAccountInfo {
         pub let name: String
         pub let description: String
@@ -187,5 +285,9 @@ pub contract ChildAccount {
         self.ChildAccountManagerStoragePath = /storage/ChildAccountManager
         self.ChildAccountManagerPublicPath = /public/ChildAccountManager
         self.ChildAccountManagerPrivatePath = /private/ChildAccountManager
+
+        self.ChildAccountTagStoragePath = /storage/ChildAccountTag
+        self.ChildAccountTagPublicPath = /public/ChildAccountTag
+        self.ChildAccountTagPrivatePath = /private/ChildAccountTag
     }
 }
