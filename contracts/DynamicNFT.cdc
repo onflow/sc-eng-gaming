@@ -47,16 +47,6 @@ pub contract DynamicNFT {
         }
     }
 
-    /**
-    if nft.hasAttachmentType(Type<RPSAssignedMoves>()) {
-        if let movesView = nft.resolveAttachmentView(attachmentType: Type<RPSAssignedMoves>(), view: Type<AssignedMovesView>()) {
-            return movesView
-        }
-        OR
-        nft.getAttachmentRef(Type<RPSAssignedMoves>())!.resolveView(Type<AssignedMovesView>())
-    }
-     */
-
     /// Interface that enables the implementing resource to return the views supported by their attachments
     ///
     pub resource interface AttachmentViewResolver {
