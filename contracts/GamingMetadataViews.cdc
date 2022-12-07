@@ -101,7 +101,7 @@ pub contract GamingMetadataViews {
 
     /// View struct containing relating to the associated game, nft & assigned moves
     ///
-    pub struct AssigneMovesView {
+    pub struct AssignedMovesView {
         /// The name of the associated game
         pub let gameName: String
         /// The id of the associated NFT
@@ -114,6 +114,26 @@ pub contract GamingMetadataViews {
             self.nftID = nftID
             self.moves = moves
         }
+    }
+
+    /// View struct containing the nftID & a mapping of indexed on the NFT's attachment types
+    /// and their associated GameContractMetadata
+    ///
+    pub struct GameAttachmentsView {
+        /// The id of the associated NFT
+        pub let nftID: UInt64
+        /// Mapping of the Types to their associated GameContractMetadata 
+        pub let attachmentGameContractMetadata: {Type: GameContractMetadata}
+
+        init(nftID: UInt64, attachmentGameContractMetadata: {Type: GameContractMetadata}) {
+            self.nftID = nftID
+            self.attachmentGameContractMetadata = attachmentGameContractMetadata
+        }
+    }
+
+    /// Basic interface containing Metadata about a game-related attachment
+    pub resource interface GameResource {
+        pub let gameContractInfo: GameContractMetadata
     }
 
     /// Interface that should be implemented by game contracts

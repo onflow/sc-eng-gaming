@@ -133,7 +133,13 @@ pub contract GamePieceNFT: NonFungibleToken {
                 case Type<DynamicNFT.AttachmentsView>():
                     return DynamicNFT.AttachmentsView(
                         nftID: self.id,
-                        attachmentTypes: self.attachments.keys
+                        attachmentTypes: self.attachments.keys,
+                        attachmentViews: self.getAttachmentViews()
+                    )
+                case Type<GamingMetadataViews.GameAttachmentsView>():
+                    return GamingMetadataViews.GameAttachmentsView(
+                        nftID: self.id,
+                        attachmentGameContractMetadata: self.getAllAttachmentGameContractMetadata()
                     )
                 case Type<MetadataViews.Display>():
                     return MetadataViews.Display(
@@ -164,6 +170,24 @@ pub contract GamePieceNFT: NonFungibleToken {
                 default:
                     return nil
             }
+        }
+
+        /// Helper function that returns an array of GamingMetadataViews.GameContractMetadata
+        /// from attachments that implement the GamingMetadataViews.GameAttachment interface
+        ///
+        access(self) fun getAllAttachmentGameContractMetadata(): {Type: GamingMetadataViews.GameContractMetadata} {
+            // Array that will be returned containing the GameContractMetadata of related attachments
+            let gameInfo: {Type: GamingMetadataViews.GameContractMetadata} = {}
+
+            // Iterate over attachments
+            for type in self.getAttachmentTypes() { 
+                // Add the attachments info to the return value if it implements GameAttachment
+                if type.isSubtype(of: Type<@{GamingMetadataViews.GameResource}>()) {
+                    let gameAttachmentRef = (self.getAttachmentRef(type) as! &{GamingMetadataViews.GameResource}?)!
+                    gameInfo.insert(key: type, gameAttachmentRef.gameContractInfo)
+                }
+            }
+            return gameInfo
         }
 
         destroy() {

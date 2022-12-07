@@ -33,14 +33,29 @@ pub contract DynamicNFT {
     /// A view struct that contains information about the types attached to a resource
     ///
     pub struct AttachmentsView {
+        /// The id of the associated NFT
         pub let nftID: UInt64
+        /// A mapping of the Types attached to the NFT
         pub let attachmentTypes: [Type]
+        /// A mapping of the views supported by each type attached to this NFT
+        pub let attachmentViews: {Type: [Type]}
 
-        init(nftID: UInt64, attachmentTypes: [Type]) {
+        init(nftID: UInt64, attachmentTypes: [Type], attachmentViews: {Type: [Type]}) {
             self.nftID = nftID
             self.attachmentTypes = attachmentTypes
+            self.attachmentViews = attachmentViews
         }
     }
+
+    /**
+    if nft.hasAttachmentType(Type<RPSAssignedMoves>()) {
+        if let movesView = nft.resolveAttachmentView(attachmentType: Type<RPSAssignedMoves>(), view: Type<AssignedMovesView>()) {
+            return movesView
+        }
+        OR
+        nft.getAttachmentRef(Type<RPSAssignedMoves>())!.resolveView(Type<AssignedMovesView>())
+    }
+     */
 
     /// Interface that enables the implementing resource to return the views supported by their attachments
     ///

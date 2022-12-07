@@ -109,7 +109,7 @@ pub contract RockPaperScissorsGame {
 
     /** --- WinLossRetriever Implementation --- */
     /// Resource acts as a retriever for an NFT's WinLoss data
-    pub resource RPSWinLossRetriever: DynamicNFT.Attachment, MetadataViews.Resolver, GamingMetadataViews.BasicWinLossRetriever {
+    pub resource RPSWinLossRetriever: DynamicNFT.Attachment, MetadataViews.Resolver, GamingMetadataViews.GameResource, GamingMetadataViews.BasicWinLossRetriever {
         /// The ID of the NFT where this resource is attached
         pub let nftID: UInt64
         /// Struct containing metadata about the attachment's related game
@@ -161,7 +161,7 @@ pub contract RockPaperScissorsGame {
     /** --- RPSAssignedMoves --- */
     /// Resource designed to store & manage game moves
     ///
-    pub resource RPSAssignedMoves : DynamicNFT.Attachment, MetadataViews.Resolver, GamingMetadataViews.AssignedMoves {
+    pub resource RPSAssignedMoves : DynamicNFT.Attachment, MetadataViews.Resolver, GamingMetadataViews.GameResource, GamingMetadataViews.AssignedMoves {
         /// The ID of the NFT where this resource is attached
         pub let nftID: UInt64
         /// Struct containing metadata about the attachment's related game
@@ -182,15 +182,15 @@ pub contract RockPaperScissorsGame {
         /// Returns the Types of views that can be resolved by the resource
         ///
         pub fun getViews(): [Type] {
-            return [Type<&GamingMetadataViews.AssigneMovesView>()]
+            return [Type<&GamingMetadataViews.AssignedMovesView>()]
         }
 
         /// Given a supported view type, will return the view struct as AnyStruct
         ///
         pub fun resolveView(_ type: Type): AnyStruct? {
             switch type {
-                case Type<GamingMetadataViews.AssigneMovesView>():
-                    return GamingMetadataViews.AssigneMovesView(
+                case Type<GamingMetadataViews.AssignedMovesView>():
+                    return GamingMetadataViews.AssignedMovesView(
                         gameName: RockPaperScissorsGame.name,
                         nftID: self.nftID,
                         moves: self.moves

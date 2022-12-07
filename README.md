@@ -8,7 +8,7 @@ We’re building an on-chain Rock Paper Scissors game as a proof of concept expl
 
 As gaming makes its way into Web 3.0, bringing with it the next swath of mainstream users, we created this repo as a playground to develop proof of concept implementations that showcase the power of on-chain games built with the Cadence resource-oriented programming language. It's our hope that the work and exploration here uncovers unique design patterns that are useful towards composable game designs, helping to pave the way for a thriving community of game developers on Flow.
 
-For our first proof of concept game, we've created the `RockPaperScissorsGame` and supporting contracts `GamePieceNFT` and `GamingMetadataViews`. Taken together, these contracts define a mostly on-chain, centrally mediated game with a dynamic NFT that accesses an ongoing record of its win/loss data.
+For our first proof of concept game, we've created the `RockPaperScissorsGame` and supporting contracts `DynamicNFT`, `GamePieceNFT` and `GamingMetadataViews`. Taken together, these contracts define an entirely on-chain game with a dynamic NFT that accesses an ongoing record of its win/loss data via attachments added to the NFT upon escrow.
 
 As this proof of concept is iteratively improved, we hope to create a host of reference examples demonstrating how game developers could build games on Flow - some entirely on-chain while others blend on and off-chain architectures along with considerations for each design.
 
@@ -22,13 +22,15 @@ The entirety of that composable gaming future is possible on Flow, and starts wi
 
 ### **Summary**
 
-As mentioned above, the supporting contracts for this game have been compartmentalized to three primary contracts. At a high level, those are:
+As mentioned above, the supporting contracts for this game have been compartmentalized to four primary contracts. At a high level, those are:
 
-* **GamingMetadataViews** - Defining the metadata structs relevant to an NFT's win/loss data and assigned moves.
+* **GamingMetadataViews** - Defining the metadata structs relevant to an NFT's win/loss data and assigned moves as well as interfaces designed to be implemented in conjunction with `DynamicNFT.Attachments`.
 
-* **GamePieceNFT** - This contract contains definitions for the gaming NFT, its collection, and an interface for escrowing resources. You'll also find a supporting resources & mechanisms for game name registration, proof of registration, and administrative resources and interfaces to manage the contract.
+* **DynamicNFT** - Containing interfaces outlining attachments and the interfaces to which they are intended to attached (`Dynamic`). Several view functions are contained in both the AttachmentViewResolver and Dynamic interfaces as default implementations. An `AttachmentsView` is included so that resources implementing `Dynamic` can resolve metadata about their attached types.
 
-* **RockPaperScissorsGame** - As you might imagine, this contract contains the game's moves, logic as well as resource and interfaces defining the rules of engagement for two players in the course of a match. Additionally, receivers for Capabilities to matches are defined in `GamePlayer` resource and interfaces that allow players to create matches, be added and add others to matches, and engage with the matches they're in.
+* **GamePieceNFT** - This contract contains definitions for the gaming NFT and its collection. You'll note that the types of resources that can be attached to an NFT are generic, but must at minimum must be a composite of `DynamicNFT.Attachment` and `MetadataViews.Resolver`.
+
+* **RockPaperScissorsGame** - As you might imagine, this contract contains the game's moves, logic as well as resource and interfaces defining the rules of engagement in the course of a match. Additionally, receivers for Capabilities to matches are defined in `GamePlayer` resource and interfaces that allow players to create matches, be added and add others to matches, and engage with the matches they're in. The `Match` resource is defined as a single round of Rock, Paper, Scissors that can be played in either single or two player modes, with single-player modes randomizing the second player's move on a contract function call.
 
 ### **GamingMetadataViews**
 
