@@ -101,7 +101,8 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
 
         /// Retrieve relevant MetadataViews and/or GamingMetadataViews struct types supported by this
-        /// NFT and its Attachments
+        /// NFT. If a caller wants the views supported by the NFT's attachments, they should call
+        /// getAttachmentViews(): {Type: [Type]} which is inherited from DynamicNFT.AttachmentViewResolver
         ///
         /// @return array of view Types relevant to this NFT
         ///
@@ -114,12 +115,6 @@ pub contract GamePieceNFT: NonFungibleToken {
                     Type<MetadataViews.ExternalURL>(),
                     Type<MetadataViews.NFTCollectionData>()
                 ]
-            // Iterate over the NFT's attachments and get the views they support
-            for type in self.attachments.keys {
-                if let attachmentRef = self.getAttachmentRef(type) as &{MetadataViews.Resolver}? {
-                    views.appendAll(attachmentRef.getViews())
-                }
-            }
             return views
         }
         

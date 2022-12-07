@@ -1,6 +1,6 @@
-import GamePieceNFT from "../contracts/GamePieceNFT.cdc"
-import GamingMetadataViews from "../contracts/GamingMetadataViews.cdc"
-import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
+import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
+import GamingMetadataViews from "../../contracts/GamingMetadataViews.cdc"
+import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 
 /// Script to get the RockPaperScissors BasicWinLoss data from a given address's NFT
 ///
@@ -15,12 +15,13 @@ pub fun main(address: Address, id: UInt64): [RockPaperScissorsGame.Moves]? {
 
     // Get the NFT reference if it exists in the reference collection
     if let nftRef: &GamePieceNFT.NFT = collectionPublicRef.borrowGamePieceNFT(id: id) {
-        // Attempt to get the RPSWinLossRetriever attachment
-        if let attachmentRef = nftRef.getAttachmentRef(Type<@RockPaperScissorsGame.RPSAssignedMoves>()) {
-            // Cast returned AnyResource as RPSWinLossRetriever & return the 
-            // BasicWinLoss value for given NFT
-            let retrieverRef = attachmentRef as! &RockPaperScissorsGame.RPSAssignedMoves
-            return retrieverRef.getMoves() as! [RockPaperScissorsGame.Moves]
+        // Get the AssignedMovesView from the NFT & return
+        if let movesView = nftRef
+            .resolveAttachmentView(
+                attachmentType: Type<@RockPaperScissorsGame.RPSAssignedMoves>(),
+                view: Type<GamingMetadataViews.AssignedMovesView>()
+            ) as! &GamingMetadataViews.AssignedMovesView? {
+            return movesView.moves as! [RockPaperScissorsGame.Moves]
         }
     }
 
