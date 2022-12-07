@@ -37,26 +37,37 @@ pub contract GamePieceNFT: NonFungibleToken {
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
 
-
-
     /// The definition of the GamePieceNFT.NFT resource, an NFT designed to be used for gameplay with
     /// attributes relevant to win/loss histories and basic gameplay moves
     ///
-    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, DynamicNFT.Dynamic {
+    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, DynamicNFT.AttachmentViewResolver, DynamicNFT.Dynamic {
+        /// Unique id tied to resource's UUID
         pub let id: UInt64
         /// Mapping of generic attached resource indexed by their type
-        access(contract) let attachments: @{Type: AnyResource{DynamicNFT.Attachment}}
+        access(contract) let attachments: @{Type: AnyResource{DynamicNFT.Attachment, MetadataViews.Resolver}}
 
-        init() {
+        /// Metadata fields
+        pub let name: String
+        pub let description: String
+        pub let thumbnail: String
+
+        init(
+            name: String,
+            description: String,
+            thumbnail: String
+        ) {
             self.id = self.uuid
             self.attachments <- {}
+            self.name = name
+            self.description = description
+            self.thumbnail = thumbnail
         }
 
         /// Method allowing an attachment to be added by a party registered to add the given type
         ///
         /// @param attachment: the resource to be attached
         ///
-        pub fun addAttachment(_ attachment: @{DynamicNFT.Attachment}) {
+        pub fun addAttachment(_ attachment: @{DynamicNFT.Attachment, MetadataViews.Resolver}) {
             pre {
                 !self.hasAttachmentType(attachment.getType()):
                     "NFT already contains attachment of this type!"
@@ -85,19 +96,29 @@ pub contract GamePieceNFT: NonFungibleToken {
         ///
         /// @return the resource that was removed from attachments
         ///
-        access(contract) fun removeAttachment(type: Type): @{DynamicNFT.Attachment} {
-            pre {
-                self.hasAttachmentType(type): "NFT does not have attachment of given type: ".concat(type.identifier)
-            }
-            return <-self.attachments.remove(key: type)!
+        access(contract) fun removeAttachment(type: Type): @{DynamicNFT.Attachment}? {
+            return <-self.attachments.remove(key: type)
         }
 
-        /// Retrieve relevant GameMetadataViews
+        /// Retrieve relevant MetadataViews and/or GamingMetadataViews struct types supported by this
+        /// NFT and its Attachments
         ///
-        /// @return array of GameMetadataView Types relevant to this NFT
+        /// @return array of view Types relevant to this NFT
         ///
         pub fun getViews(): [Type] {
-            return []
+            let views: [Type] = [
+                    Type<DynamicNFT.AttachmentsView>(),
+                    Type<MetadataViews.Serial>(),
+                    Type<MetadataViews.ExternalURL>(),
+                    Type<MetadataViews.NFTCollectionData>()
+                ]
+            // Iterate over the NFT's attachments and get the views they support
+            for type in self.attachments.keys {
+                if let attachmentRef = self.getAttachmentRef(type) as &{MetadataViews.Resolver}? {
+                    views.appendAll(attachmentRef.getViews())
+                }
+            }
+            return views
         }
         
         /// Function that resolve the given GameMetadataView
@@ -108,7 +129,39 @@ pub contract GamePieceNFT: NonFungibleToken {
         /// metadata or nil if none exists
         ///
         pub fun resolveView(_ view: Type): AnyStruct? {
+            // self.views[view] | pub let views: {Type: Type} = {Type<View>: Type<Attachment>}
             switch view {
+                case Type<DynamicNFT.AttachmentsView>():
+                    return DynamicNFT.AttachmentsView(
+                        nftID: self.id,
+                        attachmentTypes: self.attachments.keys
+                    )
+                case Type<MetadataViews.Display>():
+                    return MetadataViews.Display(
+                        name: self.name,
+                        description: self.description,
+                        thumbnail: MetadataViews.HTTPFile(
+                            url: self.thumbnail
+                        )
+                    )
+                case Type<MetadataViews.Serial>():
+                    return MetadataViews.Serial(
+                        self.id
+                    )
+                case Type<MetadataViews.ExternalURL>():
+                    return MetadataViews.ExternalURL("https://gamepiece-nft.onflow.org/".concat(self.id.toString()))
+                case Type<MetadataViews.NFTCollectionData>():
+                    return MetadataViews.NFTCollectionData(
+                        storagePath: GamePieceNFT.CollectionStoragePath,
+                        publicPath: GamePieceNFT.CollectionPublicPath,
+                        providerPath: GamePieceNFT.ProviderPrivatePath,
+                        publicCollection: Type<&GamePieceNFT.Collection{GamePieceNFT.GamePieceNFTCollectionPublic}>(),
+                        publicLinkedType: Type<&GamePieceNFT.Collection{GamePieceNFT.GamePieceNFTCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+                        providerLinkedType: Type<&GamePieceNFT.Collection{GamePieceNFT.GamePieceNFTCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Provider, MetadataViews.ResolverCollection}>(),
+                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                            return <-GamePieceNFT.createEmptyCollection()
+                        })
+                    )
                 default:
                     return nil
             }
@@ -230,7 +283,7 @@ pub contract GamePieceNFT: NonFungibleToken {
     ///
     pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}) {
         self.totalSupply = self.totalSupply + UInt64(1)
-        let newNFT <- create NFT() as! @NonFungibleToken.NFT
+        let newNFT <- create NFT(name: "GamePieceNFT", description: "One game piece to rule them all!", thumbnail: "https://www.cheezewizards.com/static/img/prizePool/coin.svg") as! @NonFungibleToken.NFT
         let newID: UInt64 = newNFT.id
         recipient.deposit(token: <-newNFT)
         emit MintedNFT(id: newID, totalSupply: self.totalSupply)
