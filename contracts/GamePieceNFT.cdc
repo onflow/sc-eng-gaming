@@ -96,7 +96,7 @@ pub contract GamePieceNFT: NonFungibleToken {
         ///
         /// @return the resource that was removed from attachments
         ///
-        access(contract) fun removeAttachment(type: Type): @{DynamicNFT.Attachment}? {
+        access(contract) fun removeAttachment(type: Type): @{DynamicNFT.Attachment, MetadataViews.Resolver}? {
             return <-self.attachments.remove(key: type)
         }
 
@@ -129,7 +129,6 @@ pub contract GamePieceNFT: NonFungibleToken {
         /// metadata or nil if none exists
         ///
         pub fun resolveView(_ view: Type): AnyStruct? {
-            // self.views[view] | pub let views: {Type: Type} = {Type<View>: Type<Attachment>}
             switch view {
                 case Type<DynamicNFT.AttachmentsView>():
                     return DynamicNFT.AttachmentsView(
@@ -193,15 +192,15 @@ pub contract GamePieceNFT: NonFungibleToken {
     }
 
     pub resource Collection : GamePieceNFTCollectionPublic, NonFungibleToken.Provider, NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection {
-        // dictionary of NFT conforming tokens
-        // NFT is a resource type with an `UInt64` ID field
+        /// Dictionary of NFT conforming tokens
+        /// NFT is a resource type with an `UInt64` ID field
         pub var ownedNFTs: @{UInt64: NonFungibleToken.NFT}
 
         init () {
             self.ownedNFTs <- {}
         }
 
-        // withdraw removes an NFT from the collection and moves it to the caller
+        /// Removes an NFT from the collection and moves it to the caller
         pub fun withdraw(withdrawID: UInt64): @NonFungibleToken.NFT {
             let token <- self.ownedNFTs.remove(key: withdrawID) ?? panic("missing NFT")
 
@@ -210,8 +209,8 @@ pub contract GamePieceNFT: NonFungibleToken {
             return <-token
         }
 
-        // deposit takes a NFT and adds it to the collections dictionary
-        // and adds the ID to the id array
+        /// Takes a NonFungibleToken.NFT and adds it to the collections dictionary
+        /// indexed on the tokens id
         pub fun deposit(token: @NonFungibleToken.NFT) {
             let token <- token as! @GamePieceNFT.NFT
 
@@ -225,17 +224,18 @@ pub contract GamePieceNFT: NonFungibleToken {
             destroy oldToken
         }
 
-        // getIDs returns an array of the IDs that are in the collection
+        /// Returns an array of the IDs that are in the collection
         pub fun getIDs(): [UInt64] {
             return self.ownedNFTs.keys
         }
 
-        // borrowNFT gets a reference to an NFT in the collection
-        // so that the caller can read its metadata and call its methods
+        /// Gets a reference to an NFT in the collection as NonFungibleToken.NFT
+        /// so that the caller can read its metadata and call its methods
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
             return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
  
+        /// Returns a reference to the GamePieceNFT.NFT with given id
         pub fun borrowGamePieceNFT(id: UInt64): &GamePieceNFT.NFT? {
             if self.ownedNFTs[id] != nil {
                 // Create an authorized reference to allow downcasting
@@ -246,13 +246,16 @@ pub contract GamePieceNFT: NonFungibleToken {
             return nil
         }
 
+        /// Returns a reference to the nft with given id as a MetadataViews.Resolver
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
             let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let gamePieceNFT = nft as! &GamePieceNFT.NFT
             return gamePieceNFT as &AnyResource{MetadataViews.Resolver}
         }
 
-        pub fun removeAttachmentFromNFT(nftID: UInt64, attachmentType: Type): @AnyResource? {
+        /// Removes the attachment of the specified type from the nft with the given id,
+        /// returning the attachment if the nft & attachment exist
+        pub fun removeAttachmentFromNFT(nftID: UInt64, attachmentType: Type): @AnyResource{DynamicNFT.Attachment, MetadataViews.Resolver}? {
             if let nftRef = self.borrowGamePieceNFT(id: nftID) {
                 return <-nftRef.removeAttachment(type: attachmentType)
             }
@@ -260,6 +263,10 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
 
         destroy() {
+            pre {
+                self.ownedNFTs.length == 0:
+                    "NFTs still contained in this Collection!"
+            }
             destroy self.ownedNFTs
         }
     }
@@ -282,11 +289,22 @@ pub contract GamePieceNFT: NonFungibleToken {
     /// to which the NFT will be deposited
     ///
     pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}) {
-        self.totalSupply = self.totalSupply + UInt64(1)
-        let newNFT <- create NFT(name: "GamePieceNFT", description: "One game piece to rule them all!", thumbnail: "https://www.cheezewizards.com/static/img/prizePool/coin.svg") as! @NonFungibleToken.NFT
+        // Increment the supply
+        GamePieceNFT.totalSupply = GamePieceNFT.totalSupply + UInt64(1)
+        
+        // Create a new NFT. A typical NFT's Metadata would vary, but for simplicity and because the attachments
+        // are really what characterize each NFT, we've standardized each
+        let newNFT <- create NFT(
+                name: "GamePieceNFT",
+                description: "One game piece NFT to rule them all!",
+                thumbnail: "https://www.cheezewizards.com/static/img/prizePool/coin.svg"
+            ) as @NonFungibleToken.NFT
+
+        // Get the id & deposit the token to the Receiver
         let newID: UInt64 = newNFT.id
         recipient.deposit(token: <-newNFT)
-        emit MintedNFT(id: newID, totalSupply: self.totalSupply)
+
+        emit MintedNFT(id: newID, totalSupply: GamePieceNFT.totalSupply)
     }
 
     init() {
