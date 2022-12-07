@@ -85,6 +85,7 @@ pub contract RockPaperScissorsGame {
     )
 
     /// Simple enum to identify moves
+    ///
     pub enum Moves: UInt8 {
         pub case rock
         pub case paper
@@ -93,6 +94,7 @@ pub contract RockPaperScissorsGame {
 
     /// Struct to contain information about a submitted move including when
     /// it was submitted and the ID of the submitting GamePlayer
+    ///
     pub struct SubmittedMove {
         pub let gamePlayerID: UInt64
         pub let move: Moves
@@ -110,11 +112,14 @@ pub contract RockPaperScissorsGame {
     pub resource RPSWinLossRetriever: DynamicNFT.Attachment, MetadataViews.Resolver, GamingMetadataViews.BasicWinLossRetriever {
         /// The ID of the NFT where this resource is attached
         pub let nftID: UInt64
+        /// Struct containing metadata about the attachment's related game
+        pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
         /// The Type this attachment is designed to be attached to
         pub let attachmentFor: [Type]
 
         init(nftID: UInt64) {
             self.nftID = nftID
+            self.gameContractInfo = RockPaperScissorsGame.info
             self.attachmentFor = [Type<@{NonFungibleToken.INFT, DynamicNFT.Dynamic}>()]
         }
 
@@ -134,12 +139,22 @@ pub contract RockPaperScissorsGame {
             RockPaperScissorsGame.resetWinLossRecord(nftID: self.nftID)
         }
 
+        /** --- MetadataViews.Resolver --- */
+        /// Returns the Types of views that can be resolved by the resource
+        ///
         pub fun getViews(): [Type] {
             return [Type<GamingMetadataViews.BasicWinLoss>()]
         }
 
+        /// Given a supported view type, will return the view struct as AnyStruct
+        ///
         pub fun resolveView(_ type: Type): AnyStruct? {
-            return nil
+            switch type {
+                case Type<GamingMetadataViews.BasicWinLoss>():
+                    return self.getWinLossData()
+                default:
+                    return nil
+            }
         }
     }
 
@@ -163,6 +178,29 @@ pub contract RockPaperScissorsGame {
             self.moves = seedMoves
         }
 
+        /** --- MetadataViews.Resolver --- */
+        /// Returns the Types of views that can be resolved by the resource
+        ///
+        pub fun getViews(): [Type] {
+            return [Type<&GamingMetadataViews.AssigneMovesView>()]
+        }
+
+        /// Given a supported view type, will return the view struct as AnyStruct
+        ///
+        pub fun resolveView(_ type: Type): AnyStruct? {
+            switch type {
+                case Type<GamingMetadataViews.AssigneMovesView>():
+                    return GamingMetadataViews.AssigneMovesView(
+                        gameName: RockPaperScissorsGame.name,
+                        nftID: self.nftID,
+                        moves: self.moves
+                    )
+                default:
+                    return nil
+            }
+        }
+
+        /** --- GamingMetadataViews.AssignedMoves --- */
         /// Getter for the generic encapsulated moves
         ///
         /// @return generic array of AnyStruct
@@ -177,14 +215,6 @@ pub contract RockPaperScissorsGame {
         ///
         pub fun getRPSMoves(): [Moves] {
             return self.moves as! [Moves]
-        }
-
-        pub fun getViews(): [Type] {
-            return [Type<&GamingMetadataViews.BasicWinLoss>()]
-        }
-
-        pub fun resolveView(_ type: Type): AnyStruct? {
-            return nil
         }
 
         /// Append the given array to stored moves array
