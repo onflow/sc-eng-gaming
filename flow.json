@@ -1,5 +1,6 @@
 {
     "contracts": {
+        "DynamicNFT": "./contracts/DynamicNFT.cdc",
         "FungibleToken": "./contracts/utility/FungibleToken.cdc",
         "GamePieceNFT": "./contracts/GamePieceNFT.cdc",
         "GamingMetadataViews": "./contracts/GamingMetadataViews.cdc",
@@ -24,6 +25,7 @@
                 "FungibleToken",
                 "NonFungibleToken",
                 "MetadataViews",
+                "DynamicNFT",
                 "GamingMetadataViews",
                 "GamePieceNFT",
                 "RockPaperScissorsGame"
