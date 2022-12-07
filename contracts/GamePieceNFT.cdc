@@ -108,6 +108,8 @@ pub contract GamePieceNFT: NonFungibleToken {
         pub fun getViews(): [Type] {
             let views: [Type] = [
                     Type<DynamicNFT.AttachmentsView>(),
+                    Type<GamingMetadataViews.GameAttachmentsView>(),
+                    Type<MetadataViews.Display>(),
                     Type<MetadataViews.Serial>(),
                     Type<MetadataViews.ExternalURL>(),
                     Type<MetadataViews.NFTCollectionData>()
