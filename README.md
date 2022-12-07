@@ -221,7 +221,7 @@ flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p1
     ```
     1. Check Win/Loss record
     ```
-    flow scripts execute scripts/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
+    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
     ```
 
 ### Multi-player
@@ -255,9 +255,9 @@ flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p2
     ```
 1. Check Win/Loss record
     ```
-    flow scripts execute scripts/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
+    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
     ```
     1. Check Win/Loss record
     ```
-    flow scripts execute scripts/get_rps_win_loss.cdc 179b6b1cb6755e31 37
+    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 179b6b1cb6755e31 37
     ```

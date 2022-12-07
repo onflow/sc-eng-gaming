@@ -1,4 +1,4 @@
-import RockPaperScissorsGame from "../contracts/RockPaperScissorsGame.cdc"
+import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 
 /// Script to get matches IDs from a game admin
 ///
