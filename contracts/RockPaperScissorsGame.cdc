@@ -107,7 +107,7 @@ pub contract RockPaperScissorsGame {
 
     /** --- WinLossRetriever Implementation --- */
     /// Resource acts as a retriever for an NFT's WinLoss data
-    pub resource RPSWinLossRetriever: DynamicNFT.Attachment, GamingMetadataViews.BasicWinLossRetriever {
+    pub resource RPSWinLossRetriever: DynamicNFT.Attachment, MetadataViews.Resolver, GamingMetadataViews.BasicWinLossRetriever {
         /// The ID of the NFT where this resource is attached
         pub let nftID: UInt64
         /// The Type this attachment is designed to be attached to
@@ -133,12 +133,20 @@ pub contract RockPaperScissorsGame {
         pub fun resetWinLossData() {
             RockPaperScissorsGame.resetWinLossRecord(nftID: self.nftID)
         }
+
+        pub fun getViews(): [Type] {
+            return [Type<GamingMetadataViews.BasicWinLoss>()]
+        }
+
+        pub fun resolveView(_ type: Type): AnyStruct? {
+            return nil
+        }
     }
 
     /** --- RPSAssignedMoves --- */
     /// Resource designed to store & manage game moves
     ///
-    pub resource RPSAssignedMoves : DynamicNFT.Attachment, GamingMetadataViews.AssignedMoves {
+    pub resource RPSAssignedMoves : DynamicNFT.Attachment, MetadataViews.Resolver, GamingMetadataViews.AssignedMoves {
         /// The ID of the NFT where this resource is attached
         pub let nftID: UInt64
         /// Struct containing metadata about the attachment's related game
@@ -169,6 +177,14 @@ pub contract RockPaperScissorsGame {
         ///
         pub fun getRPSMoves(): [Moves] {
             return self.moves as! [Moves]
+        }
+
+        pub fun getViews(): [Type] {
+            return [Type<&GamingMetadataViews.BasicWinLoss>()]
+        }
+
+        pub fun resolveView(_ type: Type): AnyStruct? {
+            return nil
         }
 
         /// Append the given array to stored moves array
@@ -369,7 +385,7 @@ pub contract RockPaperScissorsGame {
             }
 
             // Get MatchPlayerActions Capability from contract account's storage
-            let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(self.id)!
+            let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(self.id)
             let matchPlayerActionsCap = RockPaperScissorsGame.account
                 .getCapability<&{
                     MatchPlayerActions
@@ -554,14 +570,17 @@ pub contract RockPaperScissorsGame {
                 let returnedNFTIDs = self.returnPlayerNFTs()
                 // Add the Match.id to the contract's list of completed Matches
                 RockPaperScissorsGame.completedMatchIDs.append(self.id)
+                
                 // Announce the Match results
+                let player1ID = self.submittedMoves.keys[0]
+                let player2ID = self.submittedMoves.keys[1]
                 emit MatchOver(
                     gameName: RockPaperScissorsGame.name,
                     matchID: self.id,
-                    player1ID: self.submittedMoves[0]!.gamePlayerID,
-                    player1MoveRawValue: self.submittedMoves[0]!.move.rawValue,
-                    player2ID: self.submittedMoves[1]!.gamePlayerID,
-                    player2MoveRawValue: self.submittedMoves[1]!.move.rawValue,
+                    player1ID: player1ID,
+                    player1MoveRawValue: self.submittedMoves[player1ID]!.move.rawValue,
+                    player2ID: player2ID,
+                    player2MoveRawValue: self.submittedMoves[player2ID]!.move.rawValue,
                     winningGamePlayer: self.winningPlayerID,
                     winningNFTID: self.winningNFTID,
                     returnedNFTIDs: returnedNFTIDs
@@ -732,8 +751,8 @@ pub contract RockPaperScissorsGame {
             let newMatchID = newMatch.id
             
             // Derive paths using matchID
-            let matchStoragePath = RockPaperScissorsGame.getMatchStoragePath(newMatchID)!
-            let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(newMatchID)!
+            let matchStoragePath = RockPaperScissorsGame.getMatchStoragePath(newMatchID)
+            let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(newMatchID)
             
             // Save the match to game contract account's storage
             RockPaperScissorsGame.account.save(<-newMatch, to: matchStoragePath)
@@ -894,7 +913,7 @@ pub contract RockPaperScissorsGame {
         ///
         pub fun addPlayerToMatch(matchID: UInt64, gamePlayerRef: &AnyResource{GamePlayerPublic}) {
             // Derive match's private path from matchID
-            let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(matchID)!
+            let matchPrivatePath = RockPaperScissorsGame.getMatchPrivatePath(matchID)
             // Get the capability
             let matchLobbyActionsCap: Capability<&AnyResource{MatchLobbyActions}> = RockPaperScissorsGame.account
                 .getCapability<&{MatchLobbyActions}>(matchPrivatePath)
@@ -1000,11 +1019,9 @@ pub contract RockPaperScissorsGame {
     /// if the Match does not exist in storage
     ///
     pub fun getMatchMoveHistory(id: UInt64): {UInt64: SubmittedMove}? {
-        if let matchPath = self.getMatchStoragePath(id) {
-            if let matchRef = self.account.borrow<&Match>(from: matchPath) {
-                return matchRef.getSubmittedMoves()
-            }
-            return nil
+        let matchPath = self.getMatchStoragePath(id)!
+        if let matchRef = self.account.borrow<&Match>(from: matchPath) {
+            return matchRef.getSubmittedMoves()
         }
         return nil
     }
@@ -1017,18 +1034,16 @@ pub contract RockPaperScissorsGame {
         let destroyedMatchIDs: [UInt64] = []
         // Iterate through completedMatchIDs
         for matchID in self.completedMatchIDs {
-            
             // Derive the StoragePath of the Match with given id
-            if let matchStoragePath = self.getMatchStoragePath(matchID) {
+            let matchStoragePath = self.getMatchStoragePath(matchID)
                 
-                // Load and destroy the Match
-                let completedMatch <- self.account.load<@Match>(from: matchStoragePath)
-                destroy completedMatch
-                
-                // Remove the id of the destroyed Match, adding to array
-                // maintaining destroyed IDs
-                destroyedMatchIDs.append(self.completedMatchIDs.removeFirst())
-            }
+            // Load and destroy the Match
+            let completedMatch <- self.account.load<@Match>(from: matchStoragePath)
+            destroy completedMatch
+            
+            // Remove the id of the destroyed Match, adding to array
+            // maintaining destroyed IDs
+            destroyedMatchIDs.append(self.completedMatchIDs.removeFirst())
         }
         // Return the IDs of the destroyed Matches
         return destroyedMatchIDs
@@ -1045,7 +1060,7 @@ pub contract RockPaperScissorsGame {
                 rawValue: UInt8(unsafeRandom() % 3)
             ) ?? panic("Random move does not map to a legal RockPaperScissorsGame.Moves value!")
         // Get the Match
-        let matchStoragePath = self.getMatchStoragePath(matchID)!
+        let matchStoragePath = self.getMatchStoragePath(matchID)
         let matchRef = self.account
             .borrow<&{
                 MatchPlayerActions
@@ -1135,11 +1150,11 @@ pub contract RockPaperScissorsGame {
     ///
     /// @param matchID: the id of the target Match
     ///
-    /// @return the StoragePath where that Match would be stored or nil
+    /// @return the StoragePath where that Match would be stored
     ///
-    access(contract) fun getMatchStoragePath(_ matchID: UInt64): StoragePath? {
+    access(contract) fun getMatchStoragePath(_ matchID: UInt64): StoragePath {
         let identifier = self.MatchStorageBasePathString.concat(matchID.toString())
-        return StoragePath(identifier: identifier)
+        return StoragePath(identifier: identifier)!
     }
 
     /// Function for easy derivation of a Match's PrivatePath. Provides no guarantees
@@ -1147,11 +1162,11 @@ pub contract RockPaperScissorsGame {
     ///
     /// @param matchID: the id of the target Match
     ///
-    /// @return the PrivatePath where that Match would be stored or nil
+    /// @return the PrivatePath where that Match would be stored
     ///
-    access(contract) fun getMatchPrivatePath(_ matchID: UInt64): PrivatePath? {
+    access(contract) fun getMatchPrivatePath(_ matchID: UInt64): PrivatePath {
         let identifier = self.MatchStorageBasePathString.concat(matchID.toString())
-        return PrivatePath(identifier: identifier)
+        return PrivatePath(identifier: identifier)!
     }
 
     init() {
