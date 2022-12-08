@@ -42,7 +42,7 @@ Why would one want to alter NFT attributes? This sort of behavior is desirable w
  
 Why would you want attachments? They can be very useful for a variety of use cases. Recall CryptoKitties & KittyItems! Attachments on NFTs introduce a world of composability not available otherwise. Any NFT that implements `Dynamic` can be used in the `RockPaperScissorsGame.Match` which attaches `Moves` & the ability to recall win/loss records (`BasicWinLossRetriever`).
 
-#### `AttachmentsView` & `AttachmentViewResolver`
+#### **`AttachmentsView` & `AttachmentViewResolver`**
 Because the pattern of metadata views & view resolvers is established in the standard Cadence contracts, we wanted to maintain that expectation by allowing for views on an NFT's attachments & a way to resolve those views. As the name suggests, `AttachmentsView` defines a metadataview relating to the associated NFT, the types attached, and the views supported by each attachment. `AttachmentViewResolver` provides an interface with default implementations to allow a resource to retrieve the views supported by their attachments as well as resolve those views. 
 
 #### ***Considerations***
@@ -58,24 +58,24 @@ allowing third party apps or even other games to create unique experiences or me
 using these interoperable pieces of data. This is possible because they are all
 accessible via the `NFT` itself, and in many cases via the contract also!
 
-#### `GameContractMetadata`
+#### **`GameContractMetadata`**
 For game-related contracts and resources, `GameContractMetadata` defines information identifying the originating contract and allows a developer to attach external URLs and media that would be helpful on the frontend.
 
-#### `BasicWinLoss` & `BasicWinLossRetriever`
+#### **`BasicWinLoss` & `BasicWinLossRetriever`**
 As a proof of concept, we have defined a basic metadata struct to show the win/loss record (`BasicWinLoss`) for an `NFT` for any game it participates in. It tracks wins, losses, and ties and exposes the ability to retrieve those values (stored in the game contract in our construction) directly from the `NFT` resource. While the implementation defined in this repo is very simple, you can imagine a more complex set of gaming metadata containing an `NFT`'s health and defense attributes, evolution characteristics, etc., making this pattern useful for any sort of game you might be designing.
 
 In our construction, the game contract stored win/loss data, maintaining their own histories of NFT's `BasicWinLoss` so that they can create interesting metrics and records based on the data, allow anyone to retrieve any of the data easily from a central place, and also enable anyone with the NFT object itself or a reference to it to easily retrieve the data stored on it without directly relying on a central contract.
 
 The `BasicWinLossRetriever` interface defines an interface for a resource that can retrieve this centrally stored data and return a `BasicWinLoss` record. This retriever is implemented as an `DynamicNFT.Attachment` and `GameResource` in the NFT which is added within a `Match` when the NFT is escrowed.
 
-#### `AssignedMovesView` & `AssignedMoves`
+#### **`AssignedMovesView` & `AssignedMoves`**
 The `AssignedMovesView` is defined to provide a metadata struct containing info relating to the associated game, NFT and the moves assiged to that NFT.
 
 In order to maintain, add and remove moves, the `AssignedMoves` interface defines a generic resource with an array of moves represented as `AnyStruct`. Addition and removal of moves is limited by `access(contract)` so that only the contract in which the resource is implemented can add and remove moves - even the owner of the resource cannot alter the assigned moves.
 
 While everyone gets the same moves in Rock, Paper, Scissors, this setup can be helpful in a game where players have to earn moves or moves are single use (e.g. power-up move, etc.).
 
-#### `GameResource`
+#### **`GameResource`**
 This is a very simple interface allowing for the addition of `GameContractMetadata` to an implementing resource.
 
 #### ***Considerations***
@@ -85,39 +85,33 @@ Alternatively, you could construct an `NFT` so that the metadata would be stored
 
 ### **GamePieceNFT**
 
-As mentioned above, there can be many implementations of an `NFT` that would make it relevant for use in a game. Our `GamePieceNFT` is as minimal as possible so that it could be used in a number of simple games. Fundamentally, the `NFT` defined here serves to maintain a mechanism to retrieve the win/loss record for games in which it's been played. For a simple game like Rock, Paper, Scissors, something like the metadata defined in `GamingMetadataViews.BasicWinLoss` is sufficient. 
+As mentioned above, there can be many implementations of an `NFT` that would make it relevant for use in a game. Our `GamePieceNFT` is as minimal and generic as possible so that it can be used in a number of simple games. Fundamentally, the `NFT` defined here serves as a receiver for attachments added to it throughout gameplay.
 
-In order for all players to trust the validity of win/loss metadata, the metadata should only be mutable by the relevant game. Given this requirement, our `NFT` was implemented as a simple example demonstrating how an `NFT` could expose certain data to be mutated by authorized parties, but not it's owners. The `WinLossViews` metadata effectively serves as a pointer to the game which the metadata refers to, allowing the game to define the access and conditions under which the metadata could be altered.
+Games can implement their own `Attachments` (at minimum as a composite type of `DynamicNFT.Attachment` & `MetadataViews.Resolver`) and add them to these NFTs. This makes the NFT maximally composable! Similar to a `Collection`, resources can be attached to the NFT by public reference, but the owner of the NFT can remove attachments via their Collection.
 
-Games can add their respective retrievers with `addWinLossRetriever()`, and the `NFT`'s `WinLossView` can be resolved using `resolveView()`. The simplest way to explain the storage patern of an `NFT`'s win/loss data is that the `NFT`'s `BasicWinLoss` is stored on the relevant game contract while the `NFT` stores a retriever that can access and return its `BasicWinLoss` record within that game.
+There was much discussion about whether an NFT's win/loss records should be stored directly on the NFT as an attachment, or on that game contract and attach a retriever for the NFT to recall its record. This is ultimately a design decision, with each approach having its pros/cons. Because we wanted an emergent on-chain leaderboard, we decided to store all records on the game contract. However, had we found an acceptable event indexing service or wanted to build one ourselves, we could have relied on off-chain indexers to maintain win/loss history for a leaderboard & stored the data directly on the NFT.
 
 The usual components of a standard `NFT` contract such as `Collection` and associated interface implementations are present as well.
-
-In a departure from the centrally stored win/loss data, these NFTs expose the ability to store generic game moves (`gameMoves`) as a local attribute. An NFT's game moves, defined by the game contract, can be edited via an `NFTEscrow` implementing resource which allows games to add and remove moves to those NFTs it has in its escrow custody. 
-
-Because these NFTs are generic enough to be used in a variety of games, the namespace to which a game has edit access is restricted to the name the game has registered for in the `GamePieceNFT` contract. Why do we require registration? Imagine if the game contract allowed any `NFTEscrow` implementing resource to edit NFT game moves simply by providing their game name - we don't want to simply trust that those resources would be honest and provide their associated name. So, we expose the edit functionality in a resource interface, additionally requiring proof of registration with the NFT contract. This proof of registration is what we call a `GameRegistrationTicket` which is returned to those who register with the game. On that ticket resource, we write down the name provided at the time of registration. Then, whenever an `NFTEscrow` resource edits moves we require a reference to that ticket so we can get the name from a resource we can trust, relying on the uniqueness guarantees inherent to Cadence resources instead of the honesty of actors.
-
-Through this registration construction we not only get restricted access on registered namespace, but also a novel monetization mechanism for NFT creators. Registration can also be thought of a licensing as registering games must pay a fee. This fee limits spam vectors on the namespace while also serving as a potential income stream for the NFT contract.
-
-Due to the financial nature of fee based registration, a `Administrator` resource was implemented along with interfaces relevant to distinct functions. `FundsAdmin` exposes financial related methods, `MintingAdmin` minting related functionality, and `RegistryAdmin` game name registration functions.
 
 #### ***Considerations***
 
 For this proof of concept, we did not find a `Minter` resource necessary, but anyone referring to this design should consider if they find such a resource necessary for things like rate-limiting, allowing/disallowing minting, accepting tokens to authorize minting of a new token, etc.
 
-Additionally, the assignment of move related attributes on this version of the NFT could serve as a model for how one might store win/loss data in a distributed manner. One could replace or add methods to `NFTEscrow` enabling implementing resources to increment win/loss values on the NFT directly, and forego a retriever altogether. This is a per use case design decision worth considering, as distributed storage of win/loss data compromises easily queriable on-chain historic gameplay data among all players for the benefit of less costly game contract storage.
-
 ### **RockPaperScissorsGame**
 
-All the of above components are pulled together in this smart contract implementation of single-round match Rock, Paper, Scissors. Again, this is a simple proof of concept that will hopefully illuminate the power of Cadence and Flow for the purpose of game development on-chain.
+All the of above components are put together in this smart contract implementation of single-round match Rock, Paper, Scissors. Again, this is a simple proof of concept that will hopefully illuminate the power of Cadence and Flow for the purpose of game development on-chain.
 
-Before getting into the contract level details, let's first cover the basic gameplay setup defined here. The idea is that two players engage in a single round of Rock, Paper, Scissors where Rock > Scissors > Paper > Rock > ... and so on. A match is mediated by a central game client that coordinates the match and submits moves on behalf of both players. Once the match has been created, the players submit their `NFT`s so that the game can record the match win/loss history of that `NFT`. After the moves are submitted by the match administrator, a winner is decided, win/loss results are recorded, and the `NFT`s are returned to their owners.
+Before getting into the contract level details, let's first cover the basic gameplay setup defined here. The idea is that two players engage in a single round of Rock, Paper, Scissors where Rock > Scissors > Paper > Rock > ... and so on.
 
-Now let's go over what that looks like in the contract. In broad strokes, each `GamePlayer` maintains a mapping of `Match.id` to `MatchLobbyActions` and another of `Match.id` to `MatchPlayerActions`. Their `MatchLobbyActions` allows the player to `escrowNFTToMatch()` (which must occur by both players before a match can be played) and `returnPlayerNFTs()`, which simply returns the escrowed NFTs to the `NonFungibleToken.Receiver` passed upon escrow deposit (assuming the match is over or has timed out).
+A `Match` is mediated only by the contract logic, Capabilities, and conditions. While Match resources & win/loss records are stored in the contract account, the game is otherwise peer-to-peer. Once a `Match` has been created, the players submit their `NFT`s so that the game can record the match win/loss history of that `NFT`. After both moves have been submitted, a winner is decided, win/loss results are recorded, and the `NFT`s are returned to their owners.
 
-The pattern outlined above allows a `GamePlayer` to create a `Match` via `GamePlayer.createMatch()`, saving the new `Match` to the contract's account storage, and linking `MatchLobbyActions` and `MatchPlayerActions` to the contracts account's private storage. When creating a `Match`; however, a player must also escrow their NFT providing also their `NonFungibleToken.Receiver`. Requiring "skin in the game", so to speak, helps to minimize the spam vector where an attacker can simply create an arbitrary number of Matches to take up account storage. Once the player's NFT has been escrowed to the `Match`, a `MatchPlayerActions` Capability is returned and is added to the `GamePlayer`'s `matchPlayerCapabilities`. 
+Now let's go over what that looks like in the contract. In broad strokes for a two-player `Match`, each `GamePlayer` maintains a mapping of `Match.id` to `MatchLobbyActions` and another of `Match.id` to `MatchPlayerActions`.
 
-To add a `GamePlayer` to a match, the player could call `signUpForMatch()` with the desired `matchID` which would add the `MatchLobbyActions` to the `GamePlayer`'s `matchLobbyCapabilities`. Alternatively, the `GamePlayerPublic` interface exposes the ability for a `GamePlayer` to be added to a `Match` by anyone. 
+`MatchLobbyActions` allow the player to `escrowNFTToMatch()` (which must occur by both players before a match can be played) and `returnPlayerNFTs()`, which simply returns the escrowed NFTs to the `NonFungibleToken.Receiver` passed upon escrow deposit (assuming the match is over or has timed out).
+
+The pattern outlined above allows a `GamePlayer` to create a `Match` via `GamePlayer.createMatch()`, saving the new `Match` to the contract's account storage, and linking `MatchLobbyActions` and `MatchPlayerActions` to the contracts account's private storage. When creating a `Match`; however, a player must also escrow their NFT providing their `NonFungibleToken.Receiver` along with it so the NFT can be returned. Requiring "skin in the game", so to speak, helps to minimize the spam vector where an attacker can simply create an arbitrary number of Matches to take up account storage. Once the player's NFT has been escrowed to the `Match`, a `MatchPlayerActions` Capability is returned and is added to the `GamePlayer`'s `matchPlayerCapabilities`. 
+
+To add a `GamePlayer` to a match, the player could call `signUpForMatch()` with the desired `matchID` which would add the `MatchLobbyActions` to the `GamePlayer`'s `matchLobbyCapabilities`. Alternatively, the `GamePlayerPublic` interface exposes the ability for a `GamePlayer` to be added to a `Match` by anyone, which you can see in the `setup_new_multiplayer_match.cdc` transaction.
 
 Once a match has been set up, two NFTs must be escrowed. Then each player can submit moves via `MatchPlayerActions.submitMoves()`, requiring both the move and a reference to the player's `GamePlayerID` Capability. We require this reference since both players have access to the same Capability, exposing a cheating vector whereby one player could submit the other player's move if the contract lacked a mechanism for identity verification. Since access control is a matter of what you have (not who you are) in Cadence, we take a reference to this `GamePlayerID` Capability and pull the submitting player's id from the reference (which should be kept private by the player).
 
@@ -127,9 +121,19 @@ Upon second player's asynchronous move submission, the `Match`:
 2. alters the `BasicWinLoss` metadata of the `NFT` in `winLossRecords` based on the outcome
 3. returns the escrowed `NFT`s to the respective `Receiver`s
 
+Also know that a `Match` can be played in single-player mode. In this case, a player escrows their NFT and submits their move as usual. Once they submit their move, they must then call the `submitAutomatedPlayerMove()` contract method in a separate transaction. This is enforced by block height difference between move submissions - not an ideal solution. We enforce separate transaction because the automated player's move is generated using `unsafeRandom()` which can be gamed. For example, I could submit my move as rock and set a post condition that the generated move is scissors, allowing me to ensure my win. An oracle or a safer randomness API implemented into Flow and Cadence can and will at some point solve this problem, removing the need for these workarounds.
+
 >Note that a `Match` can only be utilized once.
 
-Taking a look at the contract, you'll see that the core logic of Rock, Paper, Scissors is exposed in the contract function `determineRockPaperScissorsWinner()`. This was done intentionally in hopes that the core logic could be used in other variations. You could imagine another contract that defines a `Match` resource using other `NFT`s or that combines logic of a hypothetical tic-tac-toe game or that runs for multiple rounds and requires a buy-in from players which goes to the winner. Again, this is designed to be built on by the Flow community, so have fun with it and make building the game part of the fun!
+Taking a look at the contract, you'll see that the core logic of Rock, Paper, Scissors is exposed in the contract function `determineRockPaperScissorsWinner()`. This was done in hopes that the core logic could be used in other variations. You could imagine another contract that defines a `Match` resource using other `NFT`s or that combines logic of a hypothetical tic-tac-toe game or that runs for multiple rounds and requires a buy-in from players which goes to the winner. Again, this is designed to be built on by the Flow community, so have fun with it and make building the game part of the fun!
+
+#### **`RPSBasicWinLossRetriever`** 
+The `BasicWinLossRetriever` attachment effectively serves as a pointer to the game which its `gameContractInfo`, allowing the game to define the access and conditions under which the metadata could be altered while still retrieving the data from the NFT it's attached to.
+
+The simplest way to explain the storage patern of an `NFT`'s win/loss data is that the `NFT`'s `BasicWinLoss` is stored on the relevant game contract while the `NFT` stores a retriever that can access and return its `BasicWinLoss` record within that game.
+
+#### `RPSAssignedMoves`
+To model how a game might provide moves for gameplay, we've created the `RPSAssignedMoves` resource. This resource is attached to escrowed NFTs and seeded with your standard moves for Rock, Paper, Scissors. Other games might add and remove available moves throughout gameplay and validate whether a submitted move is valid given the player's escrowed NFT. For example, maybe my `AssignedMoves` resource represents a deck of single use cards from which a card is removed when it's played. Alternatively, I might have a fighter that loses the ability to play moves as their health declines. Again, the focus here is demonstrating the definition of a resource that is given to a player, but that containing attributes that only game logic can alter.
 
 #### ***Considerations***
 
@@ -137,7 +141,7 @@ A primary concern for us in the construction of this game is improving the UX su
 
 A potential workaround in Cadence at present is a Capabilities-based approach, where I create a Capability that exposes restricted access to my `GamePlayer` resource and give that to some trusted agent - say a game client. Then, I tell that game client what transaction to submit for me using that Capability. For a number of reasons, we've decided against this approach, but primarily due to Capabilities' present lack of auditability.
 
-That's all to say that we recognize this problem, many minds are working on it, and the UX will vastly improve in coming months. For the purpose of this proof of concept, we've chosen to move forward with the base contract components upon which we can soon build that seamless UX.
+That's all to say that we recognize this problem, many minds are working on it, and the UX will vastly improve in coming months. For the purpose of this proof of concept, we've chosen to move forward with the base contract components upon which we can soon build that seamless UX (which is soon to come).
 
 ___
 

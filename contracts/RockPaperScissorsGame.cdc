@@ -833,17 +833,17 @@ pub contract RockPaperScissorsGame {
             let matchPrivatePath = PrivatePath(identifier: RockPaperScissorsGame
                 .MatchPrivateBasePathString.concat(matchID.toString()))!
             // Get the Capability
-            let matchPlayerActionsCap = RockPaperScissorsGame.account
-                .getCapability<&{MatchPlayerActions}>(matchPrivatePath)
+            let matchLobbyActionsCap = RockPaperScissorsGame.account
+                .getCapability<&{MatchLobbyActions}>(matchPrivatePath)
 
             // Ensure Capability is not nil
             assert(
-                matchPlayerActionsCap.check(),
-                message: "Not able to retrieve MatchPlayerActions Capability for given matchID!"
+                matchLobbyActionsCap.check(),
+                message: "Not able to retrieve MatchLobbyActions Capability for given matchID!"
             )
 
             // Add it to the mapping
-            self.matchPlayerCapabilities.insert(key: matchID, matchPlayerActionsCap)
+            self.matchLobbyCapabilities.insert(key: matchID, matchLobbyActionsCap)
 
             emit PlayerSignedUpForMatch(gameName: RockPaperScissorsGame.name, matchID: matchID, addedPlayerID: self.id)
         }
