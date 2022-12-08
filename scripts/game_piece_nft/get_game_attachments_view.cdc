@@ -15,7 +15,7 @@ pub fun main(address: Address, id: UInt64): GamingMetadataViews.GameAttachmentsV
         ?? panic("Could not borrow a reference to the collection at path: ".concat(GamePieceNFT.CollectionPublicPath.toString()))
 
     // Get the NFT reference if it exists in the reference collection
-    if let nftRef: &GamePieceNFT.NFT = collectionPublicRef.borrowGamePieceNFT(id: id) {
+    if let nftRef = collectionPublicRef.borrowGamePieceNFT(id: id) {
         // Get the GameAttachmentsView from the NFT & return
         return nftRef
             .resolveView(

@@ -14,7 +14,7 @@ pub fun main(address: Address, id: UInt64): GamingMetadataViews.BasicWinLoss? {
         ?? panic("Could not borrow a reference to the collection at path: ".concat(GamePieceNFT.CollectionPublicPath.toString()))
 
     // Get the NFT reference if it exists in the reference collection
-    if let nftRef: &GamePieceNFT.NFT = collectionPublicRef.borrowGamePieceNFT(id: id) {
+    if let nftRef = collectionPublicRef.borrowGamePieceNFT(id: id) {
         // Resolve the BasicWinLoss view on the RPSWinLossRetriever attachment
         return nftRef
             .resolveAttachmentView(
