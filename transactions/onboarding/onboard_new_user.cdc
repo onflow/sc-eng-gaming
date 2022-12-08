@@ -86,7 +86,7 @@ transaction(
                     &ChildAccount.ChildAccountManager
                 >(
                     from: ChildAccount.ChildAccountManagerStoragePath
-                )!
+                ) ?? panic("couldn't ")
 
             // Construct ChildAccountInfo struct from given arguments
             let info = ChildAccount.ChildAccountInfo(

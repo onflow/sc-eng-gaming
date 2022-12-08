@@ -200,11 +200,6 @@ pub contract ChildAccount {
             // Add ChildAccountTag Capability indexed by the account's address
             let tagCap = newAccount.getCapability<&ChildAccountTag>(ChildAccount.ChildAccountTagPrivatePath)
             self.childAccounts.insert(key: newAccount.address, tagCap)
-            
-            // Remove from the pending child accounts array
-            self.pendingChildAccounts.remove(
-                at: self.pendingChildAccounts.firstIndex(of: newAccount.address)!
-            )
         }
 
         /// Remove ChildAccountTag, returning its Capability if it exists. Note, doing so
