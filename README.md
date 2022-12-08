@@ -24,13 +24,29 @@ The entirety of that composable gaming future is possible on Flow, and starts wi
 
 As mentioned above, the supporting contracts for this game have been compartmentalized to four primary contracts. At a high level, those are:
 
-* **GamingMetadataViews** - Defining the metadata structs relevant to an NFT's win/loss data and assigned moves as well as interfaces designed to be implemented in conjunction with `DynamicNFT.Attachments`.
-
 * **DynamicNFT** - Containing interfaces outlining attachments and the interfaces to which they are intended to attached (`Dynamic`). Several view functions are contained in both the AttachmentViewResolver and Dynamic interfaces as default implementations. An `AttachmentsView` is included so that resources implementing `Dynamic` can resolve metadata about their attached types.
+
+* **GamingMetadataViews** - Defining the metadata structs relevant to an NFT's win/loss data and assigned moves as well as interfaces designed to be implemented in conjunction with `DynamicNFT.Attachments`.
 
 * **GamePieceNFT** - This contract contains definitions for the gaming NFT and its collection. You'll note that the types of resources that can be attached to an NFT are generic, but must at minimum must be a composite of `DynamicNFT.Attachment` and `MetadataViews.Resolver`.
 
 * **RockPaperScissorsGame** - As you might imagine, this contract contains the game's moves, logic as well as resource and interfaces defining the rules of engagement in the course of a match. Additionally, receivers for Capabilities to matches are defined in `GamePlayer` resource and interfaces that allow players to create matches, be added and add others to matches, and engage with the matches they're in. The `Match` resource is defined as a single round of Rock, Paper, Scissors that can be played in either single or two player modes, with single-player modes randomizing the second player's move on a contract function call.
+
+### **DynamicNFT**
+
+To accomplish a contruction of generic NFT with mutable data and resource that can be defined in external contracts, attachments felt like a natural pattern. 
+
+In this contract, we've specified a set of interfaces that enable the implementing types to define the resources to which they can be attached & receive resources as `Attachment`s. An `Attachment` is simply a resource that can be attached to another via the `Dynamic` interface. `Dynamic` implies that attributes on the NFT can be altered by entities outside of the NFT's defining contract, and perhaps even with limitations defined by access control that allows another party to alter information that the NFT's owner cannot.
+
+Why would one want to alter NFT attributes? This sort of behavior is desirable when NFTs are used in games where you want a contract's game logic to govern the data held on an NFT and don't necessarily trust the owner of the resource to not tamper with it in their favor.
+ 
+Why would you want attachments? They can be very useful for a variety of use cases. Recall CryptoKitties & KittyItems! Attachments on NFTs introduce a world of composability not available otherwise. Any NFT that implements `Dynamic` can be used in the `RockPaperScissorsGame.Match` which attaches `Moves` & the ability to recall win/loss records (`BasicWinLossRetriever`).
+
+#### `AttachmentsView` & `AttachmentViewResolver`
+Because the pattern of metadata views & view resolvers is established in the standard Cadence contracts, we wanted to maintain that expectation by allowing for views on an NFT's attachments & a way to resolve those views. As the name suggests, `AttachmentsView` defines a metadataview relating to the associated NFT, the types attached, and the views supported by each attachment. `AttachmentViewResolver` provides an interface with default implementations to allow a resource to retrieve the views supported by their attachments as well as resolve those views. 
+
+#### ***Considerations***
+Note that `Attachment`s will soon be native to Cadence, but this is our best attempt to emulate the specifications in the [Attachments FLIP](https://github.com/onflow/flips/pull/11) with the current language features while also remaining backwards compatible. If you're reading this when Attachments are live, we recommend leveraging the native feature.
 
 ### **GamingMetadataViews**
 
@@ -42,16 +58,27 @@ allowing third party apps or even other games to create unique experiences or me
 using these interoperable pieces of data. This is possible because they are all
 accessible via the `NFT` itself, and in many cases via the contract also!
 
-As a proof of concept, we have defined a basic metadata view (`WinLossView`) to show the win/loss record (`BasicWinLoss` ) for an `NFT` for any game it participates in. It tracks wins, losses, and ties and exposes the ability to retrieve those values (stored in the game contract) directly from the `NFT` resource. While the implementation defined in this repo is very simple, you can imagine a more complex set of gaming metadata containing an `NFT`'s health and defense attributes, evolution characteristics, etc., making this pattern useful for any sort of game you might be designing.
+#### `GameContractMetadata`
+For game-related contracts and resources, `GameContractMetadata` defines information identifying the originating contract and allows a developer to attach external URLs and media that would be helpful on the frontend.
 
-The `WinLossView` maintains a mapping of game names to the game's respective `BasicWinLossRetriever`. A `BasicWinLossRetriever` is an interface defining a Capability with a function that can access `BasicWinLoss` data elsewhere. In this case, game contracts can maintain their own histories of NFT's `BasicWinLoss` so that they can create interesting metrics and records based on the data, allow anyone to retrieve any of the data easily from a central place, and also enable anyone with the NFT object itself or a reference to it to easily retrieve the data stored on it without directly relying on a central contract. 
+#### `BasicWinLoss` & `BasicWinLossRetriever`
+As a proof of concept, we have defined a basic metadata struct to show the win/loss record (`BasicWinLoss`) for an `NFT` for any game it participates in. It tracks wins, losses, and ties and exposes the ability to retrieve those values (stored in the game contract in our construction) directly from the `NFT` resource. While the implementation defined in this repo is very simple, you can imagine a more complex set of gaming metadata containing an `NFT`'s health and defense attributes, evolution characteristics, etc., making this pattern useful for any sort of game you might be designing.
 
-Another benefit is that when a user submits their NFT to play a new game, the game can automatically add its win/loss record retriever to the NFT without an explicit confirmation from the user because the user has given permission implicitly.
+In our construction, the game contract stored win/loss data, maintaining their own histories of NFT's `BasicWinLoss` so that they can create interesting metrics and records based on the data, allow anyone to retrieve any of the data easily from a central place, and also enable anyone with the NFT object itself or a reference to it to easily retrieve the data stored on it without directly relying on a central contract.
 
-It is the best of all worlds!
+The `BasicWinLossRetriever` interface defines an interface for a resource that can retrieve this centrally stored data and return a `BasicWinLoss` record. This retriever is implemented as an `DynamicNFT.Attachment` and `GameResource` in the NFT which is added within a `Match` when the NFT is escrowed.
+
+#### `AssignedMovesView` & `AssignedMoves`
+The `AssignedMovesView` is defined to provide a metadata struct containing info relating to the associated game, NFT and the moves assiged to that NFT.
+
+In order to maintain, add and remove moves, the `AssignedMoves` interface defines a generic resource with an array of moves represented as `AnyStruct`. Addition and removal of moves is limited by `access(contract)` so that only the contract in which the resource is implemented can add and remove moves - even the owner of the resource cannot alter the assigned moves.
+
+While everyone gets the same moves in Rock, Paper, Scissors, this setup can be helpful in a game where players have to earn moves or moves are single use (e.g. power-up move, etc.).
+
+#### `GameResource`
+This is a very simple interface allowing for the addition of `GameContractMetadata` to an implementing resource.
 
 #### ***Considerations***
-
 A consideration to note here on the side of the game developer is that the storage costs for this game data will be incurred on the account to which the game contract is deployed. For this, you get a public and central location which is very useful for building a leaderboard of `NFT`'s win/loss performance. 
 
 Alternatively, you could construct an `NFT` so that the metadata would be stored on the NFT itself, but you would lose that in-built on-chain leaderboard and will need to consider if and how you'll want to enable that functionality. Some solutions involve maintaining off-chain (but verifiable) stats based on indexed events or simply requiring a user to pay for the storage themselves while maintaining a Capability to the `NFT`s that allows you to query their stats on a time interval.
