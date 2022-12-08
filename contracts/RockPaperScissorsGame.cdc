@@ -701,6 +701,8 @@ pub contract RockPaperScissorsGame {
             _ cap: Capability<&{MatchLobbyActions}>
         )
         pub fun getAvailableMoves(matchID: UInt64): [Moves]
+        pub fun getMatchesInLobby(): [UInt64]
+        pub fun getMatchesInPlay(): [UInt64]
     }
 
     /** --- Receiver for Match Capabilities --- */
@@ -899,23 +901,6 @@ pub contract RockPaperScissorsGame {
             self.matchLobbyCapabilities.remove(key: matchID)
         }
 
-        /// Getter for the GamePlayer's available moves assigned to their escrowed NFT
-        ///
-        /// @param matchID: Match.id for which they are querying
-        ///
-        /// @return the Moves assigned to their escrowed NFT
-        ///
-        pub fun getAvailableMoves(matchID: UInt64): [Moves] {
-            pre {
-                self.matchPlayerCapabilities[matchID] != nil:
-                    "Player is not engaged with the given Match"
-                self.matchPlayerCapabilities[matchID]!.check():
-                    "Problem with MatchPlayerMoves Capability for given Match.id!"
-            }
-            let matchCap = self.matchPlayerCapabilities[matchID]!
-            return matchCap.borrow()!.getNFTGameMoves(forPlayerID: self.id)
-        }
-
         /// Allows the GamePlayer to submit a move to the provided Match.id
         ///
         /// @param matchID: Match.id of the Match into which the move will be submitted
@@ -977,6 +962,39 @@ pub contract RockPaperScissorsGame {
             self.matchLobbyCapabilities.insert(key: matchID, cap)
             // Event that could be used to notify player they were added
             emit PlayerAddedToMatch(gameName: RockPaperScissorsGame.name, matchID: matchID, addedPlayerID: self.id)
+        }
+
+        /// Getter for the GamePlayer's available moves assigned to their escrowed NFT
+        ///
+        /// @param matchID: Match.id for which they are querying
+        ///
+        /// @return the Moves assigned to their escrowed NFT
+        ///
+        pub fun getAvailableMoves(matchID: UInt64): [Moves] {
+            pre {
+                self.matchPlayerCapabilities[matchID] != nil:
+                    "Player is not engaged with the given Match"
+                self.matchPlayerCapabilities[matchID]!.check():
+                    "Problem with MatchPlayerMoves Capability for given Match.id!"
+            }
+            let matchCap = self.matchPlayerCapabilities[matchID]!
+            return matchCap.borrow()!.getNFTGameMoves(forPlayerID: self.id)
+        }
+
+        /// Getter for the ids of Matches for which player has MatchLobbyActions Capabilies
+        ///
+        /// @return ids of Matches for which player has MatchLobbyActions Capabilies
+        ///
+        pub fun getMatchesInLobby(): [UInt64] {
+            return self.matchLobbyCapabilities.keys
+        }
+
+        /// Getter for the ids of Matches for which player has MatchPlayerActions Capabilies
+        ///
+        /// @return ids of Matches for which player has MatchPlayerActions Capabilies
+        ///
+        pub fun getMatchesInPlay(): [UInt64] {
+            return self.matchPlayerCapabilities.keys
         }
     }
 

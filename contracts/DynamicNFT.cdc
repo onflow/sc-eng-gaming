@@ -101,6 +101,10 @@ pub contract DynamicNFT {
         /// Mapping of attachments added to the implementing resource
         access(contract) let attachments: @{Type: AnyResource{Attachment, MetadataViews.Resolver}}
 
+        /// Adds the attachment to the mapping of attachments, indexed by its type
+        ///
+        /// @param attachment: AnyResource that is a composite Type of Attachment & MetadataViews.Resolver
+        ///
         pub fun addAttachment(_ attachment: @AnyResource{Attachment, MetadataViews.Resolver}) {
             pre {
                 !self.hasAttachmentType(attachment.getType()):
@@ -114,9 +118,7 @@ pub contract DynamicNFT {
         ///
         /// @return true if NFT has given Type attached and false otherwise
         ///
-        pub fun hasAttachmentType(_ type: Type): Bool {
-            return self.attachments.containsKey(type)
-        }
+        pub fun hasAttachmentType(_ type: Type): Bool
 
         /// Returns a reference to the attachment of the given Type
         ///
@@ -124,17 +126,13 @@ pub contract DynamicNFT {
         ///
         /// @return Generic auth reference ready for downcasting
         ///
-        pub fun getAttachmentRef(_ type: Type): auth &AnyResource{Attachment, MetadataViews.Resolver}? {
-            return &self.attachments[type] as auth &AnyResource{Attachment, MetadataViews.Resolver}?
-        }
+        pub fun getAttachmentRef(_ type: Type): auth &AnyResource{Attachment, MetadataViews.Resolver}?
 
         /// Getter method for array of types attached to this NFT
         ///
         /// @return array of attached Types
         ///
-        pub fun getAttachmentTypes(): [Type] {
-            return self.attachments.keys
-        }
+        pub fun getAttachmentTypes(): [Type]
 
         /// Allows for removal of attachments, but should be handled by the contract in which
         /// the implementing resource is defined
@@ -145,6 +143,36 @@ pub contract DynamicNFT {
         /// @return the removed Attachment if one of the given type exists, nil otherwise
         ///
         access(contract) fun removeAttachment(type: Type): @{DynamicNFT.Attachment}?
+    }
+
+    /// An interface defining a resource that can receive and maintain Composite Types implementing 
+    /// Attachment and MetadataViews.Resolver
+    ///
+    pub resource interface DynamicPublic {
+        /// Mapping of attachments added to the implementing resource
+        access(contract) let attachments: @{Type: AnyResource{Attachment, MetadataViews.Resolver}}
+
+        /// Function revealing whether NFT has an attachment of the given Type
+        ///
+        /// @param type: The type in question
+        ///
+        /// @return true if NFT has given Type attached and false otherwise
+        ///
+        pub fun hasAttachmentType(_ type: Type): Bool
+
+        /// Returns a reference to the attachment of the given Type
+        ///
+        /// @param type: Type of the desired attachment reference
+        ///
+        /// @return Generic auth reference ready for downcasting
+        ///
+        pub fun getAttachmentRef(_ type: Type): auth &AnyResource{Attachment, MetadataViews.Resolver}?
+
+        /// Getter method for array of types attached to this NFT
+        ///
+        /// @return array of attached Types
+        ///
+        pub fun getAttachmentTypes(): [Type]
     }
 }
  

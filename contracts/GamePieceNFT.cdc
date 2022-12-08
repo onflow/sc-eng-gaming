@@ -40,7 +40,7 @@ pub contract GamePieceNFT: NonFungibleToken {
     /// The definition of the GamePieceNFT.NFT resource, an NFT designed to be used for gameplay with
     /// attributes relevant to win/loss histories and basic gameplay moves
     ///
-    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, DynamicNFT.AttachmentViewResolver, DynamicNFT.Dynamic {
+    pub resource NFT : NonFungibleToken.INFT, MetadataViews.Resolver, DynamicNFT.AttachmentViewResolver, DynamicNFT.Dynamic, DynamicNFT.DynamicPublic {
         /// Unique id tied to resource's UUID
         pub let id: UInt64
         /// Mapping of generic attached resource indexed by their type
@@ -63,6 +63,7 @@ pub contract GamePieceNFT: NonFungibleToken {
             self.thumbnail = thumbnail
         }
 
+        /** --- DynamicNFT.Dynamic --- */
         /// Method allowing an attachment to be added by a party registered to add the given type
         ///
         /// @param attachment: the resource to be attached
@@ -96,10 +97,43 @@ pub contract GamePieceNFT: NonFungibleToken {
         ///
         /// @return the resource that was removed from attachments
         ///
-        access(contract) fun removeAttachment(type: Type): @{DynamicNFT.Attachment, MetadataViews.Resolver}? {
+        access(contract) fun removeAttachment(
+            type: Type
+        ): @{DynamicNFT.Attachment, MetadataViews.Resolver}? {
             return <-self.attachments.remove(key: type)
         }
 
+        /** --- DynamicNFT.Dynamic & DynamicNFT.DynamicPublic --- */
+
+        /// Function revealing whether NFT has an attachment of the given Type
+        ///
+        /// @param type: The type in question
+        ///
+        /// @return true if NFT has given Type attached and false otherwise
+        ///
+        pub fun hasAttachmentType(_ type: Type): Bool {
+            return self.attachments.containsKey(type)
+        }
+
+        /// Returns a reference to the attachment of the given Type
+        ///
+        /// @param type: Type of the desired attachment reference
+        ///
+        /// @return Generic auth reference ready for downcasting
+        ///
+        pub fun getAttachmentRef(_ type: Type): auth &AnyResource{DynamicNFT.Attachment, MetadataViews.Resolver}? {
+            return &self.attachments[type] as auth &AnyResource{DynamicNFT.Attachment, MetadataViews.Resolver}?
+        }
+
+        /// Getter method for array of types attached to this NFT
+        ///
+        /// @return array of attached Types
+        ///
+        pub fun getAttachmentTypes(): [Type] {
+            return self.attachments.keys
+        }
+
+        /** --- MetadataViews.Resolver --- */
         /// Retrieve relevant MetadataViews and/or GamingMetadataViews struct types supported by this
         /// NFT. If a caller wants the views supported by the NFT's attachments, they should call
         /// getAttachmentViews(): {Type: [Type]} which is inherited from DynamicNFT.AttachmentViewResolver
@@ -188,6 +222,7 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
 
         destroy() {
+            // Prevent loss of attachment resources
             pre {
                 self.attachments.length == 0:
                     "NFT still has nested attachments!"
@@ -203,7 +238,9 @@ pub contract GamePieceNFT: NonFungibleToken {
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
-        pub fun borrowGamePieceNFT(id: UInt64): &GamePieceNFT.NFT? {
+        pub fun borrowGamePieceNFT(
+            id: UInt64
+        ): &GamePieceNFT.NFT{NonFungibleToken.INFT, DynamicNFT.DynamicPublic, DynamicNFT.AttachmentViewResolver, MetadataViews.Resolver}? {
             post {
                 (result == nil) || (result?.id == id):
                     "Cannot borrow GamePieceNFT reference: the ID of the returned reference is incorrect"
@@ -256,14 +293,22 @@ pub contract GamePieceNFT: NonFungibleToken {
             return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
         }
  
-        /// Returns a reference to the GamePieceNFT.NFT with given id
-        pub fun borrowGamePieceNFT(id: UInt64): &GamePieceNFT.NFT? {
+        /// Returns a reference to the GamePieceNFT.NFT as a restricted composite Type
+        /// The returned reference allows all functionality on the NFT except for addition
+        /// and removal of attachments
+        ///
+        /// @param id: The id of the NFT for which a reference will be returned 
+        ///
+        /// @return The reference to the NFT or nil if it is not contained in the Collection
+        ///
+        pub fun borrowGamePieceNFT(
+            id: UInt64
+        ): &GamePieceNFT.NFT{NonFungibleToken.INFT, DynamicNFT.DynamicPublic, DynamicNFT.AttachmentViewResolver, MetadataViews.Resolver}? {
             if self.ownedNFTs[id] != nil {
                 // Create an authorized reference to allow downcasting
                 let ref = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
                 return ref as! &GamePieceNFT.NFT
             }
-
             return nil
         }
 
@@ -275,10 +320,16 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
 
         /// Removes the attachment of the specified type from the nft with the given id,
-        /// returning the attachment if the nft & attachment exist
-        pub fun removeAttachmentFromNFT(nftID: UInt64, attachmentType: Type): @AnyResource{DynamicNFT.Attachment, MetadataViews.Resolver}? {
-            if let nftRef = self.borrowGamePieceNFT(id: nftID) {
-                return <-nftRef.removeAttachment(type: attachmentType)
+        /// returning the attachment if the nft & attachment exist. 
+        pub fun removeAttachmentFromNFT(
+            nftID: UInt64,
+            attachmentType: Type
+        ): @AnyResource{DynamicNFT.Attachment, MetadataViews.Resolver}? {
+            // Get a reference to the NFT if it is contained
+            if let nftRef = &self.ownedNFTs[nftID] as auth &NonFungibleToken.NFT? {
+                // Cast the reference as a GamePieceNFT & remove the attachment, returning it
+                let gamePieceNFTRef = nftRef as! &GamePieceNFT.NFT
+                return <-gamePieceNFTRef.removeAttachment(type: attachmentType)
             }
             return nil
         }
