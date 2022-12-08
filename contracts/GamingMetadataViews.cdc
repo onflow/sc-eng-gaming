@@ -8,7 +8,7 @@ import MetadataViews from "./utility/MetadataViews.cdc"
 /// 
 pub contract GamingMetadataViews {
 
-    /// A struct defining metadata relevant to a game
+    /// A struct defining metadata relevant to a game contract
     ///
     pub struct GameContractMetadata {
         pub let name: String
@@ -99,7 +99,7 @@ pub contract GamingMetadataViews {
         }
     }
 
-    /// View struct containing relating to the associated game, nft & assigned moves
+    /// View struct conatining info relating to the associated game, nft & assigned moves
     ///
     pub struct AssignedMovesView {
         /// The name of the associated game
@@ -131,7 +131,10 @@ pub contract GamingMetadataViews {
         }
     }
 
+    /** --- Interfaces --- */
+    
     /// Basic interface containing Metadata about a game-related attachment
+    ///
     pub resource interface GameResource {
         pub let gameContractInfo: GameContractMetadata
     }
