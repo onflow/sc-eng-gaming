@@ -8,7 +8,7 @@ import MetadataViews from "./utility/MetadataViews.cdc"
 /// 
 pub contract GamingMetadataViews {
 
-    /// A struct defining metadata relevant to a game
+    /// A struct defining metadata relevant to a game contract
     ///
     pub struct GameContractMetadata {
         pub let name: String
@@ -41,14 +41,13 @@ pub contract GamingMetadataViews {
     pub struct BasicWinLoss {
         /// The name of the associated game
         pub let gameName: String
-
         /// The id of the associated NFT
         pub let nftID: UInt64
-   
+
         /// Aggregate game results
-        pub var wins: UInt64
-        pub var losses: UInt64
-        pub var ties: UInt64
+        access(self) var wins: UInt64
+        access(self) var losses: UInt64
+        access(self) var ties: UInt64
 
         init (game: String, nftID: UInt64){
             self.gameName = game
@@ -66,29 +65,25 @@ pub contract GamingMetadataViews {
         pub fun addWin () {
             self.wins = self.wins + 1
         }
-
         pub fun addLoss () {
             self.losses = self.losses + 1
         }
-
         pub fun addTie () {
             self.ties = self.ties + 1
         }
-
+        
         pub fun subtractWin() {
             pre {
                 self.wins > 0: "Cannot set wins below 0!"
             }
             self.wins = self.wins + 1
         }
-
         pub fun subtractLoss() {
             pre {
                 self.losses > 0: "Cannot set losses below 0!"
             }
             self.losses = self.losses - 1
         }
-
         pub fun subtractTie() {
             pre {
                 self.ties > 0: "Cannot set ties below 0!"
@@ -96,11 +91,52 @@ pub contract GamingMetadataViews {
             self.ties = self.ties - 1
         }
 
+        /// Resets the records to 0
         pub fun reset() {
             self.wins = 0
             self.losses = 0
             self.ties = 0
         }
+    }
+
+    /// View struct conatining info relating to the associated game, nft & assigned moves
+    ///
+    pub struct AssignedMovesView {
+        /// The name of the associated game
+        pub let gameName: String
+        /// The id of the associated NFT
+        pub let nftID: UInt64
+        /// Array designed to contain an array of generic moves
+        pub let moves: [AnyStruct]
+
+        init(gameName: String, nftID: UInt64, moves: [AnyStruct]) {
+            self.gameName = gameName
+            self.nftID = nftID
+            self.moves = moves
+        }
+    }
+
+    /// View struct containing the nftID & a mapping of indexed on the NFT's attachment types
+    /// and their associated GameContractMetadata
+    ///
+    pub struct GameAttachmentsView {
+        /// The id of the associated NFT
+        pub let nftID: UInt64
+        /// Mapping of the Types to their associated GameContractMetadata 
+        pub let attachmentGameContractMetadata: {Type: GameContractMetadata}
+
+        init(nftID: UInt64, attachmentGameContractMetadata: {Type: GameContractMetadata}) {
+            self.nftID = nftID
+            self.attachmentGameContractMetadata = attachmentGameContractMetadata
+        }
+    }
+
+    /** --- Interfaces --- */
+    
+    /// Basic interface containing Metadata about a game-related attachment
+    ///
+    pub resource interface GameResource {
+        pub let gameContractInfo: GameContractMetadata
     }
 
     /// Interface that should be implemented by game contracts
@@ -110,7 +146,9 @@ pub contract GamingMetadataViews {
     /// stored on the game contract can be retrieved by the NFT
     ///
     pub resource interface BasicWinLossRetriever {
-        
+        /// Struct containing info about the related game contract
+        pub let gameContractInfo: GameContractMetadata
+
         /// Retrieves the BasicWinLoss for a given NFT
         ///
         /// @param nftID: The id of the NFT the caller is attempting to
@@ -127,7 +165,9 @@ pub contract GamingMetadataViews {
     /// win/loss record that could live locally on an NFT as an attachment
     ///
     pub resource interface WinLoss {
+        /// Struct containing info about the related game contract
         pub let gameContractInfo: GameContractMetadata
+
         /** --- Game record variables --- */
         access(contract) var wins: UInt64
         access(contract) var losses: UInt64
@@ -143,11 +183,15 @@ pub contract GamingMetadataViews {
     /// and a getter method for those moves
     ///
     pub resource interface AssignedMoves {
+        /// Struct containing info about the related game contract
         pub let gameContractInfo: GameContractMetadata
         /// Array designed to contain an array of generic moves
         access(contract) let moves: [AnyStruct]
+        
         /// Getter method returning an generic AnyStruct array
         pub fun getMoves(): [AnyStruct]
+
+        /** Add & remove moves */
         access(contract) fun addMoves(newMoves: [AnyStruct])
         access(contract) fun removeMove(targetIdx: Int): AnyStruct?
     }
