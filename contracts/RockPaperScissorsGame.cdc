@@ -661,6 +661,7 @@ pub contract RockPaperScissorsGame {
     /// capability
     ///
     pub resource GamePlayer : GamePlayerID, GamePlayerPublic {
+        // TODO: Add game contract info
         pub let id: UInt64
         access(self) let matchLobbyCapabilities: {UInt64: Capability<&{MatchLobbyActions}>}
         access(self) let matchPlayerCapabilities: {UInt64: Capability<&{MatchPlayerActions}>}

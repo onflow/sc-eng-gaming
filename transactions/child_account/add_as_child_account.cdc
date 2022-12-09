@@ -4,7 +4,14 @@ import ChildAccount from "../../contracts/ChildAccount.cdc"
 /// ChildAccountManager resource. The parent is given key access to the child
 /// account
 ///
-transaction(parent: Address) {
+transaction(
+    parent: Address,
+    pubKey: String,
+    childAccountName: String,
+    childAccountDescription: String,
+    clientIconURL: String,
+    clientExternalURL: String
+) {
 
     prepare(child: AuthAccount) {
         // Get a reference to the ChildAcccountManager resource
@@ -15,6 +22,14 @@ transaction(parent: Address) {
                 ChildAccount.ChildAccountManagerPublicPath
             ).borrow() {
             
+            let info = ChildAccount.ChildAccountInfo(
+                name: childAccountName,
+                description: childAccountDescription,
+                clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
+                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL),
+                originatingPublicKey: pubKey
+            )
+
             // Create the child account
             managerRef.addAsChildAccount(newAccount: child)
         }

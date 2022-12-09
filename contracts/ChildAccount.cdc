@@ -37,7 +37,6 @@ pub contract ChildAccount {
     pub let ChildAccountManagerPublicPath: PublicPath
     pub let ChildAccountManagerPrivatePath: PrivatePath
     pub let ChildAccountTagStoragePath: StoragePath
-    pub let ChildAccountTagPublicPath: PublicPath
     pub let ChildAccountTagPrivatePath: PrivatePath
 
     /** --- ChildAccountManager --- */
@@ -96,10 +95,6 @@ pub contract ChildAccount {
                 )
             // Save the ChildAccountTag in the child account's storage & link
             newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
-            newAccount.link<&{ChildAccountTagPublic}>(
-                ChildAccount.ChildAccountTagPublicPath,
-                target: ChildAccount.ChildAccountTagStoragePath
-            )
             newAccount.link<&ChildAccount>(
                 ChildAccount.ChildAccountTagPrivatePath,
                 target: ChildAccount.ChildAccountTagStoragePath
@@ -141,13 +136,12 @@ pub contract ChildAccount {
         ///
         pub fun createChildAccount(
             signer: AuthAccount,
-            publicKey: String,
             initialFundingAmount: UFix64,
             childAccountInfo: ChildAccountInfo
         ) {
             // Create a public key for the proxy account from the passed in string
             let key = PublicKey(
-                publicKey: publicKey.decodeHex(),
+                publicKey: childAccountInfo.originatingPublicKey.decodeHex(),
                 signatureAlgorithm: SignatureAlgorithm.ECDSA_P256
             )
             
@@ -189,10 +183,6 @@ pub contract ChildAccount {
                 )
             // Save the ChildAccountTag in the child account's storage & link
             newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
-            newAccount.link<&{ChildAccountTagPublic}>(
-                ChildAccount.ChildAccountTagPublicPath,
-                target: ChildAccount.ChildAccountTagStoragePath
-            )
             newAccount.link<&ChildAccount>(
                 ChildAccount.ChildAccountTagPrivatePath,
                 target: ChildAccount.ChildAccountTagStoragePath
@@ -207,7 +197,12 @@ pub contract ChildAccount {
         /// transaction in which this method is called.
         ///
         pub fun removeChildAccount(withAddress: Address): Capability<&ChildAccountTag>? {
-            return self.childAccounts.remove(key: withAddress)
+            if let cap = self.childAccounts.remove(key: withAddress) {
+                // Set the ChildAccountTag to inactive since it's being removed
+                cap.borrow()?.setInactive()
+                return cap
+            }
+            return nil
         }
 
         /// Add address to list of pendingChildAccounts so that account can add itself as a
@@ -220,21 +215,14 @@ pub contract ChildAccount {
 
     /** --- Child Account Taq--- */
 
-    /// Simple interface exposing ability to determine an address is the parent
-    /// of a given address
-    ///
-    pub resource interface ChildAccountTagPublic {
-        pub fun isChildAccountOf(_ address: Address): Bool
-    }
-
     /// Resource that identifies an account as a child account and maintains info
     /// about its parent & association
     ///
-    pub resource ChildAccountTag : ChildAccountTagPublic {
+    pub resource ChildAccountTag {
         pub let parentAddress: Address
         pub let address: Address
         pub let info: ChildAccountInfo
-        access(contract) let isActive: Bool
+        access(contract) var isActive: Bool
 
         init(parentAddress: Address, address: Address, info: ChildAccountInfo) {
             self.parentAddress = parentAddress
@@ -243,11 +231,8 @@ pub contract ChildAccount {
             self.isActive = false
         }
 
-        /// Given an address, returns true if the given address is the parent
-        /// account of the account in which this resource resides
-        ///
-        pub fun isChildAccountOf(_ address: Address): Bool {
-            return address == self.parentAddress
+        access(contract) fun setInactive() {
+            self.isActive = false
         }
     }
 
@@ -258,17 +243,20 @@ pub contract ChildAccount {
         pub let description: String
         pub let icon: AnyStruct{MetadataViews.File}
         pub let externalURL: MetadataViews.ExternalURL
+        pub let originatingPublicKey: String
 
         init(
             name: String,
             description: String,
             icon: AnyStruct{MetadataViews.File},
-            externalURL: MetadataViews.ExternalURL
+            externalURL: MetadataViews.ExternalURL,
+            originatingPublicKey: String
         ) {
             self.name = name
             self.description = description
             self.icon = icon
             self.externalURL = externalURL
+            self.originatingPublicKey = originatingPublicKey
         }
     }
 
@@ -282,7 +270,7 @@ pub contract ChildAccount {
         self.ChildAccountManagerPrivatePath = /private/ChildAccountManager
 
         self.ChildAccountTagStoragePath = /storage/ChildAccountTag
-        self.ChildAccountTagPublicPath = /public/ChildAccountTag
         self.ChildAccountTagPrivatePath = /private/ChildAccountTag
     }
 }
+ 

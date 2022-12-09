@@ -4,6 +4,13 @@ import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 
+/// This transaction sets up the following in a signer's account
+/// - GamePieceNFT.Collection
+/// - GamePieceNFT.NFT
+/// - RockPaperScissorsGame.GamePlayer
+///
+/// Should be run before an account interacts with RockPaperScissorsGame
+///
 transaction {
 
     prepare(signer: AuthAccount) {

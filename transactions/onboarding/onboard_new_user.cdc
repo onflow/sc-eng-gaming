@@ -68,15 +68,9 @@ transaction(
             let manager <- ChildAccount.createChildAccountManager()
             signer.save(<-manager, to: ChildAccount.ChildAccountManagerStoragePath)
             signer.link<
-                &{ChildAccount.ChildAccountManagerPublic}
+                &{ChildAccount.ChildAccountManagerPublic, ChildAccount.ChildAccountManagerViewer}
             >(
                 ChildAccount.ChildAccountManagerPublicPath,
-                target: ChildAccount.ChildAccountManagerStoragePath
-            )
-            signer.link<
-                &{ChildAccount.ChildAccountManagerViewer}
-            >(
-                ChildAccount.ChildAccountManagerPrivatePath,
                 target: ChildAccount.ChildAccountManagerStoragePath
             )
 
@@ -93,13 +87,13 @@ transaction(
                 name: childAccountName,
                 description: childAccountDescription,
                 clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
-                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL)
+                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL),
+                originatingPublicKey: pubKey
             )
 
             // Create the child account
             managerRef.createChildAccount(
                 signer: signer,
-                publicKey: pubKey,
                 initialFundingAmount: fundingAmt,
                 childAccountInfo: info
             )

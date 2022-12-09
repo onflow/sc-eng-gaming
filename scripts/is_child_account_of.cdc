@@ -5,15 +5,17 @@ import ChildAccount from "../contracts/ChildAccount.cdc"
 /// relationship is defined in the ChildAccount contract
 ///
 pub fun main(parent: Address, child: Address): Bool {
-    
-    // Get a reference to the child account's ChildAccountTagPublic
-    let childAccountTagRef = getAccount(child).
-        getCapability<&{ChildAccount.ChildAccountTagPublic}>(
-            ChildAccount.ChildAccountTagPublicPath
+
+    // Get a reference to the ChildAccountManagerViewer in parent's account
+    let viewerRef = getAccount(parent)
+        .getCapability<&{
+            ChildAccount.ChildAccountManagerViewer
+        }>(
+            ChildAccount.ChildAccountManagerPublicPath
         ).borrow()
-        ?? panic("Could not borrow reference to child's ChildAccountTagPublic Capability")
+        ?? panic("Could not borrow reference to parent's ChildAccountManagerViewer")
     
-    // Return the result
-    return childAccountTagRef.isChildAccountOf(parent)
+    // Return whether or not child address is contained in list of parent's children accounts
+    return viewerRef.getChildAccountAddresses().contains(child)
 }
  

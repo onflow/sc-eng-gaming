@@ -35,17 +35,17 @@ transaction(
                 name: childAccountName,
                 description: childAccountDescription,
                 clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
-                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL)
+                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL),
+                originatingPublicKey: pubKey
             )
             
             // Create the child account
             managerRef.createChildAccount(
                 signer: signer,
-                publicKey: pubKey,
                 initialFundingAmount: fundingAmt,
                 childAccountInfo: info
             )
         }
     }
-
 }
+ 
