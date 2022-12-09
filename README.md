@@ -224,6 +224,11 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     flow transactions send ./transactions/onboarding/onboard_new_user.cdc <PUBLIC_KEY> 10.0 RPSClient "Child account used for RockPaperScissors web app" "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR2KvcOwctyase2_P7lQxbxIutmLKFPch6rNw&usqp=CAU" "https://www.cheezewizards.com/" --signer parent-main
     ```
 
+    1. Get the child account's address giving the script the public key used to create the new account.
+    ```
+    flow scripts execute ./scripts/child_account/get_child_address_from_public_key.cdc 01cf0e2f2f715450 <PUBLIC_KEY>
+    ```
+
     1. The child account will then be created. You will want to add this account to your `flow.json` in [advanced format](https://developers.flow.com/tools/flow-cli/configuration#advanced-format-1). Be sure to find the child address (likely `0x179b6b1cb6755e31`) in the emitted events and input the previously generated private key under the account's `privateKey` attribute in the `flow.json`. You will also want to add an alias for the `parent-main` account's private key since that account also has key access to the newly created `child` account. The `accounts` attribute in your `flow.json` should look like this:
     ```
     "accounts": {
@@ -277,9 +282,13 @@ To demo the functionality of this repo, clone it and follow the steps below by e
         ```
         flow transactions send transactions/rock_paper_scissors_game/submit_automated_player_move.cdc 39
         ```
+        1. Get the moves submitted for the Match
+        ```
+        flow scripts execute scripts/rock_paper_scissors_game/get_match_move_history.cdc 39
+        ```
         1. Check Win/Loss record
         ```
-        flow scripts execute scripts/get_rps_win_loss.cdc 0x179b6b1cb6755e31 37
+        flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x179b6b1cb6755e31 37
         ```
 
     1. Next we'll transfer assets from child account to parent account, signing with parent account

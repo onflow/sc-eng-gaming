@@ -95,12 +95,19 @@ pub contract ChildAccount {
                 )
             // Save the ChildAccountTag in the child account's storage & link
             newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
-            newAccount.link<&ChildAccount>(
+            newAccount.link<&ChildAccountTag>(
                 ChildAccount.ChildAccountTagPrivatePath,
                 target: ChildAccount.ChildAccountTagStoragePath
             )
-            // Add ChildAccountTag Capability indexed by the account's address
-            let tagCap = newAccount.getCapability<&ChildAccountTag>(ChildAccount.ChildAccountTagPrivatePath)
+            // Get a Capability to the linked ChildAccountTag Cap in child's private storage
+            let tagCap = newAccount
+                .getCapability<&
+                    ChildAccountTag
+                >(
+                    ChildAccount.ChildAccountTagPrivatePath
+                )
+            // Ensure the capability is valid before inserting it in manager's childAccounts mapping
+            assert(tagCap.check(), message: "Problem linking ChildAccoutTag Capability in new child account!")
             self.childAccounts.insert(key: newAccount.address, tagCap)
             
             // Remove from the pending child accounts array
@@ -183,12 +190,19 @@ pub contract ChildAccount {
                 )
             // Save the ChildAccountTag in the child account's storage & link
             newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
-            newAccount.link<&ChildAccount>(
+            newAccount.link<&ChildAccountTag>(
                 ChildAccount.ChildAccountTagPrivatePath,
                 target: ChildAccount.ChildAccountTagStoragePath
             )
             // Add ChildAccountTag Capability indexed by the account's address
-            let tagCap = newAccount.getCapability<&ChildAccountTag>(ChildAccount.ChildAccountTagPrivatePath)
+            let tagCap = newAccount
+                .getCapability<&
+                    ChildAccountTag
+                >(
+                    ChildAccount.ChildAccountTagPrivatePath
+                )
+            // Ensure the capability is valid before inserting it in manager's childAccounts mapping
+            assert(tagCap.check(), message: "Problem linking ChildAccoutTag Capability in new child account!")
             self.childAccounts.insert(key: newAccount.address, tagCap)
         }
 

@@ -1,4 +1,4 @@
-import ChildAccount from "../contracts/ChildAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 
 /// Returns the child address associated with a public key if any
 /// address in the parent's ChildAccountManager.childAccounts have
