@@ -6,8 +6,8 @@ import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 ///
 pub fun main(address: Address): Bool {
     return getAccount(address).getCapability<&{
-        GamePieceNFT.CollectionPublic
+        GamePieceNFT.GamePieceNFTCollectionPublic
         }>(
             GamePieceNFT.CollectionPublicPath
-        ).check() && 
+        ).check()
 }
