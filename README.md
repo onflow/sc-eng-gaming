@@ -242,15 +242,19 @@ flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p1
     ```
     flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc 28 10 --signer p1
     ```
-    1. Submit moves
+    1. Submit moves for the player & call for the automated player's move to be generated
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 30 0 --signer p1
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc 30 0 --signer p1
     ```
-    1. Submit automated player moves
+    1. Resolve the Match
     ```
-    flow transactions send transactions/rock_paper_scissors_game/submit_automated_player_move.cdc 30
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match.cdc 30 --signer p1
     ```
-    1. Check Win/Loss record
+    1. Get the moves submitted for the Match
+    ```
+    flow scripts execute ./scripts/rock_paper_scissors_game/get_match_move_history.cdc 30
+    ```
+    1. Check Win/Loss record for the player's NFT
     ```
     flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
     ```
