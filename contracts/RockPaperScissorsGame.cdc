@@ -711,6 +711,7 @@ pub contract RockPaperScissorsGame {
     ///
     pub resource interface GamePlayerID {
         pub let id: UInt64
+        pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
     }
 
     /// Public interface allowing others to add GamePlayer to matches. Of course, there is
@@ -719,6 +720,7 @@ pub contract RockPaperScissorsGame {
     ///
     pub resource interface GamePlayerPublic {
         pub let id: UInt64
+        pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
         pub fun addMatchLobbyActionsCapability(
             matchID: UInt64,
             _ cap: Capability<&{MatchLobbyActions}>
@@ -728,20 +730,53 @@ pub contract RockPaperScissorsGame {
         pub fun getMatchesInPlay(): [UInt64]
     }
 
+    /// A resource interface allowing a user to delegate use of their GamePlayer
+    /// via Capability
+    ///
+    pub resource interface DelegatedGamePlayer {
+        pub let id: UInt64
+        pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
+        pub fun getGamePlayerIDRef(): &{GamePlayerID}
+        pub fun getAvailableMoves(matchID: UInt64): [Moves]
+        pub fun getMatchesInLobby(): [UInt64]
+        pub fun getMatchesInPlay(): [UInt64]
+        pub fun getMatchLobbyCaps(): {UInt64: Capability<&{MatchLobbyActions}>}
+        pub fun getMatchPlayerCaps(): {UInt64: Capability<&{MatchPlayerActions}>}
+        pub fun deleteLobbyActionsCapability(matchID: UInt64)
+        pub fun deletePlayerActionsCapability(matchID: UInt64)
+        pub fun createMatch(
+            multiPlayer: Bool,
+            matchTimeLimit: UFix64,
+            nft: @AnyResource{NonFungibleToken.INFT, DynamicNFT.Dynamic},
+            receiverCap: Capability<&{NonFungibleToken.Receiver}>
+        ): UInt64
+        pub fun signUpForMatch(matchID: UInt64)
+        pub fun depositNFTToMatchEscrow(
+            nft: @AnyResource{NonFungibleToken.INFT, DynamicNFT.Dynamic},
+            matchID: UInt64,
+            receiverCap: Capability<&{NonFungibleToken.Receiver}>
+        )
+        pub fun submitMoveToMatch(matchID: UInt64, move: Moves)
+        pub fun addPlayerToMatch(matchID: UInt64, gamePlayerRef: &AnyResource{GamePlayerPublic})
+        pub fun resolveMatchByID(_ id: UInt64)
+        pub fun addMatchLobbyActionsCapability(matchID: UInt64, _ cap: Capability<&{MatchLobbyActions}>)
+    }
+
     /** --- Receiver for Match Capabilities --- */
 
     /// Resource that maintains all the player's MatchPlayerActions capabilities
     /// Players can add themselves to games or be added if they expose GamePlayerPublic
     /// capability
     ///
-    pub resource GamePlayer : GamePlayerID, GamePlayerPublic {
-        // TODO: Add game contract info
+    pub resource GamePlayer : GamePlayerID, GamePlayerPublic, DelegatedGamePlayer {
         pub let id: UInt64
+        pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
         access(self) let matchLobbyCapabilities: {UInt64: Capability<&{MatchLobbyActions}>}
         access(self) let matchPlayerCapabilities: {UInt64: Capability<&{MatchPlayerActions}>}
 
         init() {
             self.id = self.uuid
+            self.gameContractInfo = RockPaperScissorsGame.info
             self.matchPlayerCapabilities = {}
             self.matchLobbyCapabilities = {}
         }

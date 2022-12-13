@@ -219,14 +219,19 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     flow keys generate
     ```
 
-    1. Onboard the new user with a `GamePieceNFT.Collection` & `ChildAccount.ChildAccountManager` with a child account, passing the generated public key & initial funding amount we'll pass from the parent to the child account.
+    1. Onboard the new user with a `GamePieceNFT.Collection`, `RockPaperScissorsGame.GamePlayer` & `ChildAccount.ChildAccountManager` with a child account, passing the generated public key & initial funding amount we'll pass from the parent to the child account. This transaction also configures necessary game resources in the created child account, namely `GamePieceNFT.Collection` & `NFT` as well as access to the parent account's `RockPaperScissorsGame.GamePlayer` via their `RockPaperScissorsGame.DelegatedGamePlayer` Capability
     ```
-    flow transactions send ./transactions/onboarding/onboard_new_user.cdc <PUBLIC_KEY> 10.0 RPSClient "Child account used for RockPaperScissors web app" "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR2KvcOwctyase2_P7lQxbxIutmLKFPch6rNw&usqp=CAU" "https://www.cheezewizards.com/" --signer parent-main
+    flow transactions send ./transactions/onboarding/onboard_new_user_and_player.cdc <PUBLIC_KEY> 10.0 RPSClient "Child account used for RockPaperScissors web app" "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR2KvcOwctyase2_P7lQxbxIutmLKFPch6rNw&usqp=CAU" "https://www.cheezewizards.com/" --signer parent-main
     ```
 
     1. Get the child account's address giving the script the public key used to create the new account.
     ```
     flow scripts execute ./scripts/child_account/get_child_address_from_public_key.cdc 01cf0e2f2f715450 <PUBLIC_KEY>
+    ```
+
+    1. Get the NFT IDs in the child's Collection
+    ```
+    flow scripts execute ./scripts/game_piece_nft/get_collection_ids.cdc 0x179b6b1cb6755e31
     ```
 
     1. The child account will then be created. You will want to add this account to your `flow.json` in [advanced format](https://developers.flow.com/tools/flow-cli/configuration#advanced-format-1). Be sure to find the child address (likely `0x179b6b1cb6755e31`) in the emitted events and input the previously generated private key under the account's `privateKey` attribute in the `flow.json`. You will also want to add an alias for the `parent-main` account's private key since that account also has key access to the newly created `child` account. The `accounts` attribute in your `flow.json` should look like this:
@@ -263,32 +268,33 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 	}
     ```
 
-    1. Onboard the child account, as this is the account a game client would be using to interact with the game contracts on behalf of the user. This will give the child account a `GamePieceNFT.Collection` & `NFT` as well as a `RockPaperScissorsGame.GamePlayer` so they can interact with the game via their child account. While these assets will reside in the child account, the user can transfer them to their parent account at any point (we'll cover that later).
-    ```
-    flow transactions send ./transactions/onboarding/onboard_player.cdc --signer child
-    ```
-
-    1. Now let's play a single-player match, using the child account as a game client would...
+    1. Now that both the parent and child accounts have been configured, let's play a single-player match, using the child account as a game client would...
 
         1. Create new Match
         ```
-        flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc 37 10 --signer child
+        flow transactions send ./transactions/rock_paper_scissors_game/delegated_game_player/setup_new_singleplayer_match.cdc 38 10 --signer child
         ```
         1. Submit moves
         ```
-        flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 0 --signer child
+        flow transactions send ./transactions/rock_paper_scissors_game/delegated_game_player/submit_both_singleplayer_moves.cdc 39 0 --signer child
         ```
-        1. Submit automated player moves
+        1. Resolve the Match
         ```
-        flow transactions send transactions/rock_paper_scissors_game/submit_automated_player_move.cdc 39
+        flow transactions send transactions/rock_paper_scissors_game/delegated_game_player/resolve_match.cdc 39 --signer child
         ```
         1. Get the moves submitted for the Match
         ```
         flow scripts execute scripts/rock_paper_scissors_game/get_match_move_history.cdc 39
         ```
+            
+            1. Alternatively, you can get the move history in a simplified format
+            ```
+            flow scripts execute scripts/rock_paper_scissors_game/get_match_move_history_as_raw_values.cdc 39
+            ```
+        
         1. Check Win/Loss record
         ```
-        flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x179b6b1cb6755e31 37
+        flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x179b6b1cb6755e31 38
         ```
 
     1. Next we'll transfer assets from child account to parent account, signing with parent account
@@ -310,5 +316,5 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 
     1. And lastly, we'll get the win/loss record from the transferred NFT to show that the record stays with the NFT
     ```
-    flow scripts execute scripts/get_rps_win_loss.cdc 01cf0e2f2f715450 37
+    flow scripts execute scripts/get_rps_win_loss.cdc 01cf0e2f2f715450 38
     ```

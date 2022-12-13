@@ -219,6 +219,11 @@ pub contract ChildAccount {
 
         /** --- ChildAccountManager --- */
 
+        /// Adds the given Capability to the ChildAccountTag at the provided Address
+        ///
+        /// @param to: Address which is the key for the ChildAccountTag Cap
+        /// @param cap: Capability to be added to the ChildAccountTag
+        ///
         pub fun addCapability(to: Address, _ cap: Capability) {
             pre {
                 self.childAccounts.containsKey(to):
@@ -231,6 +236,12 @@ pub contract ChildAccount {
             tagRef.grantCapability(cap)
         }
 
+        /// Removes the capability of the given type from the ChildAccountTag mapped to
+        /// the given Address
+        ///
+        /// @param from: Address indexing the ChildAccountTag Capability
+        /// @param type: The Type of Capability to be removed from the ChildAccountTag
+        ///
         pub fun removeCapability(from: Address, type: Type) {
             pre {
                 self.childAccounts.containsKey(from):
@@ -248,10 +259,21 @@ pub contract ChildAccount {
         /// transaction in which this method is called.
         ///
         pub fun removeChildAccount(withAddress: Address): Capability<&ChildAccountTag>? {
-            if let cap = self.childAccounts.remove(key: withAddress) {
-                // Set the ChildAccountTag to inactive since it's being removed
-                cap.borrow()?.setInactive()
-                return cap
+            if let tagCap = self.childAccounts.remove(key: withAddress) {
+                // Get a reference to the ChildAccountTag from the Capability
+                let tagRef = tagCap
+                    .borrow()
+                    ?? panic("Link to ChildAccountTag Capability is broken!")
+                // Set the tag as inactive
+                tagRef.setInactive()
+
+                // Remove all capabilities from the ChildAccountTag
+                for capType in tagRef.getGrantedCapabilityTypes() {
+                    tagRef.revokeCapability(capType)
+                }
+
+                // Finally, return the Capability
+                return tagCap
             }
             return nil
         }
@@ -271,10 +293,12 @@ pub contract ChildAccount {
         pub let address: Address
         pub let info: ChildAccountInfo
         pub fun getGrantedCapabilityTypes(): [Type]
+        pub fun isCurrentlyActive(): Bool
     }
 
     /// Resource that identifies an account as a child account and maintains info
-    /// about its parent & association
+    /// about its parent & association as well as Capabilities granted by
+    /// its parent's ChildAccountManager
     ///
     pub resource ChildAccountTag : ChildAccountTagPublic {
         pub let parentAddress: Address
@@ -292,13 +316,19 @@ pub contract ChildAccount {
             self.address = address
             self.info = info
             self.grantedCapabilities = {}
-            self.isActive = false
+            self.isActive = true
         }
 
+        /** --- ChildAccountTagPublic --- */
         pub fun getGrantedCapabilityTypes(): [Type] {
             return self.grantedCapabilities.keys
         }
+        
+        pub fun isCurrentlyActive(): Bool {
+            return self.isActive
+        }
 
+        /** --- ChildAccountTag --- */
         pub fun getGrantedCapabilityAsRef(_ type: Type): &Capability? {
             return &self.grantedCapabilities[type] as &Capability?
         }
@@ -326,6 +356,7 @@ pub contract ChildAccount {
 
     /// Struct that identifies information that could be used to determine the off-chain
     /// associations of a child account
+    ///
     pub struct ChildAccountInfo {
         pub let name: String
         pub let description: String

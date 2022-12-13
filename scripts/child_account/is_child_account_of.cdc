@@ -15,7 +15,18 @@ pub fun main(parent: Address, child: Address): Bool {
         ).borrow()
         ?? panic("Could not borrow reference to parent's ChildAccountManagerViewer")
     
-    // Return whether or not child address is contained in list of parent's children accounts
-    return viewerRef.getChildAccountAddresses().contains(child)
+    // If the given child address is one of the parent's children account, check if it's active
+    if viewerRef.getChildAccountAddresses().contains(child) {
+        let childAccount = getAccount(child)
+        let childAccountTagPublicRef = childAccount
+            .getCapability<
+                &{ChildAccount.ChildAccountTagPublic}
+            >(
+                ChildAccount.ChildAccountTagPublicPath
+            ).borrow()
+            ?? panic("Could not get reference to ChildAccountTagPublic reference for ".concat(child.toString()))
+        return childAccountTagPublicRef.isCurrentlyActive()
+    }
+    return false
 }
  

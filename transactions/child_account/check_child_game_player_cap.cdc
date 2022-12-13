@@ -22,24 +22,14 @@ transaction {
     }
 
     execute {
-        // // Get the GamePlayer Capability from the child's granted capabilities or panic if not available
-        // let gamePlayerCap = self.tagRef.getGrantedCapabilities()[
-        //         Type<Capability<&RockPaperScissorsGame.GamePlayer>>()
-        //     ] ?? panic("GamePlayer Capability has not been granted to child account ".concat(self.childAddress.toString()))
-        // // Panic if the Capability is invalid
-        // if gamePlayerCap.borrow<&RockPaperScissorsGame.GamePlayer>() == nil {
-        //     panic("ChildAccountTag has invalid GamePlayerCapability")
-        // }
-        
 
         let capRef = self.tagRef
             .getGrantedCapabilityAsRef(
-                Type<Capability<&RockPaperScissorsGame.GamePlayer>>()
+                Type<Capability<&{RockPaperScissorsGame.DelegatedGamePlayer}>>()
             ) ?? panic("Child account does not have GamePlayer Capability in its ChildAccountTag!")
-        let gamePlayerRef = capRef.borrow<&RockPaperScissorsGame.GamePlayer>()
-        log(gamePlayerRef.getType().identifier)
-        // let gamePlayerRef = capRef.borrow<&RockPaperScissorsGame.GamePlayer>()
-        //     ?? panic("ChildAccountTag has invalid GamePlayerCapability")
+        let gamePlayerRef = capRef
+            .borrow<&{RockPaperScissorsGame.DelegatedGamePlayer}>()
+            ?? panic("ChildAccountTag has invalid GamePlayerCapability")
     }
 }
  
