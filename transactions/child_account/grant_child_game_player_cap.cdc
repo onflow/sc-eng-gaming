@@ -30,21 +30,12 @@ transaction(childAddress: Address) {
             )
         }
 
-        if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerID}>(RockPaperScissorsGame.GamePlayerPrivatePath).check() {
+        if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerID, RockPaperScissorsGame.DelegatedGamePlayer}>(RockPaperScissorsGame.GamePlayerPrivatePath).check() {
             // Link GamePlayerID Capability
             signer.link<&{
+                RockPaperScissorsGame.DelegatedGamePlayer,
                 RockPaperScissorsGame.GamePlayerID
             }>(
-                RockPaperScissorsGame.GamePlayerPrivatePath,
-                target: RockPaperScissorsGame.GamePlayerStoragePath
-            )
-        }
-
-        if !signer.getCapability<&RockPaperScissorsGame.GamePlayer>(RockPaperScissorsGame.GamePlayerPrivatePath).check() {
-            // Link GamePlayerID Capability
-            signer.link<&
-                RockPaperScissorsGame.GamePlayer
-            >(
                 RockPaperScissorsGame.GamePlayerPrivatePath,
                 target: RockPaperScissorsGame.GamePlayerStoragePath
             )
@@ -52,7 +43,7 @@ transaction(childAddress: Address) {
         
         // Get the GamePlayer Capability
         let gamePlayerCap = signer.getCapability<&
-                RockPaperScissorsGame.GamePlayer
+                {RockPaperScissorsGame.DelegatedGamePlayer}
             >(
                 RockPaperScissorsGame.GamePlayerPrivatePath
             )
