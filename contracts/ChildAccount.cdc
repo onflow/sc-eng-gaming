@@ -37,6 +37,7 @@ pub contract ChildAccount {
     pub let ChildAccountManagerPublicPath: PublicPath
     pub let ChildAccountManagerPrivatePath: PrivatePath
     pub let ChildAccountTagStoragePath: StoragePath
+    pub let ChildAccountTagPublicPath: PublicPath
     pub let ChildAccountTagPrivatePath: PrivatePath
 
     /** --- ChildAccountManager --- */
@@ -95,6 +96,10 @@ pub contract ChildAccount {
                 )
             // Save the ChildAccountTag in the child account's storage & link
             newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
+            newAccount.link<&{ChildAccountTagPublic}>(
+                ChildAccount.ChildAccountTagPublicPath,
+                target: ChildAccount.ChildAccountTagStoragePath
+            )
             newAccount.link<&ChildAccountTag>(
                 ChildAccount.ChildAccountTagPrivatePath,
                 target: ChildAccount.ChildAccountTagStoragePath
@@ -145,7 +150,7 @@ pub contract ChildAccount {
             signer: AuthAccount,
             initialFundingAmount: UFix64,
             childAccountInfo: ChildAccountInfo
-        ) {
+        ): AuthAccount {
             // Create a public key for the proxy account from the passed in string
             let key = PublicKey(
                 publicKey: childAccountInfo.originatingPublicKey.decodeHex(),
@@ -190,6 +195,10 @@ pub contract ChildAccount {
                 )
             // Save the ChildAccountTag in the child account's storage & link
             newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
+            newAccount.link<&{ChildAccountTagPublic}>(
+                ChildAccount.ChildAccountTagPublicPath,
+                target: ChildAccount.ChildAccountTagStoragePath
+            )
             newAccount.link<&ChildAccountTag>(
                 ChildAccount.ChildAccountTagPrivatePath,
                 target: ChildAccount.ChildAccountTagStoragePath
@@ -204,6 +213,34 @@ pub contract ChildAccount {
             // Ensure the capability is valid before inserting it in manager's childAccounts mapping
             assert(tagCap.check(), message: "Problem linking ChildAccoutTag Capability in new child account!")
             self.childAccounts.insert(key: newAccount.address, tagCap)
+
+            return newAccount
+        }
+
+        /** --- ChildAccountManager --- */
+
+        pub fun addCapability(to: Address, _ cap: Capability) {
+            pre {
+                self.childAccounts.containsKey(to):
+                    "No tag with given Address!"
+            }
+            // Get ref to tag & grant cap
+            let tagRef = self.childAccounts[to]!
+                .borrow()
+                ?? panic("Could not reference specified Tag with id ".concat(to.toString()))
+            tagRef.grantCapability(cap)
+        }
+
+        pub fun removeCapability(from: Address, type: Type) {
+            pre {
+                self.childAccounts.containsKey(from):
+                    "No ChildAccounts with given Address!"
+            }
+            // Get ref to tage and remove
+            let tagRef = self.childAccounts[from]!
+                .borrow()
+                ?? panic("Could not reference specified Tag with id ".concat(from.toString()))
+            tagRef.revokeCapability(type) ?? panic("Capability not properly revoked")
         }
 
         /// Remove ChildAccountTag, returning its Capability if it exists. Note, doing so
@@ -227,22 +264,59 @@ pub contract ChildAccount {
         }
     }
 
-    /** --- Child Account Taq--- */
+    /** --- Child Account Tag--- */
+
+    pub resource interface ChildAccountTagPublic {
+        pub let parentAddress: Address
+        pub let address: Address
+        pub let info: ChildAccountInfo
+        pub fun getGrantedCapabilityTypes(): [Type]
+    }
 
     /// Resource that identifies an account as a child account and maintains info
     /// about its parent & association
     ///
-    pub resource ChildAccountTag {
+    pub resource ChildAccountTag : ChildAccountTagPublic {
         pub let parentAddress: Address
         pub let address: Address
         pub let info: ChildAccountInfo
+        access(contract) let grantedCapabilities: {Type: Capability}
         access(contract) var isActive: Bool
 
-        init(parentAddress: Address, address: Address, info: ChildAccountInfo) {
+        init(
+            parentAddress: Address,
+            address: Address,
+            info: ChildAccountInfo
+        ) {
             self.parentAddress = parentAddress
             self.address = address
             self.info = info
+            self.grantedCapabilities = {}
             self.isActive = false
+        }
+
+        pub fun getGrantedCapabilityTypes(): [Type] {
+            return self.grantedCapabilities.keys
+        }
+
+        pub fun getGrantedCapabilityAsRef(_ type: Type): &Capability? {
+            return &self.grantedCapabilities[type] as &Capability?
+        }
+        
+        pub fun getGrantedCapabilities(): {Type: Capability} {
+            return self.grantedCapabilities
+        }
+
+        access(contract) fun grantCapability(_ cap: Capability) {
+            pre {
+                !self.grantedCapabilities.containsKey(cap.getType()):
+                    "Already granted Capability of given type!"
+            }
+            self.grantedCapabilities.insert(key: cap.getType(), cap)
+        }
+
+        access(contract) fun revokeCapability(_ type: Type): Capability? {
+            return self.grantedCapabilities.remove(key: type)
         }
 
         access(contract) fun setInactive() {
@@ -284,6 +358,7 @@ pub contract ChildAccount {
         self.ChildAccountManagerPrivatePath = /private/ChildAccountManager
 
         self.ChildAccountTagStoragePath = /storage/ChildAccountTag
+        self.ChildAccountTagPublicPath = /public/ChildAccountTag
         self.ChildAccountTagPrivatePath = /private/ChildAccountTag
     }
 }

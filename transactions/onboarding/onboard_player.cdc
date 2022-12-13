@@ -62,6 +62,9 @@ transaction {
             let gamePlayer <- RockPaperScissorsGame.createGamePlayer()
             // Save it
             signer.save(<-gamePlayer, to: RockPaperScissorsGame.GamePlayerStoragePath)
+        }
+
+        if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerPublic}>(RockPaperScissorsGame.GamePlayerPublicPath).check() {
             // Link GamePlayerPublic Capability so player can be added to Matches
             signer.link<&{
                 RockPaperScissorsGame.GamePlayerPublic
@@ -69,10 +72,23 @@ transaction {
                 RockPaperScissorsGame.GamePlayerPublicPath,
                 target: RockPaperScissorsGame.GamePlayerStoragePath
             )
+        }
+
+        if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerID}>(RockPaperScissorsGame.GamePlayerPrivatePath).check() {
             // Link GamePlayerID Capability
             signer.link<&{
                 RockPaperScissorsGame.GamePlayerID
             }>(
+                RockPaperScissorsGame.GamePlayerPrivatePath,
+                target: RockPaperScissorsGame.GamePlayerStoragePath
+            )
+        }
+
+        if !signer.getCapability<&RockPaperScissorsGame.GamePlayer>(RockPaperScissorsGame.GamePlayerPrivatePath).check() {
+            // Link GamePlayerID Capability
+            signer.link<&
+                RockPaperScissorsGame.GamePlayer
+            >(
                 RockPaperScissorsGame.GamePlayerPrivatePath,
                 target: RockPaperScissorsGame.GamePlayerStoragePath
             )

@@ -35,6 +35,7 @@ transaction(
         //
         // Set up GamePieceNFT.Collection if it doesn't exist
         if signer.borrow<&GamePieceNFT.Collection>(from: GamePieceNFT.CollectionStoragePath) == nil {
+            log("Setting up Collection...")
             // Create a new empty collection
             let collection <- GamePieceNFT.createEmptyCollection()
 
@@ -61,9 +62,53 @@ transaction(
             )
         }
 
+        /** --- Set user up with GamePlayer --- */
+        //
+        // Check if a GamePlayer already exists, pass this block if it does
+        if signer.borrow<&RockPaperScissorsGame.GamePlayer>(from: RockPaperScissorsGame.GamePlayerStoragePath) == nil {
+            log("Setting up GamePlayer...")
+            // Create GamePlayer resource
+            let gamePlayer <- RockPaperScissorsGame.createGamePlayer()
+            // Save it
+            signer.save(<-gamePlayer, to: RockPaperScissorsGame.GamePlayerStoragePath)
+            // Link GamePlayerPublic Capability in public so player can be added to Matches
+            signer.link<&{
+                RockPaperScissorsGame.GamePlayerPublic
+            }>(
+                RockPaperScissorsGame.GamePlayerPublicPath,
+                target: RockPaperScissorsGame.GamePlayerStoragePath
+            )
+            // Link GamePlayerID Capability in private
+            signer.link<&{
+                RockPaperScissorsGame.GamePlayerID
+            }>(
+                RockPaperScissorsGame.GamePlayerPrivatePath,
+                target: RockPaperScissorsGame.GamePlayerStoragePath
+            )
+            // Link GamePlayer Capability in private
+            signer.link<&
+                RockPaperScissorsGame.GamePlayer
+            >(
+                RockPaperScissorsGame.GamePlayerPrivatePath,
+                target: RockPaperScissorsGame.GamePlayerStoragePath
+            )
+        }
+
+        // Get the GamePlayerCapability which will be passed to the child account on creation
+        let gamePlayerCap = signer.getCapability<&
+                RockPaperScissorsGame.GamePlayer
+            >(
+                RockPaperScissorsGame.GamePlayerPrivatePath
+            )
+        if gamePlayerCap.borrow() == nil {
+            panic("Invalid GamePlayer Capabilty retrieved")
+        }
+
         /** --- Set user up with ChildAccountManager --- */
+        //
         // Check if ChildAccountManager already exists
         if signer.borrow<&ChildAccount.ChildAccountManager>(from: ChildAccount.ChildAccountManagerStoragePath) == nil {
+            log("Setting up ChildAccountManager...")
             // Create and save the ChildAccountManager resource
             let manager <- ChildAccount.createChildAccountManager()
             signer.save(<-manager, to: ChildAccount.ChildAccountManagerStoragePath)
@@ -80,7 +125,7 @@ transaction(
                     &ChildAccount.ChildAccountManager
                 >(
                     from: ChildAccount.ChildAccountManagerStoragePath
-                ) ?? panic("couldn't ")
+                ) ?? panic("Couldn't get a reference to the signer's ChildAccountManager")
 
             // Construct ChildAccountInfo struct from given arguments
             let info = ChildAccount.ChildAccountInfo(
@@ -92,11 +137,13 @@ transaction(
             )
 
             // Create the child account
-            managerRef.createChildAccount(
+            let newAccount = managerRef.createChildAccount(
                 signer: signer,
                 initialFundingAmount: fundingAmt,
                 childAccountInfo: info
             )
+
+            managerRef.addCapability(to: newAccount.address, gamePlayerCap)
         }    
     }
 }
