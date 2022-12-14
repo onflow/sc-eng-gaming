@@ -314,9 +314,13 @@ pub contract GamePieceNFT: NonFungibleToken {
 
         /// Returns a reference to the nft with given id as a MetadataViews.Resolver
         pub fun borrowViewResolver(id: UInt64): &AnyResource{MetadataViews.Resolver} {
-            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
+            pre {
+                self.ownedNFTs.containsKey(id):
+                    "Collection does not contain Resolver with id ".concat(id.toString())
+            }
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)
             let gamePieceNFT = nft as! &GamePieceNFT.NFT
-            return gamePieceNFT as &AnyResource{MetadataViews.Resolver}
+            return gamePieceNFT
         }
 
         /// Removes the attachment of the specified type from the nft with the given id,
