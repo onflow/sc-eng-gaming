@@ -133,11 +133,7 @@ pub contract ChildAccount {
         /// or nil if there is no child account with the given address
         ///
         pub fun getChildAccountInfo(address: Address): ChildAccountInfo? {
-            if let tagCap = self.childAccounts[address] {
-                let tagRef = tagCap.borrow() ?? panic("ChildAccountTag has been unlinked!")
-                return tagRef.info
-            }
-            return nil
+            return self.getChildAccountTagRef(address: address)?.info ?? nil
         }
 
         /// Creates an account out of the given public key, funding it with Flow from the
@@ -218,6 +214,23 @@ pub contract ChildAccount {
         }
 
         /** --- ChildAccountManager --- */
+
+        /// Allows the ChildAccountManager to retrieve a reference to the ChildAccountTag
+        /// for a specified child account address
+        ///
+        /// @param address: The Address of the child account
+        ///
+        /// @return the reference to the child account's ChildAccountTag
+        ///
+        pub fun getChildAccountTagRef(address: Address): &ChildAccountTag? {
+            if let tagCap = self.childAccounts[address] {
+                let tagRef = tagCap
+                    .borrow()
+                    ?? panic("Could not borrow reference to ChildAccountTag for child address ".concat(address.toString()))
+                return tagRef
+            }
+            return nil
+        }
 
         /// Adds the given Capability to the ChildAccountTag at the provided Address
         ///

@@ -252,7 +252,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 				"index": 0,
 				"signatureAlgorithm": "ECDSA_P256",
 				"hashAlgorithm": "SHA3_256",
-				"privateKey": "7a6ec48770fa674713d10b244c1d4ba14aa13b269aa1b6bf3e110f827168f107"
+				"privateKey": "<CHILD_PRIVATE_KEY>"
 			}
 		},
 		"parent-child": {

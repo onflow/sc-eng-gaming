@@ -117,61 +117,97 @@ transaction(
                 from: ChildAccount.ChildAccountManagerStoragePath
             ) ?? panic("Couldn't get a reference to the signer's ChildAccountManager")
 
-        // Construct ChildAccountInfo struct from given arguments
-        let info = ChildAccount.ChildAccountInfo(
-            name: childAccountName,
-            description: childAccountDescription,
-            clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
-            clienExternalURL: MetadataViews.ExternalURL(clientExternalURL),
-            originatingPublicKey: pubKey
-        )
+        // Check if a child account already exists with the given public key
+        var pubKeyMatchesChild = false
+        var childAddress: Address? = nil
+        // Iterate over the parent's child account addresses
+        for child in managerRef.getChildAccountAddresses() {
+            // Get the childAccountInfo for the given address
+            if let info = managerRef.getChildAccountInfo(address: child) {
+                // Mark the child's address if its originating public key matches the one given
+                if info.originatingPublicKey == pubKey {
+                    pubKeyMatchesChild = true
+                    childAddress = child
+                    break
+                }
+            }
+        }
 
-        // Create the child account
-        let newAccount = managerRef.createChildAccount(
-            signer: signer,
-            initialFundingAmount: fundingAmt,
-            childAccountInfo: info
-        )
+        // Create the child account if the public key does not match any of the parent's
+        // existing children accounts
+        if !pubKeyMatchesChild {
+            // Construct ChildAccountInfo struct from given arguments
+            let info = ChildAccount.ChildAccountInfo(
+                name: childAccountName,
+                description: childAccountDescription,
+                clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
+                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL),
+                originatingPublicKey: pubKey
+            )
 
-        managerRef.addCapability(to: newAccount.address, gamePlayerCap)
+            // Create the child account
+            let newAccount = managerRef.createChildAccount(
+                signer: signer,
+                initialFundingAmount: fundingAmt,
+                childAccountInfo: info
+            )
 
-        /* --- Set up child account with necessary resources --- */
+            /* --- Set up child account with necessary resources --- */
 
-        /** --- GamePieceNFT.Collection --- */
-        //
-        // Create a new empty collection
-        let collection <- GamePieceNFT.createEmptyCollection()
+            /** --- GamePieceNFT.Collection --- */
+            //
+            // Create a new empty collection
+            let collection <- GamePieceNFT.createEmptyCollection()
 
-        // save it to the account
-        newAccount.save(<-collection, to: GamePieceNFT.CollectionStoragePath)
+            // save it to the account
+            newAccount.save(<-collection, to: GamePieceNFT.CollectionStoragePath)
 
-        // create a public capability for the collection
-        newAccount.link<&{
-            NonFungibleToken.Receiver,
-            NonFungibleToken.CollectionPublic,
-            GamePieceNFT.GamePieceNFTCollectionPublic,
-            MetadataViews.ResolverCollection
-        }>(
-            GamePieceNFT.CollectionPublicPath,
-            target: GamePieceNFT.CollectionStoragePath
-        )
+            // create a public capability for the collection
+            newAccount.link<&{
+                NonFungibleToken.Receiver,
+                NonFungibleToken.CollectionPublic,
+                GamePieceNFT.GamePieceNFTCollectionPublic,
+                MetadataViews.ResolverCollection
+            }>(
+                GamePieceNFT.CollectionPublicPath,
+                target: GamePieceNFT.CollectionStoragePath
+            )
 
-        // Link the Provider Capability in private storage
-        newAccount.link<&{
-            NonFungibleToken.Provider
-        }>(
-            GamePieceNFT.ProviderPrivatePath,
-            target: GamePieceNFT.CollectionStoragePath
-        )
-        
+            // Link the Provider Capability in private storage
+            newAccount.link<&{
+                NonFungibleToken.Provider
+            }>(
+                GamePieceNFT.ProviderPrivatePath,
+                target: GamePieceNFT.CollectionStoragePath
+            )
+            
+            // Assign the new account's address as the child address we're dealing with
+            childAddress = newAccount.address
+        }
+
         // Get a reference to the new account's CollectionPublic
-        let collectionRef = newAccount
-                .borrow<&
-                    {NonFungibleToken.CollectionPublic
-                }>(
-                    from: GamePieceNFT.CollectionStoragePath
-                )!
-        // Mint NFT to Collection
-        GamePieceNFT.mintNFT(recipient: collectionRef)
+        let collectionRef = getAccount(childAddress!)
+            .getCapability<&
+                {NonFungibleToken.CollectionPublic}
+            >(
+                GamePieceNFT.CollectionPublicPath
+            ).borrow()
+            ?? panic("Could not borrow reference to NFT.CollectionPublic for ".concat(childAddress!.toString()))
+
+        // Mint an NFT if the child account's Collection is empty
+        if collectionRef.getIDs().length == 0 {
+            // Mint NFT to Collection
+            GamePieceNFT.mintNFT(recipient: collectionRef)
+        }
+
+        // Ensure the ChildAccountTag has a DelegatedGamePlayer Capability
+        // Get a reference to the child account's ChildAccountTag
+        let tagRef: &ChildAccount.ChildAccountTag = managerRef
+            .getChildAccountTagRef(address: childAddress!)
+            ?? panic("Problem associating child account to parent account for child account ".concat(childAddress!.toString()))
+        // If it doesn't have the DelegatedGamePlayer Capability, add it via the parent's ChildAccountManager
+        if tagRef.getGrantedCapabilityAsRef(Type<Capability<&{RockPaperScissorsGame.DelegatedGamePlayer}>>()) == nil {
+            managerRef.addCapability(to: childAddress!, gamePlayerCap)
+        }
     }
 }
