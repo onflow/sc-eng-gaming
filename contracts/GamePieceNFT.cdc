@@ -318,7 +318,7 @@ pub contract GamePieceNFT: NonFungibleToken {
                 self.ownedNFTs.containsKey(id):
                     "Collection does not contain Resolver with id ".concat(id.toString())
             }
-            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)
+            let nft = (&self.ownedNFTs[id] as auth &NonFungibleToken.NFT?)!
             let gamePieceNFT = nft as! &GamePieceNFT.NFT
             return gamePieceNFT
         }
