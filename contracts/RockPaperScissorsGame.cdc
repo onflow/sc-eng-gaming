@@ -1011,6 +1011,22 @@ pub contract RockPaperScissorsGame {
 
     /** --- Contract helper functions --- */
 
+    /// Getter to identify the contract's automated GamePlayer.id
+    ///
+    /// @return the id of the contract's GamePlayer used for singleplayer Matches
+    ///    
+    pub fun getAutomatedPlayerID(): UInt64 {
+        return self.automatedGamePlayer.id
+    }
+
+    /// Getter to identify the contract's dummyNFTID
+    ///
+    /// @return the contract's dummyNFTID used for singleplayer Matches
+    ///
+    pub fun getDummyNFTID(): UInt64 {
+        return self.dummyNFTID
+    }
+
     /// Create a GamePlayer resource
     ///
     /// @return a fresh GamePlayer resource
