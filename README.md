@@ -290,6 +290,10 @@ flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p2
     ```
     flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 1 --signer p2
     ```
+    1. Resolve the Match
+    ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match.cdc 39 --signer p1
+    ```
 1. Check Win/Loss record
     ```
     flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
