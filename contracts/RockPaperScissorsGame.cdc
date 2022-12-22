@@ -354,46 +354,6 @@ pub contract RockPaperScissorsGame {
             return self.winningPlayerID
         }
 
-        /// This method allows players to escrow their NFTs for gameplay so that the
-        /// contract can add associated Metadata to the NFT and add the NFT's id into
-        /// the historical mapping of GamingMetadataViews.BasicWinLoss data
-        ///
-        /// @param nft: The player's NFT they want to escrow for the Match
-        /// @param receiver: The Receiver to which the NFT will be deposited after the Match
-        /// has resolved
-        ///
-        pub fun escrowNFT(
-            nft: @AnyResource{NonFungibleToken.INFT, DynamicNFT.Dynamic},
-            receiverCap: Capability<&{NonFungibleToken.Receiver}>
-        ) {
-            let nftID = nft.id
-
-            // Insert GamingMetadataViews.BasicWinLoss for this game
-            // Check for existing record occurs in function definition
-            RockPaperScissorsGame.insertWinLossRecord(nftID: nftID)
-
-            // Ensure the NFT has a way to retrieve win/loss data with a GamingMetadataViews.BasicWinLossRetriever
-            // Check for existing retrievers for this game is done on the side of the NFT contract
-            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.RPSWinLossRetriever>()) {
-                let retriever <- create RockPaperScissorsGame.RPSWinLossRetriever(nftID: nftID)
-                nft.addAttachment(<-retriever)
-            }
-
-            // See if the NFT has moves for this game
-            if !nft.hasAttachmentType(Type<@RockPaperScissorsGame.RPSAssignedMoves>()) {
-                // Add the AssignedMoves attachment to the NFT
-                let moves <- create RockPaperScissorsGame.RPSAssignedMoves(
-                        seedMoves: self.allowedMoves,
-                        nftID: nftID
-                    )
-                nft.addAttachment(<-moves)
-            }
-
-            // Then store player's NFT & Receiver
-            self.escrowedNFTs[nftID] <-! nft
-            self.nftReceivers.insert(key: nftID, receiverCap)
-        }
-
         /** --- MatchLobbyActions ---*/
 
         /// Allows for an NFT to be deposited to escrow, returning a Capability
@@ -1086,6 +1046,22 @@ pub contract RockPaperScissorsGame {
     }
 
     /** --- Contract helper functions --- */
+
+    /// Getter to identify the contract's automated GamePlayer.id
+    ///
+    /// @return the id of the contract's GamePlayer used for singleplayer Matches
+    ///    
+    pub fun getAutomatedPlayerID(): UInt64 {
+        return self.automatedGamePlayer.id
+    }
+
+    /// Getter to identify the contract's dummyNFTID
+    ///
+    /// @return the contract's dummyNFTID used for singleplayer Matches
+    ///
+    pub fun getDummyNFTID(): UInt64 {
+        return self.dummyNFTID
+    }
 
     /// Create a GamePlayer resource
     ///

@@ -115,15 +115,15 @@ The pattern outlined above allows a `GamePlayer` to create a `Match` via `Gam
 
 To add a `GamePlayer` to a match, the player could call `signUpForMatch()` with the desired `matchID` which would add the `MatchLobbyActions` to the `GamePlayer`'s `matchLobbyCapabilities`. Alternatively, the `GamePlayerPublic` interface exposes the ability for a `GamePlayer` to be added to a `Match` by anyone, which you can see in the `setup_new_multiplayer_match.cdc` transaction.
 
-Once a match has been set up, two NFTs must be escrowed. Then each player can submit moves via `MatchPlayerActions.submitMoves()`, requiring both the move and a reference to the player's `GamePlayerID` Capability. We require this reference since both players have access to the same Capability, exposing a cheating vector whereby one player could submit the other player's move if the contract lacked a mechanism for identity verification. Since access control is a matter of what you have (not who you are) in Cadence, we take a reference to this `GamePlayerID` Capability and pull the submitting player's id from the reference (which should be kept private by the player).
+Once a match has been set up, two NFTs must be escrowed. Then each player can submit moves via `MatchPlayerActions.submitMoves()`, requiring both the move and a reference to the player's `GamePlayerID` Capability. We require this reference since both players have access to the same Capability, exposing a cheating vector whereby one player could submit the other player's move if the contract lacked a mechanism for identity verification. Since access control is a matter of *what you have* (not *who you are*) in Cadence, we take a reference to this `GamePlayerID` Capability and pull the submitting player's id from the reference (which should be kept private by the player).
 
-Upon second player's asynchronous move submission, the `Match`:
+Once both players' moves have been submitted, `resolveMatch()` can be called on the `Match` which does the following:
 
 1. determines the winner
 2. alters the `BasicWinLoss` metadata of the `NFT` in `winLossRecords` based on the outcome
 3. returns the escrowed `NFT`s to the respective `Receiver`s
 
-Also know that a `Match` can be played in single-player mode. In this case, a player escrows their NFT and submits their move as usual. Once they submit their move, they must then call the `submitAutomatedPlayerMove()` contract method in a separate transaction. This is enforced by block height difference between move submissions - not an ideal solution. We enforce separate transaction because the automated player's move is generated using `unsafeRandom()` which can be gamed. For example, I could submit my move as rock and set a post condition that the generated move is scissors, allowing me to ensure my win. An oracle or a safer randomness API implemented into Flow and Cadence can and will at some point solve this problem, removing the need for these workarounds.
+Also know that a `Match` can be played in single-player mode. In this case, a player escrows their NFT and submits their move as usual. Once they submit their move, they must then call the `submitAutomatedPlayerMove()` contract method which generates & submits a move as the second automated player. After the moves have been submitted, `resolveMatch()` is then called to determine the outcome & return the escrowed NFTs, but must be called in a separate transaction than move submission. This is enforced by block height difference between move submissions - not an ideal solution. We enforce separate transaction because the automated player's move is generated using `unsafeRandom()` which can be gamed. For example, I could submit my move as rock and set a post condition that that the outcome from the generated move results in a win, allowing me to game the system. An oracle or a safer randomness API implemented into Flow and Cadence can and will at some point solve this problem, removing the need for these workarounds. Until then, we compartmentalized the `Match` into these commit-resolve stages.
 
 >Note that a `Match` can only be utilized once.
 
@@ -155,12 +155,31 @@ With the context and components explained, we can more closely examine how they 
     1. Setup `GamePieceNFT.Collection` & link Capabilities
     1. Mint `GamePieceNFT.NFT`
     1. Setup `RockPlayerScissorsGame.GamePlayer` & link Capabilities
-1. Gameplay
-    1. Player one creates a new match, escrowing their NFT and adding Player two
-        1. Game moves are added to their NFT if they don't currently exists
+1. Single-Player Gameplay
+    1. Player creates a new match, escrowing their NFT along with their NFT `Receiver`, emitting `NewMatchCreated` and `PlayerEscrowedNFTToMatch`
+        1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
+        1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
+    1. Player submits their move
+        1. `MoveSubmitted` event is emitted with relevant `matchID` and `submittingGamePlayerID`
+    1. Player calls for automated player's move to be submitted
+        1. `MoveSubmitted` event is emitted with relevant `matchID` and `submittingGamePlayerID` (the contract's designated `GamePlayer.id` in this case)
+    1. In a separate transaction, player calls `resolveMatch()` to determine the outcome of the `Match` and return escrowed NFTs
+        1. The win/loss record is recorded for the player's NFT
+        1. The win/loss record is recorded for the designated `dummyNFTID`
+        1. The escrowed NFT is returned to the escrowing player
+        1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, `winningNFTID` and `returnedNFTIDs`
+1. Multi-Player Gameplay
+    1. Player one creates a new match, escrowing their NFT
+        1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
+        1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
+    1. Player one adds `MatchLobbyActions` Capability to Player two's `GamePlayerPublic`
+        1. Player one gets `GamePlayerPublic` Capability from Player two
+        1. Player one calls `addPlayerToMatch()` on their `GamePlayer`, passing the `matchID` and the reference to Player two's `GamePlayerPublic`
+        1. `PlayerAddedToMatch` emitted along with matchID and the `id` of the `GamePlayer` added to the Match
     1. Player two escrows their NFT into the match
         1. Game moves are added to their NFT if they don't currently exists
     1. Each player submits their move
+    1. Any player then calls for match resolution
         1. A winner is determined
         1. The win/loss records are recorded for each NFT
         1. Each NFT is returned to their respective owners
@@ -172,14 +191,20 @@ Below you'll find diagrams that visualize the flow between all components for ea
 ### `setup_game_admin` and `setup_game_player`
 ![Setup GameAdmin and Setup_GamePlayer](/images/rps_setup_game_admin_and_game_player.png)
 
-### `game_admin_setup_new_match`
-![GameAdmin setup new Match](/images/rps_game_admin_setup_new_match.png)
+### `setup_new_singleplayer_match`
+![GamePlayer sets up new Match](/images/rps_setup_new_singleplayer_match.png)
 
-### `game_player_escrow_nft`
-![GamePlayer escrow GamePieceNFT](/images/rps_game_player_escrow_nft.png)
+### `setup_new_multiplayer_match`
+![TODO](/todo)
 
-### `game_admin_submit_moves`
-![GameAdmin submit player Moves](/images/rps_game_admin_submit_moves.png)
+### `escrow_nft_to_existing_match`
+![TODO](/todo)
+
+### `submit_both_singleplayer_moves`
+![TODO](/todo)
+
+### `resolve_match`
+![TODO](/todo)
 
 ___
 
@@ -316,5 +341,17 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 
     1. And lastly, we'll get the win/loss record from the transferred NFT to show that the record stays with the NFT
     ```
-    flow scripts execute scripts/get_rps_win_loss.cdc 01cf0e2f2f715450 38
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 1 --signer p2
+    ```
+    1. Resolve the Match
+    ```
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match.cdc 39 --signer p1
+    ```
+1. Check Win/Loss record
+    ```
+    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
+    ```
+    1. Check Win/Loss record
+    ```
+    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 179b6b1cb6755e31 37
     ```
