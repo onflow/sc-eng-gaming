@@ -26,16 +26,23 @@ pub contract GamePieceNFT: NonFungibleToken {
     /// Counter to track total circulating supply
     pub var totalSupply: UInt64
 
-    /// Collection related paths
+    /* Collection related paths */
     pub let CollectionStoragePath: StoragePath
     pub let CollectionPublicPath: PublicPath
     pub let ProviderPrivatePath: PrivatePath
     
+    /* Minter related paths */
+    pub let MinterStoragePath: StoragePath
+    pub let MinterPublicPath: PublicPath
+    pub let MinterPrivatePath: PrivatePath
+    
     pub event ContractInitialized()
-    /// NFT related events
+    /* NFT related events */
     pub event MintedNFT(id: UInt64, totalSupply: UInt64)
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
+    pub event AttachmentAdded(attachmentType: Type, to: UInt64)
+    pub event AttachmentRemoved(attachmentType: Type, from: UInt64)
 
     /// The definition of the GamePieceNFT.NFT resource, an NFT designed to be used for gameplay with
     /// attributes relevant to win/loss histories and basic gameplay moves
@@ -52,15 +59,13 @@ pub contract GamePieceNFT: NonFungibleToken {
         pub let thumbnail: String
 
         init(
-            name: String,
-            description: String,
-            thumbnail: String
+            metadata: {String: AnyStruct}
         ) {
             self.id = self.uuid
             self.attachments <- {}
-            self.name = name
-            self.description = description
-            self.thumbnail = thumbnail
+            self.name = metadata["name"]! as! String
+            self.description = metadata["description"]! as! String
+            self.thumbnail = metadata["thumbnail"]! as! String
         }
 
         /** --- DynamicNFT.Dynamic --- */
@@ -88,8 +93,10 @@ pub contract GamePieceNFT: NonFungibleToken {
                 attachable == true,
                 message: "Cannot attach given attachment - not designed to be attached to this NFT!"
             )
-            // Given the conditions have been satisfied, attach
-            self.attachments[attachment.getType()] <-! attachment
+            // Given the conditions have been satisfied, attach & emit event
+            let attachmentType: Type = attachment.getType()
+            self.attachments[attachmentType] <-! attachment
+            emit AttachmentAdded(attachmentType: attachmentType, to: self.id)
         }
 
         /// Method allowing for removal of attachments, enabling users to clean up the storage used
@@ -100,7 +107,10 @@ pub contract GamePieceNFT: NonFungibleToken {
         access(contract) fun removeAttachment(
             type: Type
         ): @{DynamicNFT.Attachment, MetadataViews.Resolver}? {
-            return <-self.attachments.remove(key: type)
+            // Get the attachment, emit event & return
+            let attachment <-self.attachments.remove(key: type)
+            emit AttachmentRemoved(attachmentType: attachment.getType(), from: self.id)
+            return <-attachment
         }
 
         /** --- DynamicNFT.Dynamic & DynamicNFT.DynamicPublic --- */
@@ -238,6 +248,11 @@ pub contract GamePieceNFT: NonFungibleToken {
         pub fun deposit(token: @NonFungibleToken.NFT)
         pub fun getIDs(): [UInt64]
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT
+        pub fun borrowNFTSafe(id: UInt64): &NonFungibleToken.NFT? {
+            post {
+                result == nil || result!.id == id: "The returned reference's ID does not match the requested ID"
+            }
+        }
         pub fun borrowGamePieceNFT(
             id: UInt64
         ): &GamePieceNFT.NFT{NonFungibleToken.INFT, DynamicNFT.DynamicPublic, DynamicNFT.AttachmentViewResolver, MetadataViews.Resolver}? {
@@ -245,6 +260,7 @@ pub contract GamePieceNFT: NonFungibleToken {
                 (result == nil) || (result?.id == id):
                     "Cannot borrow GamePieceNFT reference: the ID of the returned reference is incorrect"
             }
+            return nil
         }
         pub fun borrowViewResolver(id: UInt64): &{MetadataViews.Resolver}
     }
@@ -291,6 +307,18 @@ pub contract GamePieceNFT: NonFungibleToken {
         /// so that the caller can read its metadata and call its methods
         pub fun borrowNFT(id: UInt64): &NonFungibleToken.NFT {
             return (&self.ownedNFTs[id] as &NonFungibleToken.NFT?)!
+        }
+
+        /// Safe way to borrow a reference to an NFT that does not panic
+        ///
+        /// @param id: The ID of the NFT that want to be borrowed
+        /// @return An optional reference to the desired NFT, will be nil if the passed id does not exist
+        ///
+        pub fun borrowNFTSafe(id: UInt64): &NonFungibleToken.NFT? {
+            if let nftRef = &self.ownedNFTs[id] as &NonFungibleToken.NFT? {
+                return nftRef
+            }
+            return nil
         }
  
         /// Returns a reference to the GamePieceNFT.NFT as a restricted composite Type
@@ -364,23 +392,89 @@ pub contract GamePieceNFT: NonFungibleToken {
     /// @param recipient: A reference to the requestor's CollectionPublic
     /// to which the NFT will be deposited
     ///
-    pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}) {
-        // Increment the supply
-        GamePieceNFT.totalSupply = GamePieceNFT.totalSupply + UInt64(1)
+    // pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}) {
+    //     // Increment the supply
+    //     GamePieceNFT.totalSupply = GamePieceNFT.totalSupply + UInt64(1)
         
-        // Create a new NFT. A typical NFT's Metadata would vary, but for simplicity and because the attachments
-        // are really what characterize each NFT, we've standardized each
-        let newNFT <- create NFT(
-                name: "GamePieceNFT",
-                description: "One game piece NFT to rule them all!",
-                thumbnail: "https://www.cheezewizards.com/static/img/prizePool/coin.svg"
-            ) as @NonFungibleToken.NFT
+    //     // Create a new NFT. A typical NFT's Metadata would vary, but for simplicity and because the attachments
+    //     // are really what characterize each NFT, we've standardized each
+    //     let newNFT <- create NFT(
+    //             name: "GamePieceNFT",
+    //             description: "One game piece NFT to rule them all!",
+    //             thumbnail: "https://www.cheezewizards.com/static/img/prizePool/coin.svg"
+    //         ) as @NonFungibleToken.NFT
 
-        // Get the id & deposit the token to the Receiver
-        let newID: UInt64 = newNFT.id
-        recipient.deposit(token: <-newNFT)
+    //     // Get the id & deposit the token to the Receiver
+    //     let newID: UInt64 = newNFT.id
+    //     recipient.deposit(token: <-newNFT)
 
-        emit MintedNFT(id: newID, totalSupply: GamePieceNFT.totalSupply)
+    //     emit MintedNFT(id: newID, totalSupply: GamePieceNFT.totalSupply)
+    // }
+
+    pub resource interface MinterAdmin {
+        pub fun setMetadata(metadata: {String: AnyStruct})
+        pub fun setMintingPermissions(allowMinting: Bool)
+        pub fun mintingAllowed(): Bool
+        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic})
+    }
+
+    pub resource interface MinterPublic {
+        pub fun mintingAllowed(): Bool
+        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic})
+    }
+
+    pub resource Minter : MinterAdmin, MinterPublic {
+        access(self) var allowMinting: Bool
+        access(self) var metadata: {String: AnyStruct}
+        
+        init() {
+            self.allowMinting = true
+            self.metadata = {
+                "name": "GamePieceNFT",
+                "description": "One game piece NFT to rule them all!",
+                "thumbnail": "https://www.cheezewizards.com/static/img/prizePool/coin.svg"
+            }
+        }
+
+        pub fun setMetadata(metadata: {String: AnyStruct}) {
+            self.metadata = metadata
+        }
+
+        pub fun setMintingPermissions(allowMinting: Bool) {
+            self.allowMinting = allowMinting
+        }
+
+        pub fun mintingAllowed(): Bool {
+            return self.allowMinting
+        }
+
+        /// Allows for minting of NFTs. For the purposes of this proof of concept,
+        /// this is set to free. Rudimentary spam minimization is done by
+        /// GamePieceNFT.allowMinting, but one might consider requiring payment
+        /// to mint an NFT
+        ///
+        /// @param recipient: A reference to the requestor's CollectionPublic
+        /// to which the NFT will be deposited
+        ///
+        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}) {
+            pre {
+                self.allowMinting: "Minting is not currently enabled!"
+            }
+            // Increment the supply
+            GamePieceNFT.totalSupply = GamePieceNFT.totalSupply + UInt64(1)
+            
+            // Create a new NFT. A typical NFT's Metadata would vary, but for simplicity and because the attachments
+            // are really what characterize each NFT, we've standardized each
+            let newNFT <- create NFT(
+                    metadata: self.metadata
+                ) as @NonFungibleToken.NFT
+
+            // Get the id & deposit the token to the Receiver
+            let newID: UInt64 = newNFT.id
+            recipient.deposit(token: <-newNFT)
+
+            emit MintedNFT(id: newID, totalSupply: GamePieceNFT.totalSupply)
+        }
     }
 
     init() {
@@ -391,6 +485,16 @@ pub contract GamePieceNFT: NonFungibleToken {
         self.CollectionStoragePath = /storage/GamePieceNFTCollection
         self.CollectionPublicPath = /public/GamePieceNFTCollection
         self.ProviderPrivatePath = /private/GamePieceNFTCollectionProvider
+        // Set Minter paths
+        self.MinterStoragePath = /storage/GamePieceNFTMinter
+        self.MinterPublicPath = /public/GamePieceNFTMinter
+        self.MinterPrivatePath = /private/GamePieceNFTMinter
+
+        // Create & save the Minter resource
+        self.account.save(<-create Minter(), to: self.MinterStoragePath)
+        // Link the minter as a Public Capability
+        self.account.link<&{MinterPublic}>(self.MinterPublicPath, target: self.MinterStoragePath)
+        self.account.link<&{MinterAdmin}>(self.MinterPrivatePath, target: self.MinterStoragePath)
 
         emit ContractInitialized()
     }

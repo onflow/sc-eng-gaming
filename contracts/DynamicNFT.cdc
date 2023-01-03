@@ -149,8 +149,6 @@ pub contract DynamicNFT {
     /// Attachment and MetadataViews.Resolver
     ///
     pub resource interface DynamicPublic {
-        /// Mapping of attachments added to the implementing resource
-        access(contract) let attachments: @{Type: AnyResource{Attachment, MetadataViews.Resolver}}
 
         /// Function revealing whether NFT has an attachment of the given Type
         ///
