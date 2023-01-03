@@ -73,22 +73,19 @@ pub contract GamingMetadataViews {
         }
         
         pub fun subtractWin() {
-            pre {
-                self.wins > 0: "Cannot set wins below 0!"
+            if self.wins > 0 {
+                self.wins = self.wins - 1
             }
-            self.wins = self.wins + 1
         }
         pub fun subtractLoss() {
-            pre {
-                self.losses > 0: "Cannot set losses below 0!"
+            if self.losses > 0 {
+                self.losses = self.losses - 1
             }
-            self.losses = self.losses - 1
         }
         pub fun subtractTie() {
-            pre {
-                self.ties > 0: "Cannot set ties below 0!"
+            if self.ties > 0 {
+                self.ties = self.ties - 1
             }
-            self.ties = self.ties - 1
         }
 
         /// Resets the records to 0
@@ -141,7 +138,7 @@ pub contract GamingMetadataViews {
 
     /// Interface that should be implemented by game contracts
     /// which returns BasicWinLoss data of given NFT.id
-    /// The implementing resource expose a capability which
+    /// The implementing resource exposes a capability which
     /// is added to the escrowed NFT so that the BasicWinLoss
     /// stored on the game contract can be retrieved by the NFT
     ///

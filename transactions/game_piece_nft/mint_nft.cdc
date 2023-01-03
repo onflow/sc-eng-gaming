@@ -4,10 +4,21 @@ import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 
 /// Transaction to mint GamePieceNFT.NFT in signer's account
 ///
-transaction {
+transaction(minterAddress: Address) {
 
+    let minterRef: &{GamePieceNFT.MinterPublic}
     let recipientCollectionRef: &{NonFungibleToken.CollectionPublic}
+
     prepare(signer: AuthAccount) {
+        // Get a reference to the MinterPublic Capability
+        self.minterRef = getAccount(minterAddress)
+            .getCapability<
+                &{GamePieceNFT.MinterPublic}
+            >(
+                GamePieceNFT.MinterPublicPath
+            ).borrow()
+            ?? panic("Could not get a reference to the MinterPublic Capability at the specified address ".concat(minterAddress.toString()))
+
         // Setup a Collection if one does not exist at the default path
         if !signer.getCapability<&{NonFungibleToken.CollectionPublic}>(GamePieceNFT.CollectionPublicPath).check() {
             // Create a new empty collection
@@ -45,6 +56,6 @@ transaction {
 
     execute {
         // Realistically, we could make a minter for game NFTs, but this will do for proof of concept
-        GamePieceNFT.mintNFT(recipient: self.recipientCollectionRef)
+        self.minterRef.mintNFT(recipient: self.recipientCollectionRef)
     }
 }
