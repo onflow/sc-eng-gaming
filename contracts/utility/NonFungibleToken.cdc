@@ -105,6 +105,17 @@ pub contract interface NonFungibleToken {
         pub fun deposit(token: @NFT)
         pub fun getIDs(): [UInt64]
         pub fun borrowNFT(id: UInt64): &NFT
+        /// Safe way to borrow a reference to an NFT that does not panic
+        ///
+        /// @param id: The ID of the NFT that want to be borrowed
+        /// @return An optional reference to the desired NFT, will be nil if the passed id does not exist
+        ///
+        pub fun borrowNFTSafe(id: UInt64): &NFT? {
+            post {
+                result == nil || result!.id == id: "The returned reference's ID does not match the requested ID"
+            }
+            return nil
+        }
     }
 
     // Requirement for the concrete resource type
