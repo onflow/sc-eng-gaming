@@ -266,7 +266,7 @@ pub contract RockPaperScissorsGame {
     ///
     pub resource interface MatchPlayerActions {
         pub let id: UInt64
-        pub fun getNFTGameMoves(forPlayerID: UInt64): [Moves]
+        pub fun getNFTGameMoves(forPlayerID: UInt64): [Moves]?
         pub fun submitMove(move: Moves, gamePlayerIDRef: &{GamePlayerID})
         pub fun resolveMatch()
         pub fun returnPlayerNFTs(): [UInt64]
@@ -679,7 +679,7 @@ pub contract RockPaperScissorsGame {
             matchID: UInt64,
             _ cap: Capability<&{MatchLobbyActions}>
         )
-        pub fun getAvailableMoves(matchID: UInt64): [Moves]
+        pub fun getAvailableMoves(matchID: UInt64): [Moves]?
         pub fun getMatchesInLobby(): [UInt64]
         pub fun getMatchesInPlay(): [UInt64]
     }
@@ -717,7 +717,7 @@ pub contract RockPaperScissorsGame {
         ///
         /// @return the Moves assigned to their escrowed NFT
         ///
-        pub fun getAvailableMoves(matchID: UInt64): [Moves] {
+        pub fun getAvailableMoves(matchID: UInt64): [Moves]? {
             pre {
                 self.matchPlayerCapabilities[matchID] != nil:
                     "Player is not engaged with the given Match"
