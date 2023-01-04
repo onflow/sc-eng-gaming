@@ -387,7 +387,7 @@ pub contract RockPaperScissorsGame {
                 RockPaperScissorsGame.movesEqual(
                     self.getNFTGameMoves(
                         forPlayerID: gamePlayerIDRef.id
-                    ), self.allowedMoves
+                    )!, self.allowedMoves
                 ):
                     "Moves improperly assigned to escrowed NFT!"
             }
@@ -457,25 +457,21 @@ pub contract RockPaperScissorsGame {
 
         /// Allows the caller to retrieve the moves assigned to the NFT
         /// deposited by the given GamePlayer.id
-        pub fun getNFTGameMoves(forPlayerID: UInt64): [Moves] {
-            pre {
-                self.gamePlayerIDToNFTID[forPlayerID] != nil: 
-                    "Player does not have an NFT in this Match!"
-            }
-
+        pub fun getNFTGameMoves(forPlayerID: UInt64): [Moves]? {
             // Get a reference to their escrowed NFT
-            let playerNFTID = self.gamePlayerIDToNFTID[forPlayerID]!
-            if let nftRef = &self.escrowedNFTs[playerNFTID] as &{NonFungibleToken.INFT, DynamicNFT.Dynamic}? {
-                // Get a reference to the NFT's AssignedMoves attachment
-                if let attachmentRef = nftRef.getAttachmentRef(
-                        Type<@RockPaperScissorsGame.RPSAssignedMoves>()
-                    ) {
-                    let assignedMovesRef = attachmentRef as! &RockPaperScissorsGame.RPSAssignedMoves
-                    return assignedMovesRef.moves as! [Moves]
+            if let playerNFTID = self.gamePlayerIDToNFTID[forPlayerID] {
+                if let nftRef = &self.escrowedNFTs[playerNFTID] as &{NonFungibleToken.INFT, DynamicNFT.Dynamic}? {
+                    // Get a reference to the NFT's AssignedMoves attachment
+                    if let attachmentRef = nftRef.getAttachmentRef(
+                            Type<@RockPaperScissorsGame.RPSAssignedMoves>()
+                        ) {
+                        let assignedMovesRef = attachmentRef as! &RockPaperScissorsGame.RPSAssignedMoves
+                        return assignedMovesRef.moves as! [Moves]
+                    }
+                    return nil
                 }
-                panic("NFT does not have RPSAssignedMoves!")
             }
-            panic("Could not get reference to player's NFT!")
+            return nil
         }
 
         /// Function allows players to submit their moves to the match.
@@ -514,7 +510,7 @@ pub contract RockPaperScissorsGame {
                 self.submittedMoves.length < 2:
                     "Both moves have already been submitted for this Match!"
                 gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id ||
-                self.getNFTGameMoves(forPlayerID: gamePlayerIDRef.id).contains(move):
+                self.getNFTGameMoves(forPlayerID: gamePlayerIDRef.id)!.contains(move):
                     "Player's NFT does not have the submitted move available to play!"
                 self.inPlay == true:
                     "Match is not in play any longer!"
@@ -879,8 +875,9 @@ pub contract RockPaperScissorsGame {
         /// Allows for NFTs to be taken from GamePlayer's Collection and escrowed into the given Match.id
         /// using the MatchPlayerActions Capability already in their mapping
         ///
-        /// @param nftID: The id of the NFT to be escrowed
+        /// @param nft: The NFT to be escrowed
         /// @param matchID: The id of the Match into which the NFT will be escrowed
+        /// @param receiverCap: The Receiver Capability to which the NFT will be returned
         ///
         pub fun depositNFTToMatchEscrow(
             nft: @AnyResource{NonFungibleToken.INFT, DynamicNFT.Dynamic},
@@ -1077,6 +1074,14 @@ pub contract RockPaperScissorsGame {
         return nil
     }
 
+    /// Get GamingMetadataViews.BasicWinLoss for a certain NFT 
+    ///
+    /// @param: nftID: id of associated NFT in winLossRecords
+    ///
+    pub fun getWinLossRecord(nftID: UInt64): GamingMetadataViews.BasicWinLoss? {
+        return self.winLossRecords[nftID]
+    }
+
     /// Getter method for winLossRecords
     ///
     /// @return A Mapping of GamingMetadataViews.BasicWinLoss struct defining the
@@ -1101,27 +1106,28 @@ pub contract RockPaperScissorsGame {
         return nil
     }
 
-    /// Allows the public to clean up Matches that are no longer necessary, 
-    /// helping to reduce contract's use of storage
+    /// Function for easy derivation of a Match's StoragePath. Provides no guarantees
+    /// that a Match is stored there.
     ///
-    pub fun destroyCompletedMatches(): [UInt64] {
-        
-        let destroyedMatchIDs: [UInt64] = []
-        // Iterate through completedMatchIDs
-        for matchID in self.completedMatchIDs {
-            // Derive the StoragePath of the Match with given id
-            let matchStoragePath = self.getMatchStoragePath(matchID)
-                
-            // Load and destroy the Match
-            let completedMatch <- self.account.load<@Match>(from: matchStoragePath)
-            destroy completedMatch
-            
-            // Remove the id of the destroyed Match, adding to array
-            // maintaining destroyed IDs
-            destroyedMatchIDs.append(self.completedMatchIDs.removeFirst())
-        }
-        // Return the IDs of the destroyed Matches
-        return destroyedMatchIDs
+    /// @param matchID: the id of the target Match
+    ///
+    /// @return the StoragePath where that Match would be stored
+    ///
+    pub fun getMatchStoragePath(_ matchID: UInt64): StoragePath {
+        let identifier = self.MatchStorageBasePathString.concat(matchID.toString())
+        return StoragePath(identifier: identifier)!
+    }
+
+    /// Function for easy derivation of a Match's PrivatePath. Provides no guarantees
+    /// that a Match is stored there.
+    ///
+    /// @param matchID: the id of the target Match
+    ///
+    /// @return the PrivatePath where that Match would be stored
+    ///
+    pub fun getMatchPrivatePath(_ matchID: UInt64): PrivatePath {
+        let identifier = self.MatchStorageBasePathString.concat(matchID.toString())
+        return PrivatePath(identifier: identifier)!
     }
 
     /// Enable submission of random move to single player Match. To make randomness a bit safer,
@@ -1143,6 +1149,52 @@ pub contract RockPaperScissorsGame {
                 from: matchStoragePath
             ) ?? panic("Could not get MatchPlayerActions reference for given Match!")
         matchRef.submitMove(move: randomMove, gamePlayerIDRef: &self.automatedGamePlayer as &{GamePlayerID})
+    }
+
+    /// Helper method to compare arrays of Moves
+    ///
+    /// @param first: one array of Moves
+    /// @param second: other array of Moves
+    ///
+    /// @return true if the two arrays are equal, false otherwise
+    ///
+    pub fun movesEqual(_ first: [Moves], _ second: [Moves]): Bool {
+        // Return false if they have differing lengths
+        if first.length != second.length {
+            return false
+        }
+        // With same length we can compare their elements
+        for idx, move in first {
+            // Compare elements at each index are contained in the other
+            if !second.contains(move) || !first.contains(second[idx]) {
+                return false
+            }
+        }
+        // Passed all non-equal cases so must be equal
+        return true
+    }
+
+    /// Utility function allowing the public to clean up Matches that are no 
+    /// longer necessary, helping to reduce contract's storage usage
+    ///
+    pub fun destroyCompletedMatches(): [UInt64] {
+        
+        let destroyedMatchIDs: [UInt64] = []
+        // Iterate through completedMatchIDs
+        for matchID in self.completedMatchIDs {
+            // Derive the StoragePath of the Match with given id
+            let matchStoragePath = self.getMatchStoragePath(matchID)
+                
+            // Load and destroy the Match
+            let completedMatch <- self.account.load<@Match>(from: matchStoragePath)
+            destroy completedMatch
+            
+            // Remove the id of the destroyed Match, adding to array
+            // maintaining destroyed IDs
+            destroyedMatchIDs.append(self.completedMatchIDs.removeFirst())
+        }
+        // Return the IDs of the destroyed Matches
+        return destroyedMatchIDs
     }
 
     /// Inserts a WinLoss record into the winLossRecords mapping if one does
@@ -1178,14 +1230,6 @@ pub contract RockPaperScissorsGame {
         }
     }
 
-    /// Get GamingMetadataViews.BasicWinLoss for a certain NFT 
-    ///
-    /// @param: nftID: id of associated NFT in winLossRecords
-    ///
-    access(contract) fun getWinLossRecord(nftID: UInt64): GamingMetadataViews.BasicWinLoss? {
-        return self.winLossRecords[nftID]
-    }
-
     /// Update GamingMetadataViews.BasicWinLoss for a certain NFT 
     /// resetting the records for said NFT
     ///
@@ -1194,54 +1238,6 @@ pub contract RockPaperScissorsGame {
     access(contract) fun resetWinLossRecord(nftID: UInt64) {
         assert(self.winLossRecords[nftID] != nil, message: "NFT does not have an associated record")
         self.winLossRecords[nftID]!.reset()
-    }
-
-
-    /// Helper method to compare arrays of Moves
-    ///
-    /// @param first: one array of Moves
-    /// @param second: other array of Moves
-    ///
-    /// @return true if the two arrays are equal, false otherwise
-    ///
-    access(contract) fun movesEqual(_ first: [Moves], _ second: [Moves]): Bool {
-        // Return false if they have differing lengths
-        if first.length != second.length {
-            return false
-        }
-        // With same length we can compare their elements
-        for idx, move in first {
-            // Compare elements at each index are contained in the other
-            if !second.contains(move) || !first.contains(second[idx]) {
-                return false
-            }
-        }
-        // Passed all non-equal cases so must be equal
-        return true
-    }
-
-    /// Function for easy derivation of a Match's StoragePath. Provides no guarantees
-    /// that a Match is stored there.
-    ///
-    /// @param matchID: the id of the target Match
-    ///
-    /// @return the StoragePath where that Match would be stored
-    ///
-    access(contract) fun getMatchStoragePath(_ matchID: UInt64): StoragePath {
-        let identifier = self.MatchStorageBasePathString.concat(matchID.toString())
-        return StoragePath(identifier: identifier)!
-    }
-
-    /// Function for easy derivation of a Match's PrivatePath. Provides no guarantees
-    /// that a Match is stored there.
-    ///
-    /// @param matchID: the id of the target Match
-    ///
-    /// @return the PrivatePath where that Match would be stored
-    ///
-    access(contract) fun getMatchPrivatePath(_ matchID: UInt64): PrivatePath {
-        let identifier = self.MatchStorageBasePathString.concat(matchID.toString())
-        return PrivatePath(identifier: identifier)!
     }
 
     init() {
