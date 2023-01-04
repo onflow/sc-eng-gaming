@@ -137,7 +137,8 @@ pub contract GamingMetadataViews {
     }
 
     /// Interface that should be implemented by game contracts
-    /// which returns BasicWinLoss data of given NFT.id
+    /// which returns BasicWinLoss data of given NFT.id. This interface
+    /// is meant to be used in conjunction with the DynamicNFT.Dynamic
     /// The implementing resource exposes a capability which
     /// is added to the escrowed NFT so that the BasicWinLoss
     /// stored on the game contract can be retrieved by the NFT
@@ -148,8 +149,7 @@ pub contract GamingMetadataViews {
 
         /// Retrieves the BasicWinLoss for a given NFT
         ///
-        /// @param nftID: The id of the NFT the caller is attempting to
-        /// retrieve a BasicWinLoss for
+        /// @return the BasicWinLoss record for the NFT to which the retriever is attached
         ///
         pub fun getWinLossData(): BasicWinLoss?
 
