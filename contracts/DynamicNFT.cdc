@@ -55,41 +55,41 @@ pub contract DynamicNFT {
     // TODO: Need to figure out another way to resolve attachment views - or maybe we keep this?
     /// Interface that enables the implementing resource to return the views supported by their attachments
     ///
-    // pub resource interface AttachmentViewResolver {
+    pub resource interface AttachmentViewResolver {
 
-    //     /// Returns the views supported by all of the attachments indexed by the supporting attachment's type
-    //     ///
-    //     /// @return mapping to attachment's Type to view Type
-    //     ///
-    //     // TODO: Do this without attachments mapping
-    //     pub fun getAttachmentViews(): {Type: [Type]} {
+        /// Returns the views supported by all of the attachments indexed by the supporting attachment's type
+        ///
+        /// @return mapping to attachment's Type to view Type
+        ///
+        // TODO: Do this without attachments mapping -> forEachAttachment()
+        // pub fun getAttachmentViews(): {Type: [Type]} {
 
-    //         let viewsByAttachmentType: {Type: [Type]} = {}
+        //     let viewsByAttachmentType: {Type: [Type]} = {}
             
-    //         // Iterate over the NFT's attachments and get the views they support
-    //         for type in self.attachments.keys {
-    //             if let attachmentRef = &self.attachments[type] as auth &AnyResource{MetadataViews.Resolver}? {
-    //                 viewsByAttachmentType.insert(key: type, attachmentRef.getViews())
-    //             }
-    //         }
+        //     // Iterate over the NFT's attachments and get the views they support
+        //     for type in self.attachments.keys {
+        //         if let attachmentRef = &self.attachments[type] as auth &AnyResource{MetadataViews.Resolver}? {
+        //             viewsByAttachmentType.insert(key: type, attachmentRef.getViews())
+        //         }
+        //     }
             
-    //         return viewsByAttachmentType
-    //     }
+        //     return viewsByAttachmentType
+        // }
 
-    //     /// Given an attachment Type and the view Type, will return the view resolved by the attachment of given Type
-    //     ///
-    //     /// @param attachmentType: The Type of the attachment
-    //     /// @param view: The Type of the desired view to resolve
-    //     ///
-    //     /// @return The resolved view as AnyStruct if it exists and nil otherwise
-    //     ///
-    //     // TODO: Do this without attachments mapping
-    //     pub fun resolveAttachmentView(attachmentType: Type, view: Type): AnyStruct? {
-    //         if let attachmentRef = &self.attachments[attachmentType] as auth &AnyResource{MetadataViews.Resolver}? {
-    //             return attachmentRef.resolveView(view)
-    //         }
-    //         return nil
-    //     }
-    // }
+        /// Given an attachment Type and the view Type, will return the view resolved by the attachment of given Type
+        ///
+        /// @param attachmentType: The Type of the attachment
+        /// @param view: The Type of the desired view to resolve
+        ///
+        /// @return The resolved view as AnyStruct if it exists and nil otherwise
+        ///
+        // TODO: Do this without attachments mapping -> forEachAttachment()
+        // pub fun resolveAttachmentView(attachmentType: Type, view: Type): AnyStruct? {
+        //     if let attachmentRef = &self.attachments[attachmentType] as auth &AnyResource{MetadataViews.Resolver}? {
+        //         return attachmentRef.resolveView(view)
+        //     }
+        //     return nil
+        // }
+    }
 }
  
