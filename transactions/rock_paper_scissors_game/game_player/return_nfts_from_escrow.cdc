@@ -12,7 +12,7 @@ transaction(matchID: UInt64) {
             .borrow<&RockPaperScissorsGame.GamePlayer>(from: RockPaperScissorsGame.GamePlayerStoragePath)
             ?? panic("Could not borrow GamePlayer reference!")
         let matchPlayerActionsCap: Capability<&{RockPaperScissorsGame.MatchPlayerActions}> = gamePlayerRef
-            .matchPlayerCapabilities[matchID]
+            .getMatchPlayerCaps()[matchID]
             ?? panic("Could not retrieve MatchPlayer capability for given matchID!")
         self.matchPlayerActionsRef = matchPlayerActionsCap
             .borrow()

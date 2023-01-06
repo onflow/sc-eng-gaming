@@ -15,12 +15,9 @@ transaction(nftID: UInt64) {
 
         // Get the NFT reference if it exists in the reference collection
         if let nftRef = collectionRef.borrowGamePieceNFT(id: nftID) {
-            // Attempt to get the RPSWinLossRetriever attachment
-            if let attachmentRef = nftRef.getAttachmentRef(Type<@RockPaperScissorsGame.RPSWinLossRetriever>()) {
-                // Cast returned AnyResource as RPSWinLossRetriever & return the 
-                // BasicWinLoss value for given NFT
-                let retrieverRef = attachmentRef as! &RockPaperScissorsGame.RPSWinLossRetriever
-                retrieverRef.resetWinLossData()
+            // Get the RPSAssignedMoves attachment if exists & reset
+            if let winLossRef = nftRef[RockPaperScissorsGame.RPSWinLossRetriever] {
+                winLossRef.resetWinLossData()
             }
         }
     }

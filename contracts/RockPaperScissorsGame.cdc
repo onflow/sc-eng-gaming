@@ -206,7 +206,12 @@ pub contract RockPaperScissorsGame {
         /// @return moves array as RockPaperScissorsGame.Moves
         ///
         pub fun getRPSMoves(): [Moves] {
-            return self.moves as! [Moves]
+            let castedMoves: [Moves] = []
+            for move in self.moves {
+                let castedMove = move as! Moves
+                castedMoves.append(castedMove)
+            }
+            return castedMoves
         }
 
         /// Append the given array to stored moves array
@@ -448,7 +453,7 @@ pub contract RockPaperScissorsGame {
                     //     return assignedMovesRef.moves as! [Moves]
                     // }
                     if let assignedMovesRef = nftRef[RockPaperScissorsGame.RPSAssignedMoves] {
-                        return assignedMovesRef.moves as! [Moves]
+                        return assignedMovesRef.getRPSMoves()
                     }
                     return nil
                 }
