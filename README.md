@@ -233,32 +233,32 @@ Let's start with demonstrating single-player gameplay:
 flow accounts create
 ```
 
-1. Onboard user
+1. Onboard user, providing the GamePieceNFT Minter's address
 ```
-flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p1
+flow transactions send ./transactions/onboarding/onboard_player.cdc 0xf8d6e0586b0a20c7 --signer p1
 ```
 
 1. Init gameplay...
 
     1. Create new Match
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc 28 10 --signer p1
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc 29 10 --signer p1
     ```
     1. Submit moves for the player & call for the automated player's move to be generated
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc 30 0 --signer p1
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc 31 0 --signer p1
     ```
-    1. Resolve the Match
+    1. Resolve the Match & return escrowed NFTs
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match.cdc 30 --signer p1
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc 31 --signer p1
     ```
     1. Get the moves submitted for the Match
     ```
-    flow scripts execute ./scripts/rock_paper_scissors_game/get_match_move_history.cdc 30
+    flow scripts execute ./scripts/rock_paper_scissors_game/get_match_move_history.cdc 31
     ```
     1. Check Win/Loss record for the player's NFT
     ```
-    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
+    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 29
     ```
 
 ### Multi-player
@@ -271,34 +271,34 @@ flow accounts create
 ```
 1. Onboard user
 ```
-flow transactions send ./transactions/onboarding/onboard_player.cdc --signer p2
+flow transactions send ./transactions/onboarding/onboard_player.cdc 0xf8d6e0586b0a20c7 --signer p2
 ```
 1. Init gameplay...
 
     1. Create new Match
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_multiplayer_match.cdc 28 0x179b6b1cb6755e31 10 --signer p1
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/setup_new_multiplayer_match.cdc 29 0x179b6b1cb6755e31 10 --signer p1
     ```
     1. Escrow second player's NFT
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/escrow_nft.cdc 39 37 --signer p2
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/escrow_nft_to_existing_match.cdc 38 36 --signer p2
     ```
     1. Submit moves
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 0 --signer p1
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 38 0 --signer p1
     ```
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 39 1 --signer p2
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 38 1 --signer p2
     ```
-    1. Resolve the Match
+    1. Resolve the Match & return NFTs
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match.cdc 39 --signer p1
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc 38 --signer p1
     ```
 1. Check Win/Loss record
     ```
-    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 28
+    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 29
     ```
     1. Check Win/Loss record
     ```
-    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 179b6b1cb6755e31 37
+    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 179b6b1cb6755e31 36
     ```

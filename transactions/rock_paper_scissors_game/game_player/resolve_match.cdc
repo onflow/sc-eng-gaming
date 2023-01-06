@@ -1,6 +1,6 @@
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
-/// Transaction to resolve a Match
+/// Transaction to resolve a Match & return escrowed NFTs to players
 ///
 transaction(matchID: UInt64) {
     
@@ -15,7 +15,7 @@ transaction(matchID: UInt64) {
     }
 
     execute {
-        // Submit moves for the game
+        // Resolve the Match
         self.gamePlayerRef.resolveMatchByID(matchID)
     }
 }
