@@ -1,7 +1,6 @@
 import MetadataViews from "./utility/MetadataViews.cdc"
 import GamingMetadataViews from "./GamingMetadataViews.cdc"
 import NonFungibleToken from "./utility/NonFungibleToken.cdc"
-import DynamicNFT from "./DynamicNFT.cdc"
 
 /// RockPaperScissorsGame
 ///
@@ -108,7 +107,7 @@ pub contract RockPaperScissorsGame {
 
     /** --- WinLossRetriever Implementation --- */
     /// Resource acts as a retriever for an NFT's WinLoss data
-    pub attachment RPSWinLossRetriever for NonFungibleToken.INFT: DynamicNFT.NFTAttachment, MetadataViews.Resolver, GamingMetadataViews.GameResource, GamingMetadataViews.BasicWinLossRetriever {
+    pub attachment RPSWinLossRetriever for NonFungibleToken.INFT: MetadataViews.Resolver, GamingMetadataViews.GameResource, GamingMetadataViews.BasicWinLossRetriever {
         /// The ID of the NFT where this resource is attached
         pub let nftID: UInt64
         /// Struct containing metadata about the attachment's related game
@@ -157,7 +156,7 @@ pub contract RockPaperScissorsGame {
     /** --- RPSAssignedMoves --- */
     /// Resource designed to store & manage game moves
     ///
-    pub attachment RPSAssignedMoves for NonFungibleToken.INFT: DynamicNFT.NFTAttachment, MetadataViews.Resolver, GamingMetadataViews.GameResource, GamingMetadataViews.AssignedMoves {
+    pub attachment RPSAssignedMoves for NonFungibleToken.INFT: MetadataViews.Resolver, GamingMetadataViews.GameResource, GamingMetadataViews.AssignedMoves {
         /// The ID of the NFT where this resource is attached
         pub let nftID: UInt64
         /// Struct containing metadata about the attachment's related game

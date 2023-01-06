@@ -116,6 +116,7 @@ pub contract GamingMetadataViews {
     /// View struct containing the nftID & a mapping of indexed on the NFT's attachment types
     /// and their associated GameContractMetadata
     ///
+    // NOTE: Can't do this without attachment iteration
     pub struct GameAttachmentsView {
         /// The id of the associated NFT
         pub let nftID: UInt64
@@ -137,8 +138,7 @@ pub contract GamingMetadataViews {
     }
 
     /// Interface that should be implemented by game contracts
-    /// which returns BasicWinLoss data of given NFT.id. This interface
-    /// is meant to be used in conjunction with the DynamicNFT.Dynamic
+    /// which returns BasicWinLoss data of given NFT.id.
     /// The implementing resource exposes a capability which
     /// is added to the escrowed NFT so that the BasicWinLoss
     /// stored on the game contract can be retrieved by the NFT
