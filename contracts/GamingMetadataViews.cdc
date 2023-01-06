@@ -96,7 +96,9 @@ pub contract GamingMetadataViews {
         }
     }
 
-    /// View struct conatining info relating to the associated game, nft & assigned moves
+    /// View struct conatining info relating to the associated game, nft & assigned moves.
+    /// Designed to be returned by a resource implementing MetadataViews.Resolver and
+    /// AssignedMoves (see below)
     ///
     pub struct AssignedMovesView {
         /// The name of the associated game
@@ -113,10 +115,11 @@ pub contract GamingMetadataViews {
         }
     }
 
-    /// View struct containing the nftID & a mapping of indexed on the NFT's attachment types
-    /// and their associated GameContractMetadata
+    /// View struct containing the nftID & a mapping of indexed on the NFT's GameResource attachment
+    /// types and their associated GameContractMetadata
     ///
-    // NOTE: Can't do this without attachment iteration
+    /// NOTE: Can't resolve this within an NFT without attachment iteration
+    ///
     pub struct GameAttachmentsView {
         /// The id of the associated NFT
         pub let nftID: UInt64
@@ -137,29 +140,31 @@ pub contract GamingMetadataViews {
         pub let gameContractInfo: GameContractMetadata
     }
 
-    /// Interface that should be implemented by game contracts
-    /// which returns BasicWinLoss data of given NFT.id.
-    /// The implementing resource exposes a capability which
-    /// is added to the escrowed NFT so that the BasicWinLoss
-    /// stored on the game contract can be retrieved by the NFT
+    /// Interface which returns BasicWinLoss data an NFT. Designed
+    /// to be implemented in conjunction with GameResource as
+    /// an attachment to an NFT.
     ///
     pub resource interface BasicWinLossRetriever {
+        /// The ID of the NFT to which this resource is attached
+        pub let nftID: UInt64
         /// Struct containing info about the related game contract
         pub let gameContractInfo: GameContractMetadata
 
-        /// Retrieves the BasicWinLoss for a given NFT
+        /// Retrieves the BasicWinLoss for the NFT associated with nftID
         ///
         /// @return the BasicWinLoss record for the NFT to which the retriever is attached
         ///
         pub fun getWinLossData(): BasicWinLoss?
 
-        /// Allows the owner to reset the WinLoss records of the NFT where this is attached
+        /// Allows the owner to reset the WinLoss records of the base NFT
         ///
         pub fun resetWinLossData()
     }
 
     /// A resource interface defining an attachment representative of a simple
-    /// win/loss record that could live locally on an NFT as an attachment
+    /// win/loss record. Whereas BasicWinLossRetriever is designed to retrieve
+    /// a BasicWinLoss struct stored centrally in a contract, an attachment
+    /// implementing this interface can store the win/loss data locally.
     ///
     pub resource interface WinLoss {
         /// Struct containing info about the related game contract
@@ -177,7 +182,10 @@ pub contract GamingMetadataViews {
     }
 
     /// An encapsulated resource containing an array of generic moves
-    /// and a getter method for those moves
+    /// and a getter method for those moves. Designed to be implemented
+    /// in an attachment to a resource as a representation of moves assigned
+    /// to a game piece.
+    /// See See RockPaperScissorsGame.AssignedMoves for example implementation.
     ///
     pub resource interface AssignedMoves {
         /// Struct containing info about the related game contract
