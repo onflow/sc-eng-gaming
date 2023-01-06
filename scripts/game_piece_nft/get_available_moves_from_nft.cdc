@@ -15,13 +15,16 @@ pub fun main(address: Address, id: UInt64): [RockPaperScissorsGame.Moves]? {
 
     // Get the NFT reference if it exists in the reference collection
     if let nftRef = collectionPublicRef.borrowGamePieceNFT(id: id) {
-        // Get the AssignedMovesView from the NFT & return
-        if let movesView = nftRef
-            .resolveAttachmentView(
-                attachmentType: Type<@RockPaperScissorsGame.RPSAssignedMoves>(),
-                view: Type<GamingMetadataViews.AssignedMovesView>()
-            ) as! GamingMetadataViews.AssignedMovesView? {
-            return movesView.moves as! [RockPaperScissorsGame.Moves]
+        // Get the RPSAssignedMoves attachment
+        if let movesRef = nftRef[RockPaperScissorsGame.RPSAssignedMoves] {
+            // Resolve the view
+            if let movesView = movesRef
+                .resolveView(
+                    Type<GamingMetadataViews.AssignedMovesView>()
+                ) as! GamingMetadataViews.AssignedMovesView? {
+                // return the moves contained in the view
+                return movesView.moves as! [RockPaperScissorsGame.Moves]
+            }
         }
     }
 
