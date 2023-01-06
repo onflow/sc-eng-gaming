@@ -78,8 +78,12 @@ pub contract RockPaperScissorsGame {
         player2ID: UInt64,
         player2MoveRawValue: UInt8,
         winningGamePlayer: UInt64?,
-        winningNFTID: UInt64?,
-        returnedNFTIDs: [UInt64]
+        winningNFTID: UInt64?
+    )
+    pub event ReturnedPlayerNFTs(
+        gameName: String,
+        matchID: UInt64,
+        returnedNFTs: [UInt64]
     )
 
     /// Simple enum to identify moves
@@ -252,7 +256,6 @@ pub contract RockPaperScissorsGame {
             receiver: Capability<&{NonFungibleToken.Receiver}>,
             gamePlayerIDRef: &{GamePlayerID}
         ): Capability<&{MatchPlayerActions}>
-        pub fun returnPlayerNFTs(): [UInt64]
     }
 
     /// Interface exposing the player type of actions for a Match
@@ -267,6 +270,10 @@ pub contract RockPaperScissorsGame {
         pub fun submitMove(move: Moves, gamePlayerIDRef: &{GamePlayerID})
         pub fun resolveMatch()
         pub fun returnPlayerNFTs(): [UInt64]
+        pub fun retrieveUnclaimedNFT(
+            gamePlayerIDRef: &{GamePlayerID},
+            receiver: Capability<&{NonFungibleToken.Receiver}>
+        ): UInt64
     }
 
     /// Resource defining a Match as a single round of Rock Paper Scissors
@@ -375,6 +382,8 @@ pub contract RockPaperScissorsGame {
                     "Player has already joined this Match!"
                 self.escrowedNFTs.length < self.escrowCapacity:
                     "Both players have already escrowed their NFTs, Match is full!"
+                !self.escrowedNFTs.containsKey(nft.id):
+                    "NFT with id ".concat(nft.id.toString()).concat(" already in escrow!")
                 self.inPlay == true:
                     "Match is over!"
                 receiver.check():
@@ -562,11 +571,7 @@ pub contract RockPaperScissorsGame {
 
             // Mark the Match as no longer in play
             self.inPlay = false
-            // Return the escrowed NFTs to the depositing players
-            let returnedNFTIDs = self.returnPlayerNFTs()
-            // Add the Match.id to the contract's list of completed Matches
-            RockPaperScissorsGame.completedMatchIDs.append(self.id)
-            
+
             // Announce the Match results
             let player1ID = self.submittedMoves.keys[0]
             let player2ID = self.submittedMoves.keys[1]
@@ -578,8 +583,7 @@ pub contract RockPaperScissorsGame {
                 player2ID: player2ID,
                 player2MoveRawValue: self.submittedMoves[player2ID]!.move.rawValue,
                 winningGamePlayer: self.winningPlayerID,
-                winningNFTID: self.winningNFTID,
-                returnedNFTIDs: returnedNFTIDs
+                winningNFTID: self.winningNFTID
             )
         }
 
@@ -611,13 +615,68 @@ pub contract RockPaperScissorsGame {
                     }
                 }
             }
+            // Set inPlay to false in case Match timed out
+            self.inPlay = false
             // Add the id of this Match to the history of completed Matches
             // as long as all it does not contain NFTs
             if self.escrowedNFTs.length == 0 {
                 RockPaperScissorsGame.completedMatchIDs.append(self.id)
             }
+
+            emit ReturnedPlayerNFTs(
+                gameName: RockPaperScissorsGame.name,
+                matchID: self.id,
+                returnedNFTs: returnedNFTs
+            )
+            
             // Return an array containing ids of the successfully returned NFTs
             return returnedNFTs
+        }
+
+        /// Function to enable a player to retrieve their NFT should they need to due to failure in
+        /// the returnPlayerNFTs() method
+        ///
+        /// @param gamePlayerIDRef: Reference to the player's GamePlayerID
+        /// @param receiver: A Receiver Capability to a resource the NFT will be deposited to
+        ///
+        pub fun retrieveUnclaimedNFT(
+            gamePlayerIDRef: &{GamePlayerID},
+            receiver: Capability<&{NonFungibleToken.Receiver}>
+        ): UInt64 {
+            pre {
+                getCurrentBlock().timestamp >= self.createdTimestamp + self.timeLimit ||
+                self.inPlay == false:
+                    "Cannot return NFTs while Match is still in play!"
+                self.gamePlayerIDToNFTID.containsKey(gamePlayerIDRef.id):
+                    "This GamePlayer is not associated with this Match!"
+                self.escrowedNFTs.containsKey(self.gamePlayerIDToNFTID[gamePlayerIDRef.id]!):
+                    "Player does not have any NFTs escrowed in this Match!"
+                receiver.check():
+                    "Problem with provided Receiver!"
+            }
+            // Get the NFT from escrow
+            let nftID = self.gamePlayerIDToNFTID[gamePlayerIDRef.id]!
+            let nft <- (self.escrowedNFTs.remove(key: nftID) as! @NonFungibleToken.NFT?)!
+            
+            // Return the NFT to the given Receiver
+            receiver.borrow()!.deposit(token: <-nft)
+
+            // Set inPlay to false in case Match timed out and it wasn't marked
+            self.inPlay = false
+            
+            // Add the id of this Match to the history of completed Matches
+            // as long as all it does not contain NFTs
+            if self.escrowedNFTs.length == 0 {
+                RockPaperScissorsGame.completedMatchIDs.append(self.id)
+            }
+
+            emit ReturnedPlayerNFTs(
+                gameName: RockPaperScissorsGame.name,
+                matchID: self.id,
+                returnedNFTs: [nftID]
+            )
+
+            return nftID
         }
 
         /** --- Match --- */
