@@ -257,24 +257,6 @@ pub contract GamePieceNFT: NonFungibleToken {
     /// @param recipient: A reference to the requestor's CollectionPublic
     /// to which the NFT will be deposited
     ///
-    // pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic}) {
-    //     // Increment the supply
-    //     GamePieceNFT.totalSupply = GamePieceNFT.totalSupply + UInt64(1)
-        
-    //     // Create a new NFT. A typical NFT's Metadata would vary, but for simplicity and because the attachments
-    //     // are really what characterize each NFT, we've standardized each
-    //     let newNFT <- create NFT(
-    //             name: "GamePieceNFT",
-    //             description: "One game piece NFT to rule them all!",
-    //             thumbnail: "https://www.cheezewizards.com/static/img/prizePool/coin.svg"
-    //         ) as @NonFungibleToken.NFT
-
-    //     // Get the id & deposit the token to the Receiver
-    //     let newID: UInt64 = newNFT.id
-    //     recipient.deposit(token: <-newNFT)
-
-    //     emit MintedNFT(id: newID, totalSupply: GamePieceNFT.totalSupply)
-    // }
 
     pub resource interface MinterAdmin {
         pub fun setMetadata(metadata: {String: AnyStruct})
