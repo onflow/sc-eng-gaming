@@ -5,15 +5,19 @@ import GamingMetadataViews from "./GamingMetadataViews.cdc"
 
 /// GamePieceNFT
 ///
-/// In this contract, we defined an NFT designed for use in games.
-/// The primary differentiation between this and standard NFTs is the
-/// mapping of GamingMetadataViews.BasicWinLossRetriever Capabilities
-/// and the function addWinLossRetriever() which is included so that
-/// games in which the NFT is used can add said Capability. This pattern
-/// emerged as a way to enable win/loss data for games where the NFT is
-/// played to be mutated by the games and enable the NFT to maintain
-/// win/loss data for any game in which it's played without the need for
-/// the owner to pay for the storage of that win/loss data.
+/// In this contract, we defined a generic NFT meant to be used as a
+/// base resource for game-related attachments. In this suite of contracts,
+/// RPSWinLossRetriever and RPSAssignedMoves are attached, enabling RPS
+/// related functionality in the base resource.
+///
+/// Once attachment iteration is enabled, this contract can be updated to
+/// support game attachment related methods within the NFT. For now, it remains
+/// a simple NFT implementation to demonstrate Cadence's native attachments. The
+/// use of attachments on an NFT for the purpose of gaming allows for attributes
+/// related to the NFT to be altered under the typical Capabilities-based
+/// access controls Cadence enables while maintaining an open, composable
+/// system of building blocks the whole ecosystem can leverage to build awesome
+/// games.
 ///
 /// We hope that this pattern can be built on for more complex gaming
 /// applications with more complex metadata as a powerful method for 
@@ -40,8 +44,6 @@ pub contract GamePieceNFT: NonFungibleToken {
     pub event MintedNFT(id: UInt64, totalSupply: UInt64)
     pub event Withdraw(id: UInt64, from: Address?)
     pub event Deposit(id: UInt64, to: Address?)
-    // pub event AttachmentAdded(attachmentType: Type, to: UInt64)
-    // pub event AttachmentRemoved(attachmentType: Type, from: UInt64)
 
     /// The definition of the GamePieceNFT.NFT resource, an NFT designed to be used for gameplay with
     /// attributes relevant to win/loss histories and basic gameplay moves
@@ -249,29 +251,35 @@ pub contract GamePieceNFT: NonFungibleToken {
         return <- newCollection
     }
 
-    /// Allows for minting of NFTs. For the purposes of this proof of concept,
-    /// this is set to free. Rudimentary spam minimization is done by
-    /// GamePieceNFT.allowMinting, but one might consider requiring payment
-    /// to mint an NFT
-    ///
-    /// @param recipient: A reference to the requestor's CollectionPublic
-    /// to which the NFT will be deposited
-    ///
 
+    /* --- Minter --- */
+
+    /// Admin interface enabling Metadata updates, setting minting permissions
+    /// and minting NFT
+    ///
     pub resource interface MinterAdmin {
         pub fun setMetadata(metadata: {String: AnyStruct})
         pub fun setMintingPermissions(allowMinting: Bool)
-        pub fun mintingAllowed(): Bool
+        pub fun isMintingAllowed(): Bool
         pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic})
     }
 
+    /// Public facing interface enabling for public minting of an NFT
+    ///
     pub resource interface MinterPublic {
-        pub fun mintingAllowed(): Bool
+        pub fun isMintingAllowed(): Bool
         pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic})
     }
 
+    /// Resource allowing for minting of GamePieceNFT.NFT with helper methods for
+    /// an admin to set metadata, allow/disallow minting
+    ///
     pub resource Minter : MinterAdmin, MinterPublic {
+        /// Boolean defining whether minting is/is not allowed
         access(self) var allowMinting: Bool
+        /// Metadata mapping value name to AnyStruct, enabling for metadata updates
+        /// since the generic GamePieceNFT maintains consistent metadata across each
+        /// resource as a base for game-related attachments
         access(self) var metadata: {String: AnyStruct}
         
         init() {
@@ -283,15 +291,31 @@ pub contract GamePieceNFT: NonFungibleToken {
             }
         }
 
+        /* --- MinterAdmin --- */
+
+        /// Allows MinterAdmin to set new metadata values which are passed to NFTs on init
+        ///
+        /// @param metadata: Mapping of string to AnyStruct defining the metadata structure
+        /// to be passed on NFTs on creation
+        /// 
         pub fun setMetadata(metadata: {String: AnyStruct}) {
             self.metadata = metadata
         }
 
+        /// Allows MinterAdmin to allow/disallow minting
+        ///
+        /// @param allowMinting: true/false value defining whether minting is allowed
+        ///
         pub fun setMintingPermissions(allowMinting: Bool) {
             self.allowMinting = allowMinting
         }
 
-        pub fun mintingAllowed(): Bool {
+        /* --- MinterPublic & MinterAdmin --- */
+        /// Basic method to determine if minting is currently enabled
+        ///
+        /// @return true/false value
+        ///
+        pub fun isMintingAllowed(): Bool {
             return self.allowMinting
         }
 
