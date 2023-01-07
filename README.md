@@ -288,9 +288,9 @@ To demo the functionality of this repo, clone it and follow the steps below by e
         ```
         flow transactions send ./transactions/rock_paper_scissors_game/delegated_game_player/submit_both_singleplayer_moves.cdc 39 0 --signer child
         ```
-        1. Resolve the Match
+        1. Resolve the Match & return NFTs
         ```
-        flow transactions send transactions/rock_paper_scissors_game/delegated_game_player/resolve_match.cdc 39 --signer child
+        flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc 39 --signer child
         ```
         1. Get the moves submitted for the Match
         ```
