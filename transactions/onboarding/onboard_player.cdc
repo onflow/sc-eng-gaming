@@ -11,7 +11,7 @@ import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 ///
 /// Should be run before an account interacts with RockPaperScissorsGame
 ///
-transaction {
+transaction(minterAddress: Address) {
 
     prepare(signer: AuthAccount) {
         
@@ -51,7 +51,15 @@ transaction {
         //
         // Mint GamePieceNFT.NFT if one doesn't exist
         if collectionRef.getIDs().length == 0 {
-            GamePieceNFT.mintNFT(recipient: collectionRef)
+            // Get a reference to the MinterPublic Capability
+            let minterRef = getAccount(minterAddress)
+                .getCapability<
+                    &{GamePieceNFT.MinterPublic}
+                >(
+                    GamePieceNFT.MinterPublicPath
+                ).borrow()
+                ?? panic("Could not get a reference to the MinterPublic Capability at the specified address ".concat(minterAddress.toString()))
+            minterRef.mintNFT(recipient: collectionRef)
         }
 
         /** --- Set user up with GamePlayer --- */
