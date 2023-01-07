@@ -204,8 +204,6 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
  
         /// Returns a reference to the GamePieceNFT.NFT as a restricted composite Type
-        /// The returned reference allows all functionality on the NFT except for addition
-        /// and removal of attachments
         ///
         /// @param id: The id of the NFT for which a reference will be returned 
         ///
@@ -335,7 +333,7 @@ pub contract GamePieceNFT: NonFungibleToken {
             GamePieceNFT.totalSupply = GamePieceNFT.totalSupply + UInt64(1)
             
             // Create a new NFT. A typical NFT's Metadata would vary, but for simplicity and because the attachments
-            // are really what characterize each NFT, we've standardized each
+            // are really what characterize each NFT, we've standardized each NFT in this contract
             let newNFT <- create NFT(
                     metadata: self.metadata
                 ) as @NonFungibleToken.NFT
