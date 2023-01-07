@@ -6,7 +6,7 @@
 
 As gaming makes its way into Web 3.0, bringing with it the next swath of mainstream users, we created this repo as a playground to develop proof of concept implementations that showcase the power of on-chain games built with the Cadence resource-oriented programming language. It's our hope that the work and exploration here uncovers unique design patterns that are useful towards composable game designs, helping to pave the way for a thriving community of game developers on Flow.
 
-For our first proof of concept game, we've created the `RockPaperScissorsGame` and supporting contracts `DynamicNFT`, `GamePieceNFT` and `GamingMetadataViews`. Taken together, these contracts define an entirely on-chain game with a dynamic NFT that accesses an ongoing record of its win/loss data via attachments added to the NFT upon escrow.
+For our first proof of concept game, we've created the `RockPaperScissorsGame` and supporting contracts `GamePieceNFT` and `GamingMetadataViews`. Taken together, these contracts define an entirely on-chain game with a dynamic NFT that accesses an ongoing record of its win/loss data via attachments added to the NFT upon escrow.
 
 As this proof of concept is iteratively improved, we hope to create a host of reference examples demonstrating how game developers could build games on Flow - some entirely on-chain while others blend on and off-chain architectures along with considerations for each design.
 
@@ -22,39 +22,18 @@ The entirety of that composable gaming future is possible on Flow, and starts wi
 
 As mentioned above, the supporting contracts for this game have been compartmentalized to four primary contracts. At a high level, those are:
 
-* **DynamicNFT** - Containing interfaces outlining attachments and the interfaces to which they are intended to attached (`Dynamic`). Several view functions are contained in both the AttachmentViewResolver and Dynamic interfaces as default implementations. An `AttachmentsView` is included so that resources implementing `Dynamic` can resolve metadata about their attached types.
+* **GamingMetadataViews** - Defining the metadata structs relevant to an NFT's win/loss data and assigned moves as well as interfaces designed to be implemented as attachments for NFTs.
 
-* **GamingMetadataViews** - Defining the metadata structs relevant to an NFT's win/loss data and assigned moves as well as interfaces designed to be implemented in conjunction with `DynamicNFT.Attachments`.
-
-* **GamePieceNFT** - This contract contains definitions for the gaming NFT and its collection. You'll note that the types of resources that can be attached to an NFT are generic, but must at minimum must be a composite of `DynamicNFT.Attachment` and `MetadataViews.Resolver`.
+* **GamePieceNFT** - This contract contains definitions for the gaming NFT and its collection. You'll note that the types of resources that can be attached to an NFT are generic, but must at minimum be designed for the NFT or restricted types it implements. See more about resource & struct attachments [here](https://github.com/onflow/cadence/blob/feature/attachments/docs/language/attachments.md)
 
 * **RockPaperScissorsGame** - As you might imagine, this contract contains the game's moves, logic as well as resource and interfaces defining the rules of engagement in the course of a match. Additionally, receivers for Capabilities to matches are defined in `GamePlayer` resource and interfaces that allow players to create matches, be added and add others to matches, and engage with the matches they're in. The `Match` resource is defined as a single round of Rock, Paper, Scissors that can be played in either single or two player modes, with single-player modes randomizing the second player's move on a contract function call.
-
-### **DynamicNFT**
-
-To accomplish a contruction of generic NFT with mutable data and resource that can be defined in external contracts, attachments felt like a natural pattern. 
-
-In this contract, we've specified a set of interfaces that enable the implementing types to define the resources to which they can be attached & receive resources as `Attachment`s. An `Attachment` is simply a resource that can be attached to another via the `Dynamic` interface. `Dynamic` implies that attributes on the NFT can be altered by entities outside of the NFT's defining contract, and perhaps even with limitations defined by access control that allows another party to alter information that the NFT's owner cannot.
-
-Why would one want to alter NFT attributes? This sort of behavior is desirable when NFTs are used in games where you want a contract's game logic to govern the data held on an NFT and don't necessarily trust the owner of the resource to not tamper with it in their favor.
- 
-Why would you want attachments? They can be very useful for a variety of use cases. Recall CryptoKitties & KittyItems! Attachments on NFTs introduce a world of composability not available otherwise. Any NFT that implements `Dynamic` can be used in the `RockPaperScissorsGame.Match` which attaches `Moves` & the ability to recall win/loss records (`BasicWinLossRetriever`).
-
-#### **`AttachmentsView` & `AttachmentViewResolver`**
-Because the pattern of metadata views & view resolvers is established in the standard Cadence contracts, we wanted to maintain that expectation by allowing for views on an NFT's attachments & a way to resolve those views. As the name suggests, `AttachmentsView` defines a metadataview relating to the associated NFT, the types attached, and the views supported by each attachment. `AttachmentViewResolver` provides an interface with default implementations to allow a resource to retrieve the views supported by their attachments as well as resolve those views. 
 
 #### ***Considerations***
 Note that `Attachment`s will soon be native to Cadence, but this is our best attempt to emulate the specifications in the [Attachments FLIP](https://github.com/onflow/flips/pull/11) with the current language features while also remaining backwards compatible. If you're reading this when Attachments are live, we recommend leveraging the native feature.
 
 ### **GamingMetadataViews**
 
-This contract proposes a new set of [NFT metadata views](https://github.com/onflow/flow-nft/blob/master/contracts/MetadataViews.cdc) for Gaming.
-Gaming is a subdomain of `NFT`s, and it's' possible to imagine many different ways
-that gaming-specific metadata can be generalized into shared metadata views.
-There are countless types of gaming-related metadata that could be shared this way,
-allowing third party apps or even other games to create unique experiences or metrics
-using these interoperable pieces of data. This is possible because they are all
-accessible via the `NFT` itself, and in many cases via the contract also!
+This contract proposes a new set of [NFT metadata views](https://github.com/onflow/flow-nft/blob/master/contracts/MetadataViews.cdc) for Gaming. Gaming is a subdomain of `NFT`s, and it's' possible to imagine many different ways that gaming-specific metadata can be generalized into shared metadata views. There are countless types of gaming-related metadata that could be shared this way, allowing third party apps or even other games to create unique experiences or metrics using these interoperable pieces of data. This is possible because they are all accessible via the `NFT` itself, and in many cases via the contract also!
 
 #### **`GameContractMetadata`**
 For game-related contracts and resources, `GameContractMetadata` defines information identifying the originating contract and allows a developer to attach external URLs and media that would be helpful on the frontend.
@@ -64,7 +43,7 @@ As a proof of concept, we have defined a basic metadata struct to show the win/l
 
 In our construction, the game contract stored win/loss data, maintaining their own histories of NFT's `BasicWinLoss` so that they can create interesting metrics and records based on the data, allow anyone to retrieve any of the data easily from a central place, and also enable anyone with the NFT object itself or a reference to it to easily retrieve the data stored on it without directly relying on a central contract.
 
-The `BasicWinLossRetriever` interface defines an interface for a resource that can retrieve this centrally stored data and return a `BasicWinLoss` record. This retriever is implemented as an `DynamicNFT.Attachment` and `GameResource` in the NFT which is added within a `Match` when the NFT is escrowed.
+The `BasicWinLossRetriever` interface defines an interface for a resource that can retrieve this centrally stored data and return a `BasicWinLoss` record. This retriever is implemented along with `GameResource` and `MetadataViews.Resolver` as an Attachment for any `NonFungibleToken.INFT`. It is then added within a `Match` when an NFT is escrowed so the win/loss record of that NFT can be retrieved..
 
 #### **`AssignedMovesView` & `AssignedMoves`**
 The `AssignedMovesView` is defined to provide a metadata struct containing info relating to the associated game, NFT and the moves assiged to that NFT.
@@ -85,7 +64,7 @@ Alternatively, you could construct an `NFT` so that the metadata would be stored
 
 As mentioned above, there can be many implementations of an `NFT` that would make it relevant for use in a game. Our `GamePieceNFT` is as minimal and generic as possible so that it can be used in a number of simple games. Fundamentally, the `NFT` defined here serves as a receiver for attachments added to it throughout gameplay.
 
-Games can implement their own `Attachments` (at minimum as a composite type of `DynamicNFT.Attachment` & `MetadataViews.Resolver`) and add them to these NFTs. This makes the NFT maximally composable! Similar to a `Collection`, resources can be attached to the NFT by public reference, but the owner of the NFT can remove attachments via their Collection.
+Games can implement their own [Attachments](https://github.com/onflow/cadence/blob/feature/attachments/docs/language/attachments.md) and add them to these NFTs. This makes the NFT maximally composable! Future Attachment features like iteration will enable the base `NFT` to provide more context about its attachments, so this feature will only get more powerful & composable.
 
 There was much discussion about whether an NFT's win/loss records should be stored directly on the NFT as an attachment, or on that game contract and attach a retriever for the NFT to recall its record. This is ultimately a design decision, with each approach having its pros/cons. Because we wanted an emergent on-chain leaderboard, we decided to store all records on the game contract. However, had we found an acceptable event indexing service or wanted to build one ourselves, we could have relied on off-chain indexers to maintain win/loss history for a leaderboard & stored the data directly on the NFT.
 
@@ -117,9 +96,8 @@ Once both players' moves have been submitted, `resolveMatch()` can be called on 
 
 1. determines the winner
 2. alters the `BasicWinLoss` metadata of the `NFT` in `winLossRecords` based on the outcome
-3. returns the escrowed `NFT`s to the respective `Receiver`s
 
-Also know that a `Match` can be played in single-player mode. In this case, a player escrows their NFT and submits their move as usual. Once they submit their move, they must then call the `submitAutomatedPlayerMove()` contract method which generates & submits a move as the second automated player. After the moves have been submitted, `resolveMatch()` is then called to determine the outcome & return the escrowed NFTs, but must be called in a separate transaction than move submission. This is enforced by block height difference between move submissions - not an ideal solution. We enforce separate transaction because the automated player's move is generated using `unsafeRandom()` which can be gamed. For example, I could submit my move as rock and set a post condition that that the outcome from the generated move results in a win, allowing me to game the system. An oracle or a safer randomness API implemented into Flow and Cadence can and will at some point solve this problem, removing the need for these workarounds. Until then, we compartmentalized the `Match` into these commit-resolve stages.
+Also know that a `Match` can be played in single-player mode. In this case, a player escrows their NFT and submits their move as usual. Once they submit their move, they must then call the `submitAutomatedPlayerMove()` contract method which generates & submits a move as the second automated player. After the moves have been submitted, `resolveMatch()` is then called to determine the outcome, but must be called in a separate transaction than move submission. This is enforced by block height difference between move submissions - not an ideal solution. We enforce separate transaction because the automated player's move is generated using `unsafeRandom()` which can be gamed. For example, I could submit my move as rock and set a post condition that that the outcome from the generated move results in a win, allowing me to game the system. An oracle or a safer randomness API implemented into Flow and Cadence can and will at some point solve this problem, removing the need for these workarounds. Until then, we compartmentalized the `Match` into these commit-resolve stages.
 
 >Note that a `Match` can only be utilized once.
 
@@ -160,11 +138,12 @@ With the context and components explained, we can more closely examine how they 
         1. `MoveSubmitted` event is emitted with relevant `matchID` and `submittingGamePlayerID`
     1. Player calls for automated player's move to be submitted
         1. `MoveSubmitted` event is emitted with relevant `matchID` and `submittingGamePlayerID` (the contract's designated `GamePlayer.id` in this case)
-    1. In a separate transaction, player calls `resolveMatch()` to determine the outcome of the `Match` and return escrowed NFTs
+    1. In a separate transaction (enforced by block height), player calls `resolveMatch()` to determine the outcome of the `Match`
         1. The win/loss record is recorded for the player's NFT
         1. The win/loss record is recorded for the designated `dummyNFTID`
         1. The escrowed NFT is returned to the escrowing player
-        1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, `winningNFTID` and `returnedNFTIDs`
+        1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, and `winningNFTID`.
+    1. Player calls for escrowed NFT to be returned via `returnPlayersNFTs()`. Since the `Match` returns the escrowed NFTs directly via the given `Receiver` Capability, we made this a separate call to prevent malicious Capabilities from disallowing resolution. In this case, the worst a malicious Capability could do would be 
 1. Multi-Player Gameplay
     1. Player one creates a new match, escrowing their NFT
         1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
@@ -177,11 +156,12 @@ With the context and components explained, we can more closely examine how they 
         1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
         1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
     1. Each player submits their move
-    1. Any player then calls for match resolution
+    1. After both moves have been submitted, any player can then call for match resolution
         1. A winner is determined
         1. The win/loss records are recorded for each NFT
         1. Each NFT is returned to their respective owners
         1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, `winningNFTID` and `returnedNFTIDs`
+    1. Any player calls for escrowed NFT to be returned via `returnPlayersNFTs()`. Since the `Match` returns the escrowed NFTs directly via the given `Receiver` Capability, we made this a separate call to prevent malicious Capabilities from disallowing resolution. In this case, the worst a malicious Capability could do would be to require that the other player call `retrieveUnclaimedNFT()` in a separate transaction to retrieve their singular NFT from escrow.
 
 ## TODO - Transaction Diagrams
 
@@ -218,6 +198,10 @@ Since this Capability is linked on the game contract account which shouldn’t n
 #### **NFTs are escrowed, but player unlinks their `Receiver` Capability before the NFT could be returned**
 
 In this edge case, the `Receiver` Capability provided upon escrowing would no longer be linked to the depositing player’s `Collection`. Such an edge case is not handled in this version of the game, but should be considered to avoid permanent loss of their `NFT` should this situation occur.
+
+#### **Player provides a Receiver Capability that panics in its deposit() method**
+
+The wouldn't be encounterd by the `Match` until `returnPlayerNFTs()` is called after match resolution. Depending on the order of the `Receiver` Capabilities in the `nftReceivers` mapping, this could prevent the other player from retrieving their NFT via that function. At that point, however, the winner & loser have been decided and the game is over (`inPlay == false`). The other player could then call `retrieveUnclaimedNFT()` to retrieve the NFT that the trolling Receiver was preventing from being returned.
 ___
 
 ## Demo Using Flow CLI
