@@ -1,10 +1,6 @@
-
-
 # Rock Paper Scissors (Mostly) On-Chain
 
-**TODO - transaction diagrams & image URL on NFT**
-
-We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
+> We’re building an on-chain Rock Paper Scissors game as a proof of concept exploration into the world of blockchain gaming powered by Cadence on Flow.
 
 ## Overview
 
@@ -131,7 +127,8 @@ With the context and components explained, we can more closely examine how they 
 
 1. User onboarding in a single transaction - `onboard_player.cdc`
     1. Setup `GamePieceNFT.Collection` & link Capabilities
-    1. Mint `GamePieceNFT.NFT`
+    1. Mint `GamePieceNFT.NFT` to player's Collection
+        1. `MintedNFT` and `Deposit` events emitted
     1. Setup `RockPlayerScissorsGame.GamePlayer` & link Capabilities
 1. Single-Player Gameplay
     1. Player creates a new match, escrowing their NFT along with their NFT `Receiver`, emitting `NewMatchCreated` and `PlayerEscrowedNFTToMatch`
@@ -156,7 +153,12 @@ With the context and components explained, we can more closely examine how they 
         1. Player one calls `addPlayerToMatch()` on their `GamePlayer`, passing the `matchID` and the reference to Player two's `GamePlayerPublic`
         1. `PlayerAddedToMatch` emitted along with matchID and the `id` of the `GamePlayer` added to the Match
     1. Player two escrows their NFT into the match
+<<<<<<< HEAD
         1. Game moves are added to their NFT if they don't currently exists
+=======
+        1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
+        1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
+>>>>>>> sisyphusSmiling/update-attachments
     1. Each player submits their move
     1. After both moves have been submitted, any player can then call for match resolution
         1. A winner is determined
@@ -169,8 +171,13 @@ With the context and components explained, we can more closely examine how they 
 
 Below you'll find diagrams that visualize the flow between all components for each major game-related transaction.
 
+<<<<<<< HEAD
 ### `setup_game_admin` and `setup_game_player`
 ![Setup GameAdmin and Setup_GamePlayer](/images/rps_setup_game_admin_and_game_player.png)
+=======
+### `onboard_player`
+![Onboard player with GamePieceNFT Collection & NFT](/images/rps_onboard_player.png)
+>>>>>>> sisyphusSmiling/update-attachments
 
 ### `setup_new_singleplayer_match`
 ![GamePlayer sets up new Match](/images/rps_setup_new_singleplayer_match.png)
