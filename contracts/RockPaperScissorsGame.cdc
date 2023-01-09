@@ -135,10 +135,11 @@ pub contract RockPaperScissorsGame {
         }
 
         /// Allows the owner to reset the WinLoss records of the NFT where this is attached
-        ///
-        pub fun resetWinLossData() {
-            RockPaperScissorsGame.resetWinLossRecord(nftID: self.nftID)
-        }
+        //  TODO: Implement once we can define access for attachments via reference to base vs. base resource
+        //  - IOW: r[RPSWinLossRetriever].resetWinLossData() should fail when r: &R and succeed when r: @R
+        // pub fun resetWinLossData() {
+        //     RockPaperScissorsGame.resetWinLossRecord(nftID: self.nftID)
+        // }
 
         /** --- MetadataViews.Resolver --- */
         /// Returns the Types of views that can be resolved by the resource

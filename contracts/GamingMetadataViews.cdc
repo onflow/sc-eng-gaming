@@ -157,8 +157,9 @@ pub contract GamingMetadataViews {
         pub fun getWinLossData(): BasicWinLoss?
 
         /// Allows the owner to reset the WinLoss records of the base NFT
-        ///
-        pub fun resetWinLossData()
+        //  TODO: Implement once we can define access for attachments via reference to base vs. base resource
+        //  - IOW: r[RPSWinLossRetriever].resetWinLossData() should fail when r: &R and succeed when r: @R
+        // pub fun resetWinLossData()
     }
 
     /// A resource interface defining an attachment representative of a simple
