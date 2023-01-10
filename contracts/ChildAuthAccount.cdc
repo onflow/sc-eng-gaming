@@ -39,21 +39,121 @@ pub contract ChildAccount {
     pub let ChildAccountTagStoragePath: StoragePath
     pub let ChildAccountTagPublicPath: PublicPath
     pub let ChildAccountTagPrivatePath: PrivatePath
+    pub let ChildAccountCreatorStoragePath: StoragePath
 
-    
+
+        //check
+    /// This should be rather a view (I'm using it as a view)
+    ///
+    /// Identifies information that could be used to determine the off-chain
+    /// associations of a child account
+    ///
+    pub struct ChildAccountInfo {
+        pub let name: String
+        pub let description: String
+        pub let icon: AnyStruct{MetadataViews.File}
+        pub let externalURL: MetadataViews.ExternalURL
+        pub let originatingPublicKey: String
+
+        init(
+            name: String,
+            description: String,
+            icon: AnyStruct{MetadataViews.File},
+            externalURL: MetadataViews.ExternalURL,
+            originatingPublicKey: String
+        ) {
+            self.name = name
+            self.description = description
+            self.icon = icon
+            self.externalURL = externalURL
+            self.originatingPublicKey = originatingPublicKey
+        }
+    }
+
+
+    /** --- Child Account Tag--- */
+        //check
+    ///
+    ///
+    ///
+    pub resource interface ChildAccountTagPublic {
+        pub let parentAddress: Address
+        pub let address: Address
+        pub let info: ChildAccountInfo
+        pub fun getGrantedCapabilityTypes(): [Type]
+        pub fun isCurrentlyActive(): Bool
+    }
+
+        //check
+    /// Identifies an account as a child account and maintains info
+    /// about its parent & association as well as Capabilities granted by
+    /// its parent's ChildAccountManager
+    ///
+    pub resource ChildAccountTag : ChildAccountTagPublic {
+        pub let parentAddress: Address
+        pub let address: Address
+        pub let info: ChildAccountInfo
+        access(contract) let grantedCapabilities: {Type: Capability}
+        access(contract) var isActive: Bool
+
+        init(
+            parentAddress: Address,
+            address: Address,
+            info: ChildAccountInfo
+        ) {
+            self.parentAddress = parentAddress
+            self.address = address
+            self.info = info
+            self.grantedCapabilities = {}
+            self.isActive = true
+        }
+
+        /** --- ChildAccountTagPublic --- */
+        pub fun getGrantedCapabilityTypes(): [Type] {
+            return self.grantedCapabilities.keys
+        }
+        
+        pub fun isCurrentlyActive(): Bool {
+            return self.isActive
+        }
+
+        /** --- ChildAccountTag --- */
+        pub fun getGrantedCapabilityAsRef(_ type: Type): &Capability? {
+            return &self.grantedCapabilities[type] as &Capability?
+        }
+        
+        pub fun getGrantedCapabilities(): {Type: Capability} {
+            return self.grantedCapabilities
+        }
+
+        access(contract) fun grantCapability(_ cap: Capability) {
+            pre {
+                !self.grantedCapabilities.containsKey(cap.getType()):
+                    "Already granted Capability of given type!"
+            }
+            self.grantedCapabilities.insert(key: cap.getType(), cap)
+        }
+
+        access(contract) fun revokeCapability(_ type: Type): Capability? {
+            return self.grantedCapabilities.remove(key: type)
+        }
+
+        access(contract) fun setInactive() {
+            self.isActive = false
+        }
+    }
+
+        //check
+    /// Wrapper for the child's info and authacct and tag capabilities
+    ///
     pub resource ChildAccountController: MetadataViews.Resolver {
         
         access(self) let authAccountCapability: Capability<&AuthAccount>
-        access(self) let childAccountTagCapability: Capability<&ChildAccountTag>?
-        pub let childAccountInfo: ChildAccountInfo
+        access(self) let childAccountTagCapability: Capability<&ChildAccountTag>
 
-
-
-
-
-        init(authAccountCapability: Capability<&AuthAccount>, childAccountInfo: ChildAccountInfo) {
+        init(authAccountCapability: Capability<&AuthAccount>, childAccountTagCapability: Capability<&ChildAccountTag>) {
             self.authAccountCapability = authAccountCapability
-            self.childAccountInfo = childAccountInfo
+            self.childAccountTagCapability = childAccountTagCapability
         }
 
         /// Function that returns all the Metadata Views implemented by a Child Account controller
@@ -75,18 +175,40 @@ pub contract ChildAccount {
         pub fun resolveView(_ view: Type): AnyStruct? {
             switch view {
                 case Type<ChildAccount.ChildAccountInfo>():
-                    return self.childAccountInfo
+                    return self.childAccountTagCapability.borrow()!.info
                 default:
                     return nil
             }
         }
+        // If we need to access the ChildTag data we need to create getters here
+
+        /// Get a reference to the child AuthAccount object.
+        /// What is better to do if the capability can not be borrowed? return an optional or just panic?
+        ///
+        /// We could explore making the account controller a more generic solution (resource interface)
+        /// and allow developers to create their own application specific more restricted getters that only expose
+        /// specific parts of the account (e.g.: a certain NFT collection). This could not be very useful for the child 
+        /// accounts since you will be restricting the highest permission level account access to something it owns, but
+        /// could be useful for other forms of delegated access
+        ///
+        pub fun getAuthAcctRef(): &AuthAccount {
+            return self.authAccountCapability.borrow()!
+        }
+
+        pub fun getTagPublicRef(): &{ChildAccountTagPublic} {
+            return self.childAccountTagCapability.borrow()!
+        }
     }
 
-
-    pub resource ChildAccountMinter {
+    
+    
+    /// Anyone holding this resource could create accounts, keeping a mapping of their public keys to their addresses,
+    /// and later associate a parent account to any of it, by creating a ChildTagAccount into the previously created 
+    /// account and creating a ChildAccountController resource that should be hold by the parent account in a ChildAccountManager
+    /// 
+    pub resource ChildAccountCreator {
         // mapping of public_key: address
-        access(self) let mintedChildren: {String: Address}
-
+        access(self) let createdChildren: {String: Address}
 
         pub fun createChildAccount(
             signer: AuthAccount,
@@ -171,22 +293,18 @@ pub contract ChildAccount {
         }
 
         pub fun getChildAddress (publicKey: String): Address? {
-            return self.mintedChildren[publicKey]
+            return self.createdChildren[publicKey]
         }
-
-
-
-
 
         init () {
-            self.unclaimedChildren <- {}
+            self.createdChildren = {}
         }
 
-        destroy () {
-            destroy self.unclaimedChildren
-        }
     }
-    
+
+
+
+
     /** --- ChildAccountManager --- */
 
     /// Interface that allows one to view information about the owning account's
@@ -201,34 +319,32 @@ pub contract ChildAccount {
 
     /// Resource allows for management of on-chain associations between accounts.
     ///  Note that while creating child accounts
-    /// is available in this resource, revoking keys on those child accounts is not.¿?¿?
+    /// is available in this resource, revoking keys on those child accounts is not.
     /// 
     pub resource ChildAccountManager : ChildAccountManagerViewer {
-        /// Mapping of child accounts, representing all child accounts 
-        pub let childAccounts: {Address: Capability<&ChildAccountTag>}
-        pub let pendingChildAccounts: [Address]
+
+        pub let childAccounts: @{Address: ChildAccountController}
 
         init() {
-            self.childAccounts = {}
-            self.pendingChildAccounts = []
+            self.childAccounts <- {}
         }
 
         /** --- ChildAccountManagerPublic --- */
 
         /// Add a ChildAccountAdmin to this manager resource
         ///
-        pub fun addAsChildAccount(newAccount: AuthAccount, childAccountInfo: ChildAccountInfo) {
+        pub fun addChildAccountController(newAccountController: @ChildAccountController, addOwnKey: Bool) {
             pre {
-                !self.childAccounts.containsKey(newAccount.address):
+                !self.childAccounts.containsKey(newAccountController.getTagPublicRef().address):
                     "Child account with given address already exists!"
-                self.pendingChildAccounts.contains(newAccount.address):
-                    "Provided accounts is not authorized to be added as a child account"
             }
-            newAccount.keys.add(
-                publicKey: self.owner!.keys.get(keyIndex: 0)!.publicKey,
-                hashAlgorithm: HashAlgorithm.SHA3_256,
-                weight: 1000.0
-            )
+            if (addOwnKey) {
+                newAccountController.getAuthAcctRef().keys.add(
+                    publicKey: self.owner!.keys.get(keyIndex: 0)!.publicKey,
+                    hashAlgorithm: HashAlgorithm.SHA3_256,
+                    weight: 1000.0
+                )
+            }
             // Create ChildAccountTag
             let child <-create ChildAccountTag(
                     parentAddress: self.owner!.address,
@@ -440,106 +556,12 @@ pub contract ChildAccount {
         }
     }
 
-    /** --- Child Account Tag--- */
-
-    pub resource interface ChildAccountTagPublic {
-        pub let parentAddress: Address
-        pub let address: Address
-        pub let info: ChildAccountInfo
-        pub fun getGrantedCapabilityTypes(): [Type]
-        pub fun isCurrentlyActive(): Bool
-    }
-
-    /// Resource that identifies an account as a child account and maintains info
-    /// about its parent & association as well as Capabilities granted by
-    /// its parent's ChildAccountManager
-    ///
-    pub resource ChildAccountTag : ChildAccountTagPublic {
-        pub let parentAddress: Address
-        pub let address: Address
-        pub let info: ChildAccountInfo
-        access(contract) let grantedCapabilities: {Type: Capability}
-        access(contract) var isActive: Bool
-
-        init(
-            parentAddress: Address,
-            address: Address,
-            info: ChildAccountInfo
-        ) {
-            self.parentAddress = parentAddress
-            self.address = address
-            self.info = info
-            self.grantedCapabilities = {}
-            self.isActive = true
-        }
-
-        /** --- ChildAccountTagPublic --- */
-        pub fun getGrantedCapabilityTypes(): [Type] {
-            return self.grantedCapabilities.keys
-        }
-        
-        pub fun isCurrentlyActive(): Bool {
-            return self.isActive
-        }
-
-        /** --- ChildAccountTag --- */
-        pub fun getGrantedCapabilityAsRef(_ type: Type): &Capability? {
-            return &self.grantedCapabilities[type] as &Capability?
-        }
-        
-        pub fun getGrantedCapabilities(): {Type: Capability} {
-            return self.grantedCapabilities
-        }
-
-        access(contract) fun grantCapability(_ cap: Capability) {
-            pre {
-                !self.grantedCapabilities.containsKey(cap.getType()):
-                    "Already granted Capability of given type!"
-            }
-            self.grantedCapabilities.insert(key: cap.getType(), cap)
-        }
-
-        access(contract) fun revokeCapability(_ type: Type): Capability? {
-            return self.grantedCapabilities.remove(key: type)
-        }
-
-        access(contract) fun setInactive() {
-            self.isActive = false
-        }
-    }
-
-    /// This should be rather a view
-    /// Struct that identifies information that could be used to determine the off-chain
-    /// associations of a child account
-    ///
-    pub struct ChildAccountInfo {
-        pub let name: String
-        pub let description: String
-        pub let icon: AnyStruct{MetadataViews.File}
-        pub let externalURL: MetadataViews.ExternalURL
-        pub let originatingPublicKey: String
-
-        init(
-            name: String,
-            description: String,
-            icon: AnyStruct{MetadataViews.File},
-            externalURL: MetadataViews.ExternalURL,
-            originatingPublicKey: String
-        ) {
-            self.name = name
-            self.description = description
-            self.icon = icon
-            self.externalURL = externalURL
-            self.originatingPublicKey = originatingPublicKey
-        }
-    }
-
     pub fun createChildAccountManager(): @ChildAccountManager {
         return <-create ChildAccountManager()
     }
 
-    pub fun createChildAccountMinter(): @ChildAccountMinter {
-        return <-create ChildAccountMinter()
+    pub fun createChildAccountCreator(): @ChildAccountCreator {
+        return <-create ChildAccountCreator()
     }
 
     init() {
@@ -550,6 +572,8 @@ pub contract ChildAccount {
         self.ChildAccountTagStoragePath = /storage/ChildAccountTag
         self.ChildAccountTagPublicPath = /public/ChildAccountTag
         self.ChildAccountTagPrivatePath = /private/ChildAccountTag
+
+        self.ChildAccountCreatorStoragePath = /storage/ChildAccountCreator
     }
 }
  
