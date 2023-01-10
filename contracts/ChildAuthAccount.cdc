@@ -149,11 +149,17 @@ pub contract ChildAccount {
     pub resource ChildAccountController: MetadataViews.Resolver {
         
         access(self) let authAccountCapability: Capability<&AuthAccount>
-        access(self) let childAccountTagCapability: Capability<&ChildAccountTag>
+        access(self) var childAccountTagCapability: Capability<&ChildAccountTag>?
 
-        init(authAccountCapability: Capability<&AuthAccount>, childAccountTagCapability: Capability<&ChildAccountTag>) {
+        init(authAccountCapability: Capability<&AuthAccount>) {
             self.authAccountCapability = authAccountCapability
-            self.childAccountTagCapability = childAccountTagCapability
+            self.childAccountTagCapability = nil
+        }
+
+        /// Store the child account tag capability
+        ///
+        pub fun setTagCapability (tagCapability: Capability<&ChildAccountTag>) {
+            self.childAccountTagCapability = tagCapability
         }
 
         /// Function that returns all the Metadata Views implemented by a Child Account controller
@@ -348,34 +354,33 @@ pub contract ChildAccount {
             // Create ChildAccountTag
             let child <-create ChildAccountTag(
                     parentAddress: self.owner!.address,
-                    address: newAccount.address,
-                    info: childAccountInfo
+                    address: newAccountController.getTagPublicRef().address,
+                    info: newAccountController.getTagPublicRef().info
                 )
             // Save the ChildAccountTag in the child account's storage & link
-            newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
-            newAccount.link<&{ChildAccountTagPublic}>(
+            newAccountController.getAuthAcctRef().save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
+            newAccountController.getAuthAcctRef().link<&{ChildAccountTagPublic}>(
                 ChildAccount.ChildAccountTagPublicPath,
                 target: ChildAccount.ChildAccountTagStoragePath
             )
-            newAccount.link<&ChildAccountTag>(
+            newAccountController.getAuthAcctRef().link<&ChildAccountTag>(
                 ChildAccount.ChildAccountTagPrivatePath,
                 target: ChildAccount.ChildAccountTagStoragePath
             )
             // Get a Capability to the linked ChildAccountTag Cap in child's private storage
-            let tagCap = newAccount
+            let tagCap = newAccountController.getAuthAcctRef()
                 .getCapability<&
                     ChildAccountTag
                 >(
                     ChildAccount.ChildAccountTagPrivatePath
                 )
-            // Ensure the capability is valid before inserting it in manager's childAccounts mapping
+            // Ensure the capability is valid before inserting it in the controller
             assert(tagCap.check(), message: "Problem linking ChildAccoutTag Capability in new child account!")
-            self.childAccounts.insert(key: newAccount.address, tagCap)
-            
-            // Remove from the pending child accounts array
-            self.pendingChildAccounts.remove(
-                at: self.pendingChildAccounts.firstIndex(of: newAccount.address)!
-            )
+            // Add the capability to the ChildAccountController
+            newAccountController.setTagCapability(tagCapability: tagCap)
+            // Add the controller to the dictionary
+            let oldController <- self.childAccounts[newAccountController.getTagPublicRef().address] <- newAccountController
+            destroy oldController
         }
 
         /** --- ChildAccountManagerViewer --- */
@@ -391,83 +396,6 @@ pub contract ChildAccount {
         ///
         pub fun getChildAccountInfo(address: Address): ChildAccountInfo? {
             return self.getChildAccountTagRef(address: address)?.info ?? nil
-        }
-
-        /// Creates an account out of the given public key, funding it with Flow from the
-        /// signer's vault and adding the signer's public key to the new account with 1000.0
-        /// weight. The on-chain association between ChildAccountManager & ChildAccountTag
-        /// identifies the parent-child hierarchy between accounts on-chain in a manner that
-        /// is easily interpretable by wallets & DApps.AccountKey
-        ///
-        pub fun createChildAccount(
-            signer: AuthAccount,
-            initialFundingAmount: UFix64,
-            childAccountInfo: ChildAccountInfo
-        ): AuthAccount {
-            // Create a public key for the proxy account from the passed in string
-            let key = PublicKey(
-                publicKey: childAccountInfo.originatingPublicKey.decodeHex(),
-                signatureAlgorithm: SignatureAlgorithm.ECDSA_P256
-            )
-            
-            // Create the proxy account
-            let newAccount = AuthAccount(payer: signer)
-            
-            //Add the key to the new account
-            newAccount.keys.add(
-                publicKey: key,
-                hashAlgorithm: HashAlgorithm.SHA3_256,
-                weight: 1000.0
-            )
-
-            // Add the signer's public key to the new account 
-            newAccount.keys.add(
-                publicKey: signer.keys.get(keyIndex: 0)!.publicKey,
-                hashAlgorithm: HashAlgorithm.SHA3_256,
-                weight: 1000.0
-            )
-
-            // Add some initial funds to the new account, pulled from the signing account.  Amount determined by initialFundingAmount
-            newAccount.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
-                .borrow()!
-                .deposit(
-                    from: <- signer.borrow<&{
-                        FungibleToken.Provider
-                    }>(
-                        from: /storage/flowTokenVault
-                    )!.withdraw(amount: initialFundingAmount)
-                )
-            
-            newAccount.save(signer.address, to: /storage/MainAccountAddress)
-
-            // Create the ChildAccountTag for the new account
-            let child <-create ChildAccountTag(
-                    parentAddress: signer.address,
-                    address: newAccount.address,
-                    info: childAccountInfo
-                )
-            // Save the ChildAccountTag in the child account's storage & link
-            newAccount.save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
-            newAccount.link<&{ChildAccountTagPublic}>(
-                ChildAccount.ChildAccountTagPublicPath,
-                target: ChildAccount.ChildAccountTagStoragePath
-            )
-            newAccount.link<&ChildAccountTag>(
-                ChildAccount.ChildAccountTagPrivatePath,
-                target: ChildAccount.ChildAccountTagStoragePath
-            )
-            // Add ChildAccountTag Capability indexed by the account's address
-            let tagCap = newAccount
-                .getCapability<&
-                    ChildAccountTag
-                >(
-                    ChildAccount.ChildAccountTagPrivatePath
-                )
-            // Ensure the capability is valid before inserting it in manager's childAccounts mapping
-            assert(tagCap.check(), message: "Problem linking ChildAccoutTag Capability in new child account!")
-            self.childAccounts.insert(key: newAccount.address, tagCap)
-
-            return newAccount
         }
 
         /** --- ChildAccountManager --- */
@@ -487,41 +415,6 @@ pub contract ChildAccount {
                 return tagRef
             }
             return nil
-        }
-
-        /// Adds the given Capability to the ChildAccountTag at the provided Address
-        ///
-        /// @param to: Address which is the key for the ChildAccountTag Cap
-        /// @param cap: Capability to be added to the ChildAccountTag
-        ///
-        pub fun addCapability(to: Address, _ cap: Capability) {
-            pre {
-                self.childAccounts.containsKey(to):
-                    "No tag with given Address!"
-            }
-            // Get ref to tag & grant cap
-            let tagRef = self.childAccounts[to]!
-                .borrow()
-                ?? panic("Could not reference specified Tag with id ".concat(to.toString()))
-            tagRef.grantCapability(cap)
-        }
-
-        /// Removes the capability of the given type from the ChildAccountTag mapped to
-        /// the given Address
-        ///
-        /// @param from: Address indexing the ChildAccountTag Capability
-        /// @param type: The Type of Capability to be removed from the ChildAccountTag
-        ///
-        pub fun removeCapability(from: Address, type: Type) {
-            pre {
-                self.childAccounts.containsKey(from):
-                    "No ChildAccounts with given Address!"
-            }
-            // Get ref to tage and remove
-            let tagRef = self.childAccounts[from]!
-                .borrow()
-                ?? panic("Could not reference specified Tag with id ".concat(from.toString()))
-            tagRef.revokeCapability(type) ?? panic("Capability not properly revoked")
         }
 
         /// Remove ChildAccountTag, returning its Capability if it exists. Note, doing so
@@ -548,12 +441,10 @@ pub contract ChildAccount {
             return nil
         }
 
-        /// Add address to list of pendingChildAccounts so that account can add itself as a
-        /// ChildAccount to this resource's owner
-        ///
-        pub fun addPendingChildAccount(address: Address) {
-            self.pendingChildAccounts.append(address)
+        destroy () {
+            destroy self.childAccounts
         }
+        
     }
 
     pub fun createChildAccountManager(): @ChildAccountManager {
