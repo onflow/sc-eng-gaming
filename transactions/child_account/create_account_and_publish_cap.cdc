@@ -44,6 +44,6 @@ transaction(
         // Link the account's AuthAccount Capability
         let authAccountCap = newAccount.linkAccount(ChildAccount.AuthAccountCapabilityPath)
         // Publish for the parent account to claim the AuthAccount Capability
-        newAccount.inbox.publish(authAccountCap, name: "AuthAccountCapability", recipient: publishFor)
+        newAccount.inbox.publish(authAccountCap!, name: "AuthAccountCapability", recipient: publishFor)
     }
 }

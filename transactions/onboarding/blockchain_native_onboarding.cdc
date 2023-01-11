@@ -3,8 +3,11 @@ import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
-import ChildAccount from "../../contracts/ChildAccount.cdc"
+// import ChildAccount from "../../contracts/ChildAccount.cdc"
+import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
 
+// TODO: Having issues with getting DelegatedGamePlayer Capability from signer
+//
 /// This transaction sets a user's main account up with the following
 ///   - GamePieceNFT.Collection
 ///   - ChildAccount.ChildAccountManager with ChildAccountController for new child account
@@ -90,7 +93,7 @@ transaction(
         if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerID, RockPaperScissorsGame.DelegatedGamePlayer}>(RockPaperScissorsGame.GamePlayerPrivatePath).check() {
             // Link GamePlayerID Capability
             signer.link<&{
-                RockPaperScissorsGame.DelegatedGamePlayer
+                RockPaperScissorsGame.DelegatedGamePlayer,
                 RockPaperScissorsGame.GamePlayerID
             }>(
                 RockPaperScissorsGame.GamePlayerPrivatePath,
@@ -106,7 +109,7 @@ transaction(
                 RockPaperScissorsGame.GamePlayerPrivatePath
             )
         // Panic if the Capability is not valid
-        if !gamePlayerCap.check() {
+        if gamePlayerCap.borrow() == nil {
             panic("Problem with the GamePlayer Capability")
         }
 
@@ -141,14 +144,14 @@ transaction(
             ?? panic("Could not find address created with public key ".concat(pubKey).concat(" by ChildAccountCreator at " ).concat(creatorAddress.toString()))
         // Get the Capability to the child's AuthAccount & get its reference
         let childAuthAccountCap = signer.inbox.claim<&AuthAccount>("AuthAccountCapability", provider: childAddress)!
-        let childAuthAccountRef = childAccounCap.borrow() ?? panic("Problem with child account's AuthAccount Capability!")
+        let childAuthAccountRef = childAuthAccountCap.borrow() ?? panic("Problem with child account's AuthAccount Capability!")
         // Get a reference to the ChildAccountTag that should be stored in the child account as it should have been added by ChildAccountCreator on creation
         let childAccountTagRef = childAuthAccountRef
             .borrow<&
                 ChildAccount.ChildAccountTag
             >(
-                from: ChildAccount.
-            ChildAccountTagStoragePath) ?? panic("Problem with child account's ChildAccountTag Capability!")
+                from: ChildAccount.ChildAccountTagStoragePath
+            ) ?? panic("Problem with child account's ChildAccountTag Capability!")
         let info = childAccountTagRef.info
 
         // Get reference to signer's ChildAccoutManager
@@ -161,7 +164,10 @@ transaction(
         // Add the child account to the ChildAccountManager so its AuthAccountCapability can be maintained
         managerRef.addAsChildAccount(childAccountCap: childAuthAccountCap, childAccountInfo: info)
         // Grant the child account a DelegatedGamePlayer Capability so it can play RockPaperScissorsGame Matches on behalf of the parent
-        managerRef.addCapability(to: newAccount.address, gamePlayerCap)
+        managerRef.addCapability(to: childAuthAccountRef.address, gamePlayerCap)
+
+        // TODO: Setup Collection in child account
+        // TODO: Mint NFT to child account
     }
 }
  

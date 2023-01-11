@@ -291,6 +291,8 @@ pub contract ChildAccount {
                 target: ChildAccount.ChildAccountTagStoragePath
             )
 
+            self.createdChildren.insert(key:childAccountInfo.originatingPublicKey, newAccount.address)
+
             return newAccount
         }
     }
