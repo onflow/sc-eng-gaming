@@ -22,7 +22,6 @@ transaction {
     }
 
     execute {
-
         let capRef = self.tagRef
             .getGrantedCapabilityAsRef(
                 Type<Capability<&{RockPaperScissorsGame.DelegatedGamePlayer}>>()
