@@ -415,50 +415,43 @@ pub contract ChildAccount {
         /// Add an existing account as a child account to this manager resource. This would be done in
         /// a multisig transaction which should be possible if the parent account controls both
         ///
-        // TODO: Convert to taking Capability<&AuthAccount> - more flexible that way on txn side -> multisig or inbox.claim()
-        pub fun addAsChildAccount(newChildAccount: AuthAccount, childAccountInfo: ChildAccountInfo) {
+        pub fun addAsChildAccount(childAccountCap: Capability<&AuthAccount>, childAccountInfo: ChildAccountInfo) {
             pre {
-                !self.childAccounts.containsKey(newChildAccount.address):
+                childAccountCap.check():
+                    "Problem with given AuthAccount Capability!"
+                !self.childAccounts.containsKey(childAccountCap.borrow()!.address):
                     "Child account with given address already exists!"
             }
+            // Get a &AuthAccount reference from the the given AuthAccount Capability
+            let childAccountRef: &AuthAccount = childAccountCap.borrow()!
+
             // Check for ChildAccountTag - create, save & link if it doesn't exist
-            if newChildAccount.borrow<&ChildAccountTag>(from: ChildAccount.ChildAccountTagStoragePath) == nil {
+            if childAccountRef.borrow<&ChildAccountTag>(from: ChildAccount.ChildAccountTagStoragePath) == nil {
                 // Create ChildAccountTag
                 let childTag <-create ChildAccountTag(
                         parentAddress: self.owner!.address,
-                        address: newChildAccount.address,
+                        address: childAccountRef.address,
                         info: childAccountInfo
                     )
                 // Save the ChildAccountTag in the child account's storage & link
-                newChildAccount.save(<-childTag, to: ChildAccount.ChildAccountTagStoragePath)
-                newChildAccount.link<&{ChildAccountTagPublic}>(
+                childAccountRef.save(<-childTag, to: ChildAccount.ChildAccountTagStoragePath)
+            }
+            // Ensure public Capability linked
+            if !childAccountRef.getCapability<&{ChildAccountTagPublic}>(ChildAccount.ChildAccountTagPublicPath).check() {
+                childAccountRef.link<&{ChildAccountTagPublic}>(
                     ChildAccount.ChildAccountTagPublicPath,
                     target: ChildAccount.ChildAccountTagStoragePath
                 )
-                newChildAccount.link<&ChildAccountTag>(
+            }
+            // Ensure private Capability linked
+            if !childAccountRef.getCapability<&ChildAccountTag>(ChildAccount.ChildAccountTagPrivatePath).check() {
+                childAccountRef.link<&ChildAccountTag>(
                     ChildAccount.ChildAccountTagPrivatePath,
                     target: ChildAccount.ChildAccountTagStoragePath
                 )
             }
-
-            var authAccountCap: Capability<&AuthAccount>? = nil
-            // Ensure there is an AuthAccount Capability where we need it to be
-            if newChildAccount.getLinkTarget(ChildAccount.AuthAccountCapabilityPath) == nil ||
-                !newChildAccount.getCapability<&AuthAccount>(ChildAccount.AuthAccountCapabilityPath).check() {
-                // Unlink anything that may be at the expected path, then link the AuthAccount Capability
-                newChildAccount.unlink(ChildAccount.AuthAccountCapabilityPath)
-                authAccountCap = newChildAccount.linkAccount(ChildAccount.AuthAccountCapabilityPath)
-            } else {
-                authAccountCap = newChildAccount.getCapability<&AuthAccount>(ChildAccount.AuthAccountCapabilityPath)
-            }
-            // Double check AuthAccount Capability
-            assert(
-                authAccountCap != nil && authAccountCap!.check(),
-                message: "Something went wrong linking the child account's AuthAccount Capability!"
-            )
-            
             // Get a Capability to the linked ChildAccountTag Cap in child's private storage
-            let tagCap = newChildAccount
+            let tagCap = childAccountRef
                 .getCapability<&
                     ChildAccountTag
                 >(
@@ -471,10 +464,10 @@ pub contract ChildAccount {
 
             // Create a ChildAccountController & insert to childAccounts mapping
             let controller <-create ChildAccountController(
-                    authAccountCap: authAccountCap!,
+                    authAccountCap: childAccountCap,
                     childAccountTagCap: tagCap
                 )
-            self.childAccounts[newChildAccount.address] <-! controller
+            self.childAccounts[childAccountRef.address] <-! controller
         }
 
         /// Adds the given Capability to the ChildAccountTag at the provided Address
