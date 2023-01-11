@@ -1,6 +1,6 @@
 {
     "contracts": {
-        "ChildAccount": "./contracts/ChildAccount.cdc",
+        "ChildAccount": "./contracts/ChildAuthAccount.cdc",
         "FungibleToken": "./contracts/utility/FungibleToken.cdc",
         "GamePieceNFT": "./contracts/GamePieceNFT.cdc",
         "GamingMetadataViews": "./contracts/GamingMetadataViews.cdc",
