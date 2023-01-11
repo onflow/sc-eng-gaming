@@ -6,9 +6,21 @@ import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
 ///
 transaction {
     prepare(signer: AuthAccount) {
+        // Return early if already configured
+        if let ref = signer.borrow<&ChildAccount.ChildAccountCreator>
+                                (from: ChildAccount.ChildAccountCreatorStoragePath) {
+            return
+        }
         signer.save(
             <-ChildAccount.createChildAccountCreator(),
             to: ChildAccount.ChildAccountCreatorStoragePath
         )
+        // Link the public Capability
+        signer.link<
+                &{ChildAccount.ChildAccountCreatorPublic}
+            >(
+                ChildAccount.ChildAccountCreatorPublicPath,
+                target: ChildAccount.ChildAccountCreatorStoragePath
+            )
     }
 }
