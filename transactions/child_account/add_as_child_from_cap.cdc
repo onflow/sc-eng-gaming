@@ -13,14 +13,25 @@ transaction(
         clientExternalURL: String
     ) {
 
+    let managerRef: &ChildAccount.ChildAccountManager
+    let info: ChildAccount.ChildAccountInfo
+
     prepare(signer: AuthAccount) {
         // Get ChildAccountManager Capability, linking if necessary
-        if signer.borrow<&ChildAccount.ChildAccountManager>(from: ChildAccount.ChildAcccountManagerStoragePath) == nil {
-            // Save
+        if signer.borrow<
+                &ChildAccount.ChildAccountManager
+            >(
+                from: ChildAccount.ChildAcccountManagerStoragePath
+            ) == nil {
+            // Save a ChildAccountManager to the signer's account
             signer.save(<-ChildAccount.createChildAccountManager(), to: ChildAccount.ChildAcccountManagerStoragePath)
         }
         // Ensure ChildAccountManagerViewer is linked properly
-        if !signer.getCapability<&{ChildAccount.ChildAccountManagerViewer}>(ChildAccount.ChildAccountManagerPublicPath).check() {
+        if !signer.getCapability<
+                &{ChildAccount.ChildAccountManagerViewer}
+            >(
+                ChildAccount.ChildAccountManagerPublicPath
+            ).check() {
             // Link
             signer.link<
                 &{ChildAccountManagerViewer}
@@ -30,7 +41,7 @@ transaction(
             )
         }
         // Get ChildAccountManager reference from signer
-        let managerRef = signer.borrow<
+        self.managerRef = signer.borrow<
                 &ChildAccount.ChildAccountManager
             >(
                 from: ChildAccount.ChildAcccountManagerStoragePath
@@ -49,14 +60,17 @@ transaction(
                 .concat("AuthAccountCapability")
             )
         // Construct ChildAccountInfo struct from given arguments
-        let info = ChildAccount.ChildAccountInfo(
+        self.info = ChildAccount.ChildAccountInfo(
             name: childAccountName,
             description: childAccountDescription,
             clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
             clienExternalURL: MetadataViews.ExternalURL(clientExternalURL),
             originatingPublicKey: pubKey
         )
+    }
+
+    execute {
         // Add account as child to the ChildAccountManager
-        managerRef.addAsChildAccount(childAccountCap: childAuthAccountCap, childAccountInfo: info)
+        self.managerRef.addAsChildAccount(childAccountCap: childAuthAccountCap, childAccountInfo: self.info)
     }
 }
