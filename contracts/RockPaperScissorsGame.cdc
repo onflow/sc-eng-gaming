@@ -45,7 +45,8 @@ pub contract RockPaperScissorsGame {
     pub let name: String
     /// Metadata about this game contract
     pub let info: GamingMetadataViews.GameContractMetadata
-    /// Field that stores win/loss records for every NFT that has played this game
+    /// Field that stores win/loss records for every NFT that has played this game indexed
+    /// on NFT id (or UUID based on NFTv2 standards)
     access(contract) let winLossRecords: {UInt64: GamingMetadataViews.BasicWinLoss}
 
     /// Maintain history of completed Matches 
@@ -63,6 +64,7 @@ pub contract RockPaperScissorsGame {
         matchID: UInt64,
         gamePlayerID: UInt64,
         nftID: UInt64,
+        nftUUID: UInt64,
         numberOfNFTsInEscrow: UInt8,
         reachedEscrowCapacity: Bool
     )
@@ -120,7 +122,7 @@ pub contract RockPaperScissorsGame {
         pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
 
         init() {
-            self.nftID = base.id
+            self.nftID = base.uuid
             self.gameContractInfo = RockPaperScissorsGame.info
         }
 
@@ -130,7 +132,7 @@ pub contract RockPaperScissorsGame {
         /// does not exist in the mapping of winLossRecords
         ///
         pub fun getWinLossData(): GamingMetadataViews.BasicWinLoss? {
-            let winLossRecord: GamingMetadataViews.BasicWinLoss? = RockPaperScissorsGame.getWinLossRecord(nftID: self.nftID)
+            let winLossRecord: GamingMetadataViews.BasicWinLoss? = RockPaperScissorsGame.getWinLossRecord(nftUUID: self.nftID)
             return winLossRecord
         }
 
@@ -175,7 +177,7 @@ pub contract RockPaperScissorsGame {
         access(contract) let moves: [AnyStruct]
 
         init(seedMoves: [AnyStruct]) {
-            self.nftID = base.id
+            self.nftID = base.uuid
             self.gameContractInfo = RockPaperScissorsGame.info
             self.moves = seedMoves
         }
@@ -310,9 +312,9 @@ pub contract RockPaperScissorsGame {
         pub var inPlay: Bool
 
         /// Mapping of NFT.id to NFTs escrowed during gameplay
-        pub let escrowedNFTs: @{UInt64: AnyResource{NonFungibleToken.INFT}}
+        access(self) let escrowedNFTs: @{UInt64: AnyResource{NonFungibleToken.INFT}}
         /// Track NFT associate with GamePlayer
-        pub let gamePlayerIDToNFTID: {UInt64: UInt64}
+        pub let gamePlayerIDToNFTUUID: {UInt64: UInt64}
         /// Keep Receiver Capabilities to easily return NFTs
         pub let nftReceivers: {UInt64: Capability<&{NonFungibleToken.Receiver}>}
 
@@ -342,7 +344,7 @@ pub contract RockPaperScissorsGame {
             self.timeLimit = matchTimeLimit
             self.escrowedNFTs <- {}
             self.nftReceivers = {}
-            self.gamePlayerIDToNFTID = {}
+            self.gamePlayerIDToNFTUUID = {}
             self.allowedMoves = [
                 RockPaperScissorsGame.Moves.paper,
                 RockPaperScissorsGame.Moves.rock,
@@ -373,7 +375,7 @@ pub contract RockPaperScissorsGame {
             gamePlayerIDRef: &{GamePlayerID}
         ): Capability<&{MatchPlayerActions}> {
             pre {
-                !self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id):
+                !self.gamePlayerIDToNFTUUID.containsKey(gamePlayerIDRef.id):
                     "Player has already joined this Match!"
                 self.escrowedNFTs.length < self.escrowCapacity:
                     "Both players have already escrowed their NFTs, Match is full!"
@@ -408,24 +410,25 @@ pub contract RockPaperScissorsGame {
             )
 
             let nftID: UInt64 = nft.id
+            let nftUUID: UInt64 = nft.uuid
 
             // Insert GamingMetadataViews.BasicWinLoss for this game
             // Check for existing record occurs in function definition
-            RockPaperScissorsGame.insertWinLossRecord(nftID: nftID)
+            RockPaperScissorsGame.insertWinLossRecord(nftUUID: nftUUID)
 
             // Ensure all attachments are on the NFT
             let nftWithAttachments <-self.addMatchAttachments(nft: <-nft)
 
             // Then store player's NFT & Receiver
-            self.escrowedNFTs[nftID] <-! nftWithAttachments
-            self.nftReceivers.insert(key: nftID, receiver)
+            self.escrowedNFTs[nftUUID] <-! nftWithAttachments
+            self.nftReceivers.insert(key: nftUUID, receiver)
 
             // Maintain association of this NFT with the depositing GamePlayer
-            self.gamePlayerIDToNFTID.insert(key: gamePlayerIDRef.id, nftID)
+            self.gamePlayerIDToNFTUUID.insert(key: gamePlayerIDRef.id, nftUUID)
 
             // Ensure the NFT was added to escrow properly
             assert(
-                &self.escrowedNFTs[nftID] as &{NonFungibleToken.INFT}? != nil,
+                &self.escrowedNFTs[nftUUID] as &{NonFungibleToken.INFT}? != nil,
                 message: "NFT was not successfully added to escrow!"
             )
 
@@ -434,6 +437,7 @@ pub contract RockPaperScissorsGame {
                 matchID: self.id,
                 gamePlayerID: gamePlayerIDRef.id,
                 nftID: nftID,
+                nftUUID: nftUUID,
                 numberOfNFTsInEscrow: UInt8(self.escrowedNFTs.length),
                 reachedEscrowCapacity: self.escrowedNFTs.length == self.escrowCapacity
             )
@@ -468,7 +472,7 @@ pub contract RockPaperScissorsGame {
         /// deposited by the given GamePlayer.id
         pub fun getNFTGameMoves(forPlayerID: UInt64): [Moves]? {
             // Get a reference to their escrowed NFT
-            if let playerNFTID = self.gamePlayerIDToNFTID[forPlayerID] {
+            if let playerNFTID = self.gamePlayerIDToNFTUUID[forPlayerID] {
                 if let nftRef = &self.escrowedNFTs[playerNFTID] as &{NonFungibleToken.INFT}? {
                     // Get a reference to the NFT's AssignedMoves attachment & return its moves
                     if let assignedMovesRef = nftRef[RockPaperScissorsGame.RPSAssignedMoves] {
@@ -496,7 +500,7 @@ pub contract RockPaperScissorsGame {
             pre {
                 self.escrowedNFTs.length == self.escrowCapacity:
                     "Both players must escrow NFTs before play begins!"
-                self.gamePlayerIDToNFTID.keys.contains(gamePlayerIDRef.id) ||
+                self.gamePlayerIDToNFTUUID.containsKey(gamePlayerIDRef.id) ||
                 (
                     gamePlayerIDRef.id == RockPaperScissorsGame.automatedGamePlayer.id &&
                     !self.isMultiPlayer
@@ -509,9 +513,9 @@ pub contract RockPaperScissorsGame {
                     !self.isMultiPlayer
                 ):
                     "Player must submit move before automated player in single-player mode!"
-                !self.submittedMoves.keys.contains(RockPaperScissorsGame.automatedGamePlayer.id):
+                !self.submittedMoves.containsKey(RockPaperScissorsGame.automatedGamePlayer.id):
                     "Player cannot submit move after automated player!"
-                !self.submittedMoves.keys.contains(gamePlayerIDRef.id):
+                !self.submittedMoves.containsKey(gamePlayerIDRef.id):
                     "Player has already submitted move for this Match!"
                 self.submittedMoves.length < 2:
                     "Both moves have already been submitted for this Match!"
@@ -564,7 +568,7 @@ pub contract RockPaperScissorsGame {
                 )
             // Assign winningNFTID to NFT submitted by the winning GamePlayer
             if self.winningPlayerID != nil && self.winningPlayerID != RockPaperScissorsGame.automatedGamePlayer.id {
-                self.winningNFTID = self.gamePlayerIDToNFTID[self.winningPlayerID!]!
+                self.winningNFTID = self.gamePlayerIDToNFTUUID[self.winningPlayerID!]!
             // If the winning player is the contract's automated player, assign the winningNFTID 
             // to the contract's dummyNFTID
             } else if self.winningPlayerID == RockPaperScissorsGame.automatedGamePlayer.id {
@@ -574,7 +578,7 @@ pub contract RockPaperScissorsGame {
             // Ammend NFTs win/loss data
             for nftID in self.escrowedNFTs.keys {
                 RockPaperScissorsGame.updateWinLossRecord(
-                    nftID: nftID,
+                    nftUUID: nftID,
                     winner: self.winningNFTID
                 )
             }
@@ -629,7 +633,7 @@ pub contract RockPaperScissorsGame {
             self.inPlay = false
             // Add the id of this Match to the history of completed Matches
             // as long as all it does not contain NFTs. Doing so allows the Match to be
-            // destroyed to clean up storage
+            // destroyed to clean up contract account storage
             if self.escrowedNFTs.length == 0 {
                 RockPaperScissorsGame.completedMatchIDs.append(self.id)
             }
@@ -658,15 +662,15 @@ pub contract RockPaperScissorsGame {
                 getCurrentBlock().timestamp >= self.createdTimestamp + self.timeLimit ||
                 self.inPlay == false:
                     "Cannot return NFTs while Match is still in play!"
-                self.gamePlayerIDToNFTID.containsKey(gamePlayerIDRef.id):
+                self.gamePlayerIDToNFTUUID.containsKey(gamePlayerIDRef.id):
                     "This GamePlayer is not associated with this Match!"
-                self.escrowedNFTs.containsKey(self.gamePlayerIDToNFTID[gamePlayerIDRef.id]!):
+                self.escrowedNFTs.containsKey(self.gamePlayerIDToNFTUUID[gamePlayerIDRef.id]!):
                     "Player does not have any NFTs escrowed in this Match!"
                 receiver.check():
-                    "Problem with provided Receiver!"
+                    "Could not borrow reference to provided Receiver in retrieveUnclaimedNFT()!"
             }
             // Get the NFT from escrow
-            let nftID = self.gamePlayerIDToNFTID[gamePlayerIDRef.id]!
+            let nftID = self.gamePlayerIDToNFTUUID[gamePlayerIDRef.id]!
             let nft <- (self.escrowedNFTs.remove(key: nftID) as! @NonFungibleToken.NFT?)!
             
             // Return the NFT to the given Receiver
@@ -676,7 +680,7 @@ pub contract RockPaperScissorsGame {
             self.inPlay = false
             // Add the id of this Match to the history of completed Matches
             // as long as all it does not contain NFTs. Doing so allows the Match to be
-            // destroyed to clean up storage
+            // destroyed to clean up contract account storage
             if self.escrowedNFTs.length == 0 {
                 RockPaperScissorsGame.completedMatchIDs.append(self.id)
             }
@@ -985,15 +989,15 @@ pub contract RockPaperScissorsGame {
             pre {
                 receiverCap.check(): 
                     "Problem with provided Receiver Capability!"
-                self.matchLobbyCapabilities.keys.contains(matchID) &&
-                !self.matchPlayerCapabilities.keys.contains(matchID):
+                self.matchLobbyCapabilities.containsKey(matchID) &&
+                !self.matchPlayerCapabilities.containsKey(matchID):
                     "GamePlayer does not have the Capability to play this Match!"
             }
             post {
-                self.matchPlayerCapabilities.keys.contains(matchID):
+                self.matchPlayerCapabilities.containsKey(matchID):
                     "MatchPlayerActions Capability not successfully added!"
-                !self.matchLobbyCapabilities.keys.contains(matchID) &&
-                self.matchPlayerCapabilities.keys.contains(matchID):
+                !self.matchLobbyCapabilities.containsKey(matchID) &&
+                self.matchPlayerCapabilities.containsKey(matchID):
                     "GamePlayer does not have the Capability to play this Match!"
             }
             
@@ -1029,7 +1033,7 @@ pub contract RockPaperScissorsGame {
         ///
         pub fun submitMoveToMatch(matchID: UInt64, move: Moves) {
             pre {
-                self.matchPlayerCapabilities.keys.contains(matchID):
+                self.matchPlayerCapabilities.containsKey(matchID):
                     "Player does not have the ability to play this Match!"
                 self.matchPlayerCapabilities[matchID]!.check():
                     "Problem with the MatchPlayerActions Capability for given Match!"
@@ -1072,7 +1076,7 @@ pub contract RockPaperScissorsGame {
         ///
         pub fun resolveMatchByID(_ id: UInt64) {
             pre {
-                self.matchPlayerCapabilities.keys.contains(id):
+                self.matchPlayerCapabilities.containsKey(id):
                     "Player does not have the ability to play this Match!"
                 self.matchPlayerCapabilities[id]!.check():
                     "Problem with the MatchPlayerActions Capability for given Match!"
@@ -1174,16 +1178,17 @@ pub contract RockPaperScissorsGame {
 
     /// Get GamingMetadataViews.BasicWinLoss for a certain NFT 
     ///
-    /// @param: nftID: id of associated NFT in winLossRecords
+    /// @param: nftUUID: uuid of associated NFT in winLossRecords (nft.id based on updated NFTv2 standard)
     ///
-    pub fun getWinLossRecord(nftID: UInt64): GamingMetadataViews.BasicWinLoss? {
-        return self.winLossRecords[nftID]
+    pub fun getWinLossRecord(nftUUID: UInt64): GamingMetadataViews.BasicWinLoss? {
+        return self.winLossRecords[nftUUID]
     }
 
     /// Getter method for winLossRecords
     ///
     /// @return A Mapping of GamingMetadataViews.BasicWinLoss struct defining the
-    /// total win/loss/tie record of the nft.id on which it's indexed
+    /// total win/loss/tie record of the nft.uuid (nft.id based on updated NFTv2 standard)
+    /// on which it's indexed
     ///
     pub fun getTotalWinLossRecords(): {UInt64: GamingMetadataViews.BasicWinLoss} {
         return self.winLossRecords
@@ -1298,16 +1303,17 @@ pub contract RockPaperScissorsGame {
     /// Inserts a WinLoss record into the winLossRecords mapping if one does
     /// not already exist for the given nft.id
     ///
-    /// @param nftID: id of the NFT for which a GamingMetadataViews.BasicWinLoss
-    /// will be indexed into the contract's historical winLossRecords mapping
+    /// @param nftUUID: uuid of the NFT (nft.id based on updated NFTv2 standard) 
+    /// for which a GamingMetadataViews.BasicWinLoss will be indexed into the
+    /// contract's historical winLossRecords mapping
     ///
-    access(contract) fun insertWinLossRecord(nftID: UInt64) {
+    access(contract) fun insertWinLossRecord(nftUUID: UInt64) {
         // Before inserting, make sure there is not already a record for the
-        // given nftID
-        if self.winLossRecords[nftID] == nil {
-            self.winLossRecords.insert(key: nftID, GamingMetadataViews.BasicWinLoss(
+        // given nftUUID
+        if self.winLossRecords[nftUUID] == nil {
+            self.winLossRecords.insert(key: nftUUID, GamingMetadataViews.BasicWinLoss(
                 game: RockPaperScissorsGame.name,
-                nftID: nftID
+                nftID: nftUUID
             ))
         }
     }
@@ -1315,27 +1321,29 @@ pub contract RockPaperScissorsGame {
     /// Method to update GamingMetadataViews.BasicWinLoss for each NFT based
     /// on Match winner results
     ///
-    /// @param: nftID: id of associated NFT in winLossRecords
+    /// @param: nftUUID: uuid of associated NFT in winLossRecords (nft.id based on updated 
+    /// NFTv2 standard)
     /// @param: winner: id of winning NFT or nil if event was a tie
     ///
-    access(contract) fun updateWinLossRecord(nftID: UInt64, winner: UInt64?) {
-        if nftID == winner {
-            self.winLossRecords[nftID]!.addWin()
-        } else if nftID != winner && winner != nil{
-            self.winLossRecords[nftID]!.addLoss()
+    access(contract) fun updateWinLossRecord(nftUUID: UInt64, winner: UInt64?) {
+        if nftUUID == winner {
+            self.winLossRecords[nftUUID]!.addWin()
+        } else if nftUUID != winner && winner != nil{
+            self.winLossRecords[nftUUID]!.addLoss()
         } else {
-            self.winLossRecords[nftID]!.addTie()
+            self.winLossRecords[nftUUID]!.addTie()
         }
     }
 
     /// Update GamingMetadataViews.BasicWinLoss for a certain NFT 
     /// resetting the records for said NFT
     ///
-    /// @param: nftID: id of associated NFT in winLossRecords
+    /// @param: nftUUID: uuid of associated NFT in winLossRecords (nft.id based on updated 
+    /// NFTv2 standard)
     ///
-    access(contract) fun resetWinLossRecord(nftID: UInt64) {
-        assert(self.winLossRecords[nftID] != nil, message: "NFT does not have an associated record")
-        self.winLossRecords[nftID]!.reset()
+    access(contract) fun resetWinLossRecord(nftUUID: UInt64) {
+        assert(self.winLossRecords[nftUUID] != nil, message: "NFT does not have an associated record")
+        self.winLossRecords[nftUUID]!.reset()
     }
 
     init() {

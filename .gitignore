@@ -2,3 +2,4 @@
 .DS_Store
 flowdb/
 lib/js/test/node_modules
+.vscode/
