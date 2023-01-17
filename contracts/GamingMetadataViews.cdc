@@ -41,7 +41,7 @@ pub contract GamingMetadataViews {
     pub struct BasicWinLoss {
         /// The name of the associated game
         pub let gameName: String
-        /// The id of the associated NFT
+        /// The id of the associated NFT (nft.uuid based on updated NFTv2 standard)
         pub let nftID: UInt64
 
         /// Aggregate game results
@@ -103,7 +103,7 @@ pub contract GamingMetadataViews {
     pub struct AssignedMovesView {
         /// The name of the associated game
         pub let gameName: String
-        /// The id of the associated NFT
+        /// The id of the associated NFT (nft.uuid based on updated NFTv2 standard)
         pub let nftID: UInt64
         /// Array designed to contain an array of generic moves
         pub let moves: [AnyStruct]
@@ -121,7 +121,7 @@ pub contract GamingMetadataViews {
     /// NOTE: Can't resolve this within an NFT without attachment iteration
     ///
     pub struct GameAttachmentsView {
-        /// The id of the associated NFT
+        /// The id of the associated NFT (nft.uuid based on updated NFTv2 standard)
         pub let nftID: UInt64
         /// Mapping of the Types to their associated GameContractMetadata 
         pub let attachmentGameContractMetadata: {Type: GameContractMetadata}
@@ -151,6 +151,7 @@ pub contract GamingMetadataViews {
         pub let gameContractInfo: GameContractMetadata
 
         /// Retrieves the BasicWinLoss for the NFT associated with nftID
+        /// (nft.uuid based on updated NFTv2 standard)
         ///
         /// @return the BasicWinLoss record for the NFT to which the retriever is attached
         ///
