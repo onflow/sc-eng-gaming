@@ -83,9 +83,9 @@ transaction(minterAddress: Address) {
         }
 
         if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerID, RockPaperScissorsGame.DelegatedGamePlayer}>(RockPaperScissorsGame.GamePlayerPrivatePath).check() {
-            // Link GamePlayerID Capability
+            // Link DelegatedGamePlayer & GamePlayerID Capability
             signer.link<&{
-                RockPaperScissorsGame.DelegatedGamePlayer
+                RockPaperScissorsGame.DelegatedGamePlayer,
                 RockPaperScissorsGame.GamePlayerID
             }>(
                 RockPaperScissorsGame.GamePlayerPrivatePath,

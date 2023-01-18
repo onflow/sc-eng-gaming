@@ -4,22 +4,22 @@ import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
 
-// TODO: Add check on existing child of parent
 /// Adds the labeled child account as a Child Account in the parent accounts'
 /// ChildAccountManager resource. The parent maintains an AuthAccount Capability
 /// on the child's account. Requires transaction be signed by both parties so that
-/// the GamePlayer resource can be moved from the child's to the parent's account,
-/// linked and a DelegatedGamePlayer Capability granted to the child through the
-/// parent's ChildAccountManager to the child's ChildAccountTag.
+/// the child account can link its AuthAccount Capability and withdraw the desired
+/// NFT from its Collection for transfer to its parent account.
 ///
-/// NOTE: Assumes that the child account has a GamePlayer & ChildAccountTag configured
-/// and the parent account does not have a GamePlayer stored 
+/// NOTE: Assumes that the child account has a GamePieceNFT.Collection & 
+/// ChildAccount.ChildAccountTag configured
 ///
-transaction {
+transaction(nftID: UInt64) {
 
     let authAccountCap: Capability<&AuthAccount>
     let managerRef: &ChildAccount.ChildAccountManager
     let info: ChildAccount.ChildAccountInfo
+    let providerRef: &{NonFungibleToken.Provider}
+    let receiverRef: &{NonFungibleToken.Receiver}
 
     prepare(parent: AuthAccount, child: AuthAccount) {
         
@@ -40,7 +40,7 @@ transaction {
                 target: ChildAccount.ChildAccountManagerStoragePath
             )
         }
-        // Get a reference to the ChildAccountManager resource
+        // Get a reference to the ChildAcccountManager resource
         self.managerRef = parent
             .borrow<
                 &ChildAccount.ChildAccountManager
@@ -108,6 +108,23 @@ transaction {
                 target: GamePieceNFT.CollectionStoragePath
             )
         }
+
+        /* --- Assign Capabilities for NFT transfer --- */
+        //
+        // Get provider from child account
+        self.providerRef = child.getCapability<
+                &{NonFungibleToken.Provider}
+            >(
+                GamePieceNFT.ProviderPrivatePath
+            ).borrow()
+            ?? panic("Could not borrow reference to child account's Receiver")
+        // Get receiver from parent account
+        self.receiverRef = parent.getCapability<
+                &{NonFungibleToken.Receiver}
+            >(
+                GamePieceNFT.CollectionPublicPath
+            ).borrow()
+            ?? panic("Could not borrow reference to parent account's Provider")
     }
 
     execute {
@@ -117,5 +134,9 @@ transaction {
             // Add the child account
             self.managerRef.addAsChildAccount(childAccountCap: self.authAccountCap, childAccountInfo: self.info)
         }
+        // Withdraw NFT from child account's Collection
+        let nft <-self.providerRef.withdraw(withdrawID: nftID)
+        // Deposit to parent account's Collection
+        self.receiverRef.deposit(token: <-nft)
     }
 }

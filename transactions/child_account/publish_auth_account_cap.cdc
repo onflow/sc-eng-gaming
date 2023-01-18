@@ -16,6 +16,6 @@ transaction(parentAddress: Address) {
             self.authAccountCap = signer.getCapability<&AuthAccount>(ChildAccount.AuthAccountCapabilityPath)
         }
         // Publish for the specified Address
-        signer.inbox.publish(self.authAccountCap!, name: "AuthAccountCapability", recipient: parent)
+        signer.inbox.publish(self.authAccountCap!, name: "AuthAccountCapability", recipient: parentAddress)
     }
 }

@@ -1,11 +1,13 @@
 // import ChildAccount from "../../contracts/ChildAccount.cdc"
 import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 
 /// Signing account claims a Capability to specified Address's AuthAccount
 /// and adds it as a child account in its ChildAccountManager, allowing it 
 /// to maintain the claimed Capability
 ///
 transaction(
+        pubKey: String,
         childAddress: Address,
         childAccountName: String,
         childAccountDescription: String,
@@ -15,16 +17,17 @@ transaction(
 
     let managerRef: &ChildAccount.ChildAccountManager
     let info: ChildAccount.ChildAccountInfo
+    let childAuthAccountCap: Capability<&AuthAccount>
 
     prepare(signer: AuthAccount) {
         // Get ChildAccountManager Capability, linking if necessary
         if signer.borrow<
                 &ChildAccount.ChildAccountManager
             >(
-                from: ChildAccount.ChildAcccountManagerStoragePath
+                from: ChildAccount.ChildAccountManagerStoragePath
             ) == nil {
             // Save a ChildAccountManager to the signer's account
-            signer.save(<-ChildAccount.createChildAccountManager(), to: ChildAccount.ChildAcccountManagerStoragePath)
+            signer.save(<-ChildAccount.createChildAccountManager(), to: ChildAccount.ChildAccountManagerStoragePath)
         }
         // Ensure ChildAccountManagerViewer is linked properly
         if !signer.getCapability<
@@ -34,7 +37,7 @@ transaction(
             ).check() {
             // Link
             signer.link<
-                &{ChildAccountManagerViewer}
+                &{ChildAccount.ChildAccountManagerViewer}
             >(
                 ChildAccount.ChildAccountManagerPublicPath,
                 target: ChildAccount.ChildAccountManagerStoragePath
@@ -44,10 +47,10 @@ transaction(
         self.managerRef = signer.borrow<
                 &ChildAccount.ChildAccountManager
             >(
-                from: ChildAccount.ChildAcccountManagerStoragePath
+                from: ChildAccount.ChildAccountManagerStoragePath
             )!
         // Claim the previously published AuthAccount Capability from the given Address
-        let childAuthAccountCap = signer.inbox
+        self.childAuthAccountCap = signer.inbox
             .claim<
                 &AuthAccount
             >(
@@ -60,6 +63,7 @@ transaction(
                 .concat("AuthAccountCapability")
             )
         // Construct ChildAccountInfo struct from given arguments
+        // TODO: Alternately could get pubKey from account key index 0
         self.info = ChildAccount.ChildAccountInfo(
             name: childAccountName,
             description: childAccountDescription,
@@ -71,6 +75,6 @@ transaction(
 
     execute {
         // Add account as child to the ChildAccountManager
-        self.managerRef.addAsChildAccount(childAccountCap: childAuthAccountCap, childAccountInfo: self.info)
+        self.managerRef.addAsChildAccount(childAccountCap: self.childAuthAccountCap, childAccountInfo: self.info)
     }
 }
