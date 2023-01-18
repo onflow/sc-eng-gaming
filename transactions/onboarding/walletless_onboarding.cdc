@@ -23,7 +23,7 @@ transaction(
     ) {
 
     prepare(signer: AuthAccount) {
-        /* Create a new account from the given public key */
+        /* --- Create a new account --- */
         //
         // Get a reference to the signer's ChildAccountCreator
         let creatorRef = signer.borrow<
@@ -49,7 +49,7 @@ transaction(
             childAccountInfo: info
         )
 
-        /* Set up GamePieceNFT.Collection */
+        /* --- Set up GamePieceNFT.Collection --- */
         //
         // Create a new empty collection
         let collection <- GamePieceNFT.createEmptyCollection()
@@ -78,7 +78,7 @@ transaction(
         // Grab Collection related references & Capabilities
         let collectionRef = newAccount.borrow<&GamePieceNFT.Collection>(from: GamePieceNFT.CollectionStoragePath)!
         
-        /* --- Make sure signer has a GamePieceNFT.NFT to play with --- */
+        /* --- Make sure new account has a GamePieceNFT.NFT to play with --- */
         //
         // Get a reference to the MinterPublic Capability
         let minterRef = getAccount(minterAddress)
@@ -90,7 +90,7 @@ transaction(
             ?? panic("Could not get a reference to the MinterPublic Capability at the specified address ".concat(minterAddress.toString()))
         minterRef.mintNFT(recipient: collectionRef)
 
-        /* --- Set user up with GamePlayer --- */
+        /* --- Set user up with GamePlayer in new account --- */
         //
         // Create GamePlayer resource
         let gamePlayer <- RockPaperScissorsGame.createGamePlayer()
@@ -104,7 +104,7 @@ transaction(
             target: RockPaperScissorsGame.GamePlayerStoragePath
         )
         // Link GamePlayerID Capability
-        signer.link<&{
+        newAccount.link<&{
             RockPaperScissorsGame.DelegatedGamePlayer,
             RockPaperScissorsGame.GamePlayerID
         }>(

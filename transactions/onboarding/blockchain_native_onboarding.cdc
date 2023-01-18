@@ -6,8 +6,6 @@ import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 // import ChildAccount from "../../contracts/ChildAccount.cdc"
 import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
 
-// TODO: Having issues with getting DelegatedGamePlayer Capability from signer
-//
 /// This transaction sets a user's main account up with the following
 ///   - GamePieceNFT.Collection
 ///   - ChildAccount.ChildAccountManager with ChildAccountController for new child account
@@ -19,7 +17,7 @@ import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
 /// account, making the receiving account its "parent". 
 /// This relationship is represented on-chain via the ChildAccountManager.childAccounts mapping. Know that
 /// the private key to this child account is generated outside of the context of this transaction and that
-/// any assets in child accounts should be considered at risk if any party other than the signer has 
+/// any assets in child accounts should be considered at risk if any party other than the parent has 
 /// access to the given public key's paired private key. In the context of this repo, child accounts
 /// are used by local game clients to facilitate a gameplay UX that does not require user transactions
 /// at every step while still giving true ownership over game assets to the player. This setup is otherwise known as
@@ -28,22 +26,120 @@ import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
 /// trusted game clients should be used & users should consider moving very valuable assets to their parent account.
 ///
 transaction(
-        creatorAddress: Address,
-        pubKey: String
+        pubKey: String,
+        fundingAmt: UFix64,
+        childAccountName: String,
+        childAccountDescription: String,
+        clientIconURL: String,
+        clientExternalURL: String,
+        minterAddress: Address
     ) {
 
-    prepare(signer: AuthAccount) {
+    let minterRef: &{GamePieceNFT.MinterPublic}
+    let collectionRef: &GamePieceNFT.Collection
+    let managerRef: &ChildAccount.ChildAccountManager
+    let childAuthAccountCap: Capability<&AuthAccount>
+    let info: ChildAccount.ChildAccountInfo
+
+    prepare(parent: AuthAccount, client: AuthAccount) {
+        /* --- Create a new account --- */
+        //
+        // Get a reference to the client's ChildAccountCreator
+        let creatorRef = client.borrow<
+                &ChildAccount.ChildAccountCreator
+            >(
+                from: ChildAccount.ChildAccountCreatorStoragePath
+            ) ?? panic(
+                "No ChildAccountCreator in client's account at "
+                .concat(ChildAccount.ChildAccountCreatorStoragePath.toString())
+            )
+        // Construct the ChildAccountInfo metadata struct
+        self.info = ChildAccount.ChildAccountInfo(
+                name: childAccountName,
+                description: childAccountDescription,
+                clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
+                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL),
+                originatingPublicKey: pubKey
+            )
+        // Create the account
+        let child = creatorRef.createChildAccount(
+            signer: client,
+            initialFundingAmount: fundingAmt,
+            childAccountInfo: self.info
+        )
+        // Link AuthAccountCapability & assign
+        self.childAuthAccountCap = child.linkAccount(
+                ChildAccount.AuthAccountCapabilityPath
+            ) ?? panic("Problem linking AuthAccount Capability for ".concat(child.address.toString()))
+
+        /* --- Set up GamePieceNFT.Collection --- */
+        //
+        // Create a new empty collection & save it to the child account
+        child.save(<-GamePieceNFT.createEmptyCollection(), to: GamePieceNFT.CollectionStoragePath)
+        // create a public capability for the collection
+        child.link<&{
+            NonFungibleToken.Receiver,
+            NonFungibleToken.CollectionPublic,
+            GamePieceNFT.GamePieceNFTCollectionPublic,
+            MetadataViews.ResolverCollection
+        }>(
+            GamePieceNFT.CollectionPublicPath,
+            target: GamePieceNFT.CollectionStoragePath
+        )
+        // Link the Provider Capability in private storage
+        child.link<&{
+            NonFungibleToken.Provider
+        }>(
+            GamePieceNFT.ProviderPrivatePath,
+            target: GamePieceNFT.CollectionStoragePath
+        )
+        // Grab Collection related references & Capabilities
+        self.collectionRef = child.borrow<&GamePieceNFT.Collection>(from: GamePieceNFT.CollectionStoragePath)!
         
-        /** --- Setup signer's GamePieceNFT.Collection --- */
+        /* --- Make sure child account has a GamePieceNFT.NFT to play with --- */
+        //
+        // Get a reference to the MinterPublic Capability
+        self.minterRef = getAccount(minterAddress)
+            .getCapability<
+                &{GamePieceNFT.MinterPublic}
+            >(
+                GamePieceNFT.MinterPublicPath
+            ).borrow()
+            ?? panic("Could not get a reference to the MinterPublic Capability at the specified address ".concat(minterAddress.toString()))
+
+        /* --- Set user up with GamePlayer in child account --- */
+        //
+        // Create GamePlayer resource
+        let gamePlayer <- RockPaperScissorsGame.createGamePlayer()
+        // Save it
+        child.save(<-gamePlayer, to: RockPaperScissorsGame.GamePlayerStoragePath)
+        // Link GamePlayerPublic Capability so player can be added to Matches
+        child.link<&{
+            RockPaperScissorsGame.GamePlayerPublic
+        }>(
+            RockPaperScissorsGame.GamePlayerPublicPath,
+            target: RockPaperScissorsGame.GamePlayerStoragePath
+        )
+        // Link GamePlayerID Capability
+        child.link<&{
+            RockPaperScissorsGame.DelegatedGamePlayer,
+            RockPaperScissorsGame.GamePlayerID
+        }>(
+            RockPaperScissorsGame.GamePlayerPrivatePath,
+            target: RockPaperScissorsGame.GamePlayerStoragePath
+        )
+
+        /** --- Setup parent's GamePieceNFT.Collection --- */
         //
         // Set up GamePieceNFT.Collection if it doesn't exist
-        if signer.borrow<&GamePieceNFT.Collection>(from: GamePieceNFT.CollectionStoragePath) == nil {
+        if parent.borrow<&GamePieceNFT.Collection>(from: GamePieceNFT.CollectionStoragePath) == nil {
             // Create a new empty collection
             let collection <- GamePieceNFT.createEmptyCollection()
             // save it to the account
-            signer.save(<-collection, to: GamePieceNFT.CollectionStoragePath)
+            parent.save(<-collection, to: GamePieceNFT.CollectionStoragePath)
         }
-        if !signer.getCapability<&{
+        // Check for public capabilities
+        if !parent.getCapability<&{
                 NonFungibleToken.Receiver,
                 NonFungibleToken.CollectionPublic,
                 GamePieceNFT.GamePieceNFTCollectionPublic,
@@ -52,7 +148,7 @@ transaction(
                 GamePieceNFT.CollectionPublicPath
             ).check() {
             // create a public capability for the collection
-            signer.link<&{
+            parent.link<&{
                 NonFungibleToken.Receiver,
                 NonFungibleToken.CollectionPublic,
                 GamePieceNFT.GamePieceNFTCollectionPublic,
@@ -62,9 +158,10 @@ transaction(
                 target: GamePieceNFT.CollectionStoragePath
             )
         }
-        if !signer.getCapability<&{NonFungibleToken.Provider}>(GamePieceNFT.ProviderPrivatePath).check() {
+        // Check for private capabilities
+        if !parent.getCapability<&{NonFungibleToken.Provider}>(GamePieceNFT.ProviderPrivatePath).check() {
             // Link the Provider Capability in private storage
-            signer.link<&{
+            parent.link<&{
                 NonFungibleToken.Provider
             }>(
                 GamePieceNFT.ProviderPrivatePath,
@@ -72,102 +169,35 @@ transaction(
             )
         }
 
-        /** --- Set user up with GamePlayer --- */
-        //
-        // Check if a GamePlayer already exists, pass this block if it does
-        if signer.borrow<&RockPaperScissorsGame.GamePlayer>(from: RockPaperScissorsGame.GamePlayerStoragePath) == nil {
-            // Create GamePlayer resource
-            let gamePlayer <- RockPaperScissorsGame.createGamePlayer()
-            // Save it
-            signer.save(<-gamePlayer, to: RockPaperScissorsGame.GamePlayerStoragePath)
-        }
-        if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerPublic}>(RockPaperScissorsGame.GamePlayerPublicPath).check() {
-            // Link GamePlayerPublic Capability so player can be added to Matches
-            signer.link<&{
-                RockPaperScissorsGame.GamePlayerPublic
-            }>(
-                RockPaperScissorsGame.GamePlayerPublicPath,
-                target: RockPaperScissorsGame.GamePlayerStoragePath
-            )
-        }
-        if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerID, RockPaperScissorsGame.DelegatedGamePlayer}>(RockPaperScissorsGame.GamePlayerPrivatePath).check() {
-            // Link GamePlayerID Capability
-            signer.link<&{
-                RockPaperScissorsGame.DelegatedGamePlayer,
-                RockPaperScissorsGame.GamePlayerID
-            }>(
-                RockPaperScissorsGame.GamePlayerPrivatePath,
-                target: RockPaperScissorsGame.GamePlayerStoragePath
-            )
-        }
-
-        // Get the GamePlayerCapability which will be passed to the child account on creation
-        let gamePlayerCap = signer
-            .getCapability<&
-                {RockPaperScissorsGame.DelegatedGamePlayer}
-            >(
-                RockPaperScissorsGame.GamePlayerPrivatePath
-            )
-        // Panic if the Capability is not valid
-        if gamePlayerCap.borrow() == nil {
-            panic("Problem with the GamePlayer Capability")
-        }
-
         /** --- Set user up with ChildAccountManager --- */
         //
         // Check if ChildAccountManager already exists
-        if signer.borrow<&ChildAccount.ChildAccountManager>(from: ChildAccount.ChildAccountManagerStoragePath) == nil {
+        if parent.borrow<&ChildAccount.ChildAccountManager>(from: ChildAccount.ChildAccountManagerStoragePath) == nil {
             // Create and save the ChildAccountManager resource
-            let manager <-ChildAccount.createChildAccountManager()
-            signer.save(<-manager, to: ChildAccount.ChildAccountManagerStoragePath)
+            parent.save(<-ChildAccount.createChildAccountManager(), to: ChildAccount.ChildAccountManagerStoragePath)
         }
-        if !signer.getCapability<&{ChildAccount.ChildAccountManagerViewer}>(ChildAccount.ChildAccountManagerPublicPath).check() {
-            signer.link<
+        if !parent.getCapability<&{ChildAccount.ChildAccountManagerViewer}>(ChildAccount.ChildAccountManagerPublicPath).check() {
+            parent.link<
                 &{ChildAccount.ChildAccountManagerViewer}
             >(
                 ChildAccount.ChildAccountManagerPublicPath,
                 target: ChildAccount.ChildAccountManagerStoragePath
             )
         }
-
-        /* --- Link parent & child accounts --- */
-        //
-        // Get a reference to the ChildAccountCreator from the specified Address
-        let creatorRef = getAccount(creatorAddress).getCapability<
-                &{ChildAccount.ChildAccountCreatorPublic}
-            >(
-                ChildAccount.ChildAccountCreatorPublicPath
-            ).borrow()
-            ?? panic("Could not refer to ChildAccountCreatorPublic at address ".concat(creatorAddress.toString()))
-        // Get the address of the child account created with the public key
-        let childAddress = creatorRef.getAddressFromPublicKey(publicKey: pubKey)
-            ?? panic("Could not find address created with public key ".concat(pubKey).concat(" by ChildAccountCreator at " ).concat(creatorAddress.toString()))
-        // Get the Capability to the child's AuthAccount & get its reference
-        let childAuthAccountCap = signer.inbox.claim<&AuthAccount>("AuthAccountCapability", provider: childAddress)!
-        let childAuthAccountRef = childAuthAccountCap.borrow() ?? panic("Problem with child account's AuthAccount Capability!")
-        // Get a reference to the ChildAccountTag that should be stored in the child account as it should have been added by ChildAccountCreator on creation
-        let childAccountTagRef = childAuthAccountRef
-            .borrow<&
-                ChildAccount.ChildAccountTag
-            >(
-                from: ChildAccount.ChildAccountTagStoragePath
-            ) ?? panic("Problem with child account's ChildAccountTag Capability!")
-        let info = childAccountTagRef.info
-
-        // Get reference to signer's ChildAccoutManager
-        let managerRef = signer
+        // Assign managerRef
+        self.managerRef = parent
             .borrow<
                 &ChildAccount.ChildAccountManager
             >(
                 from: ChildAccount.ChildAccountManagerStoragePath
-            ) ?? panic("Couldn't get a reference to the signer's ChildAccountManager")
-        // Add the child account to the ChildAccountManager so its AuthAccountCapability can be maintained
-        managerRef.addAsChildAccount(childAccountCap: childAuthAccountCap, childAccountInfo: info)
-        // Grant the child account a DelegatedGamePlayer Capability so it can play RockPaperScissorsGame Matches on behalf of the parent
-        managerRef.addCapability(to: childAuthAccountRef.address, gamePlayerCap)
+            ) ?? panic("Couldn't get a reference to the parent's ChildAccountManager")
+    }
 
-        // TODO: Setup Collection in child account
-        // TODO: Mint NFT to child account
+    execute {
+        // Mint NFT to child account's Collection
+        self.minterRef.mintNFT(recipient: self.collectionRef)
+        // Add the child account to the ChildAccountManager so its AuthAccountCapability can be maintained
+        self.managerRef.addAsChildAccount(childAccountCap: self.childAuthAccountCap, childAccountInfo: self.info)
     }
 }
  
