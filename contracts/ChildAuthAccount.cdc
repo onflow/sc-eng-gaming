@@ -305,7 +305,7 @@ pub contract ChildAccount {
     ///
     pub resource interface ChildAccountManagerViewer {
         pub fun getChildAccountAddresses(): [Address]
-        // Metadata views collection?
+        // TODO: Metadata views collection?
         pub fun getChildAccountInfo(address: Address): ChildAccountInfo?
     }
 

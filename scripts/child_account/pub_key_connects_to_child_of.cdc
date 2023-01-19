@@ -20,17 +20,23 @@ pub fun main(creatorAddress: Address, pubKey: String, parentAddress: Address): B
         // Get the child address if it exists
         if let childAddress = creatorRef.getAddressFromPublicKey(publicKey: pubKey) {
             // Get a reference to the ChildAccountManagerViewer Capability from parentAddress
-            if let viewerRef = getAccount(creatorAddress)
+            if let viewerRef = getAccount(parentAddress)
                 .getCapability<
                     &{ChildAccount.ChildAccountManagerViewer}
                 >(
                     ChildAccount.ChildAccountManagerPublicPath
                 ).borrow() {
-                // Return whether the address is a child of the parentAddress & check whether it's set as active
-                return viewerRef.getChildAccountAddresses().contains(childAddress) &&
-                    (viewerRef.getChildAccountTagRef(address: childAddress)?.isCurrentlyActive() ?? false)
+                if let tagRef = getAccount(childAddress).getCapability<
+                        &{ChildAccount.ChildAccountTagPublic
+                    }>(
+                        ChildAccount.ChildAccountTagPublicPath
+                    ).borrow() {
+                    // Return whether the address is a child of the parentAddress & check whether it's set as active
+                    return viewerRef.getChildAccountAddresses().contains(childAddress) && tagRef.isCurrentlyActive()
+                }
             }
         }
     }
-    return nil
+    return false
 }
+ 

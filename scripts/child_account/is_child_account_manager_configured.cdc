@@ -1,4 +1,5 @@
-import ChildAccount from "../../contracts/ChildAccount.cdc"
+// import ChildAccount from "../../contracts/ChildAccount.cdc"
+import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
 
 /// This script allows one to determine if a given account has a
 /// ChildAccountManager configured

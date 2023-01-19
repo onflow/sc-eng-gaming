@@ -21,10 +21,18 @@ transaction(minterAddress: Address) {
         if signer.borrow<&GamePieceNFT.Collection>(from: GamePieceNFT.CollectionStoragePath) == nil {
             // Create a new empty collection
             let collection <- GamePieceNFT.createEmptyCollection()
-
             // save it to the account
             signer.save(<-collection, to: GamePieceNFT.CollectionStoragePath)
-
+        }
+        // Check for public capabilities
+        if !signer.getCapability<&{
+                NonFungibleToken.Receiver,
+                NonFungibleToken.CollectionPublic,
+                GamePieceNFT.GamePieceNFTCollectionPublic,
+                MetadataViews.ResolverCollection
+            }>(
+                GamePieceNFT.CollectionPublicPath
+            ).check() {
             // create a public capability for the collection
             signer.link<&{
                 NonFungibleToken.Receiver,
@@ -35,7 +43,9 @@ transaction(minterAddress: Address) {
                 GamePieceNFT.CollectionPublicPath,
                 target: GamePieceNFT.CollectionStoragePath
             )
-
+        }
+        // Check for private capabilities
+        if !signer.getCapability<&{NonFungibleToken.Provider}>(GamePieceNFT.ProviderPrivatePath).check() {
             // Link the Provider Capability in private storage
             signer.link<&{
                 NonFungibleToken.Provider

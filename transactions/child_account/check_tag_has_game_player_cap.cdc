@@ -7,26 +7,18 @@ import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 ///
 transaction {
 
-    let tagRef: &ChildAccount.ChildAccountTag
-    let childAddress: Address
-
     prepare(childAccount: AuthAccount) {
-        self.childAddress = childAccount.address
         // Get a reference to the signer's ChildAccountTag resource
-        self.tagRef = childAccount.borrow<&
+        let tagRef = childAccount.borrow<&
                 ChildAccount.ChildAccountTag
             >(
                 from: ChildAccount.ChildAccountTagStoragePath
             ) ?? panic("ChildAccountTag not accessible at path ".concat(ChildAccount.ChildAccountTagStoragePath.toString()))
-        log(self.tagRef.getType().identifier)
-    }
-
-    execute {
-        let capRef = self.tagRef
+        let capRef = tagRef
             .getGrantedCapabilityAsRef(
                 Type<Capability<&{RockPaperScissorsGame.DelegatedGamePlayer}>>()
             ) ?? panic("Child account does not have GamePlayer Capability in its ChildAccountTag!")
-        let gamePlayerRef = capRef
+        let delegatedGamePlayerRef = capRef
             .borrow<&{RockPaperScissorsGame.DelegatedGamePlayer}>()
             ?? panic("ChildAccountTag has invalid GamePlayerCapability")
     }
