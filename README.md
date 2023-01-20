@@ -274,10 +274,10 @@ flow transactions send ./transactions/onboarding/onboard_player.cdc 0xf8d6e0586b
     ```
     1. Submit moves
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 38 0 --signer p1
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_move.cdc 38 0 --signer p1
     ```
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 38 1 --signer p2
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_move.cdc 38 1 --signer p2
     ```
     1. Resolve the Match & return NFTs
     ```
