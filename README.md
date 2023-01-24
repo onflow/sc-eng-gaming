@@ -329,7 +329,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 
     1. And lastly, we'll get the win/loss record from the transferred NFT to show that the record stays with the NFT
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_moves.cdc 38 1 --signer p2
+    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_move.cdc 38 1 --signer p2
     ```
     1. Resolve the Match & return NFTs
     ```

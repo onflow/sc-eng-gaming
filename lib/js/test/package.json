@@ -6,6 +6,11 @@
   "scripts": {
     "test": "jest"
   },
+  "files": [
+    "../../../contracts/*",
+    "../../../transactions/*",
+    "../../../scripts/*"
+  ],
   "keywords": [],
   "author": "",
   "license": "ISC",

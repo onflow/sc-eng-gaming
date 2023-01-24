@@ -5,7 +5,14 @@
 			"serviceAccount": "emulator-account"
 		}
 	},
-	"contracts": {},
+	"contracts": {
+		"FungibleToken": "../../../contracts/utility/FungibleToken.cdc",
+		"GamePieceNFT": "../../../contracts/GamePieceNFT.cdc",
+		"GamingMetadataViews": "../../../contracts/GamingMetadataViews.cdc",
+		"MetadataViews": "../../../contracts/utility/MetadataViews.cdc",
+		"NonFungibleToken": "../../../contracts/utility/NonFungibleToken.cdc",
+		"RockPaperScissorsGame": "../../../contracts/RockPaperScissorsGame.cdc"
+	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
 		"mainnet": "access.mainnet.nodes.onflow.org:9000",
