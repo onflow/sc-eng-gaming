@@ -10,7 +10,8 @@ transaction(
     background: Int,
     head: Int,
     torso: Int,
-    leg: Int
+    leg: Int,
+    recipient: Address
 ) {
 
     // local variable for storing the minter reference
@@ -20,34 +21,8 @@ transaction(
     /// NFT ID 
     let receiverCollectionLengthBefore: Int
 
-    prepare(minter: AuthAccount, recipient: AuthAccount) {
+    prepare(minter: AuthAccount) {
 
-        /* Setup recipient's collection if need be */
-        //
-        // if the account doesn't already have a collection
-        if recipient.borrow<&MonsterMaker.Collection>(from: MonsterMaker.CollectionStoragePath) == nil {
-            // create & save it to the account
-            recipient.save(<-MonsterMaker.createEmptyCollection(), to: MonsterMaker.CollectionStoragePath)
-        }
-        if !recipient.getCapability<
-                &MonsterMaker.Collection{NonFungibleToken.CollectionPublic, MonsterMaker.MonsterMakerCollectionPublic, MetadataViews.ResolverCollection}
-            >(
-                MonsterMaker.CollectionPublicPath
-            ).check() {
-            // create a public capability for the collection
-            recipient.link<&MonsterMaker.Collection{NonFungibleToken.CollectionPublic, MonsterMaker.MonsterMakerCollectionPublic, MetadataViews.ResolverCollection}>(MonsterMaker.CollectionPublicPath, target: MonsterMaker.CollectionStoragePath)
-        }
-        if !recipient.getCapability<
-                &MonsterMaker.Collection{NonFungibleToken.Provider}
-            >(
-                MonsterMaker.ProviderPrivatePath
-            ).check() {
-            // create a private capability for the collection
-            recipient.link<&MonsterMaker.Collection{NonFungibleToken.Provider}>(MonsterMaker.CollectionPublicPath, target: MonsterMaker.CollectionStoragePath)
-        }
-        
-        /* Get assignments needed to mint */
-        //
         // Borrow a reference to the NFTMinter Capability in minter account's storage
         // NOTE: This assumes a Capability is stored, and not the base resource - this would occurr
         // if the signing minter was granted the NFTMinter Capability for a base resource located in
@@ -59,7 +34,7 @@ transaction(
             ) ?? panic("Couldn't borrow reference to NFTMinter Capability in storage at ".concat(MonsterMaker.MinterStoragePath.toString()))
         self.minterRef = minterCapRef.borrow() ?? panic("Couldn't borrow reference to NFTMinter from Capability")
         // Borrow the recipient's public NFT collection reference
-        self.recipientCollectionRef = recipient
+        self.recipientCollectionRef = getAccount(recipient)
             .getCapability(MonsterMaker.CollectionPublicPath)
             .borrow<&{NonFungibleToken.CollectionPublic}>()
             ?? panic("Could not get receiver reference to the NFT Collection")
