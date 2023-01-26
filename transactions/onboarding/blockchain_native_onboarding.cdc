@@ -5,6 +5,7 @@ import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 // import ChildAccount from "../../contracts/ChildAccount.cdc"
 import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import TicketToken from "../../contracts/TicketToken.cdc"
 
 /// This transaction sets a user's main account up with the following
 ///   - GamePieceNFT.Collection
@@ -129,6 +130,23 @@ transaction(
             target: RockPaperScissorsGame.GamePlayerStoragePath
         )
 
+        /* --- Set child account up with TicketToken.Vault --- */
+        //
+        // Create & save a Vault
+        child.save(<-TicketToken.createEmptyVault(), to: TicketToken.VaultStoragePath)
+        // Create a public capability to the Vault that only exposes the deposit function
+        // & balance field through the Receiver & Balance interface
+        child.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+            TicketToken.ReceiverPublicPath,
+            target: TicketToken.VaultStoragePath
+        )
+        // Create a private capability to the Vault that only exposes the withdraw function
+        // through the Provider interface
+        child.link<&TicketToken.Vault{FungibleToken.Provider}>(
+            TicketToken.ProviderPrivatePath,
+            target: TicketToken.VaultStoragePath
+        )
+
         /** --- Setup parent's GamePieceNFT.Collection --- */
         //
         // Set up GamePieceNFT.Collection if it doesn't exist
@@ -166,6 +184,40 @@ transaction(
             }>(
                 GamePieceNFT.ProviderPrivatePath,
                 target: GamePieceNFT.CollectionStoragePath
+            )
+        }
+
+        /* --- Set parent account up with TicketToken.Vault --- */
+        //
+        // Create & save a Vault
+        if parent.borrow<&TicketToken.Vault>(from: TicketToken.VaultStoragePath) == nil {
+            // Create a new flowToken Vault and put it in storage
+            parent.save(<-TicketToken.createEmptyVault(), to: TicketToken.VaultStoragePath)
+        }
+
+        if !parent.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+            TicketToken.ReceiverPublicPath
+        ).check() {
+            // Unlink any capability that may exist there
+            parent.unlink(TicketToken.ReceiverPublicPath)
+            // Create a public capability to the Vault that only exposes the deposit function
+            // & balance field through the Receiver & Balance interface
+            parent.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+                TicketToken.ReceiverPublicPath,
+                target: TicketToken.VaultStoragePath
+            )
+        }
+
+        if !parent.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+            TicketToken.ProviderPrivatePath
+        ).check() {
+            // Unlink any capability that may exist there
+            parent.unlink(TicketToken.ProviderPrivatePath)
+            // Create a private capability to the Vault that only exposes the withdraw function
+            // through the Provider interface
+            parent.link<&TicketToken.Vault{FungibleToken.Provider}>(
+                TicketToken.ProviderPrivatePath, 
+                target: TicketToken.VaultStoragePath
             )
         }
 

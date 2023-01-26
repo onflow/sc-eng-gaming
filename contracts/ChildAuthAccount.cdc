@@ -27,6 +27,10 @@ import MetadataViews from "./utility/MetadataViews.cdc"
 ///
 pub contract ChildAccount {
 
+    // TODO:
+    // - Events
+    // - isCurrentlyActive() to check if originatingPublicKey is revoked on resource.owner
+
     // Establish metadataview when child account is created
     // - dapp name/publisher name
     // - publisher logo
@@ -44,7 +48,7 @@ pub contract ChildAccount {
     pub let ChildAccountCreatorPublicPath: PublicPath
 
 
-        //check
+    //check
     /// This should be rather a view (I'm using it as a view)
     ///
     /// Identifies information that could be used to determine the off-chain

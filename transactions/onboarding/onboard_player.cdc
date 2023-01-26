@@ -3,6 +3,7 @@ import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
+import TicketToken from "../../contracts/TicketToken.cdc"
 
 /// This transaction sets up the following in a signer's account
 /// - GamePieceNFT.Collection
@@ -100,6 +101,40 @@ transaction(minterAddress: Address) {
             }>(
                 RockPaperScissorsGame.GamePlayerPrivatePath,
                 target: RockPaperScissorsGame.GamePlayerStoragePath
+            )
+        }
+
+        /* --- Set signer's account up with TicketToken.Vault --- */
+        //
+        // Create & save a Vault
+        if signer.borrow<&TicketToken.Vault>(from: TicketToken.VaultStoragePath) == nil {
+            // Create a new flowToken Vault and put it in storage
+            signer.save(<-TicketToken.createEmptyVault(), to: TicketToken.VaultStoragePath)
+        }
+
+        if !signer.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+            TicketToken.ReceiverPublicPath
+        ).check() {
+            // Unlink any capability that may exist there
+            signer.unlink(TicketToken.ReceiverPublicPath)
+            // Create a public capability to the Vault that only exposes the deposit function
+            // & balance field through the Receiver & Balance interface
+            signer.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+                TicketToken.ReceiverPublicPath,
+                target: TicketToken.VaultStoragePath
+            )
+        }
+
+        if !signer.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+            TicketToken.ProviderPrivatePath
+        ).check() {
+            // Unlink any capability that may exist there
+            signer.unlink(TicketToken.ProviderPrivatePath)
+            // Create a private capability to the Vault that only exposes the withdraw function
+            // through the Provider interface
+            signer.link<&TicketToken.Vault{FungibleToken.Provider}>(
+                TicketToken.ProviderPrivatePath,
+                target: TicketToken.VaultStoragePath
             )
         }
     }

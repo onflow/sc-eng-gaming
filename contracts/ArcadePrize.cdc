@@ -259,7 +259,7 @@ pub contract ArcadePrize: NonFungibleToken {
         pub fun mintNFT(
             recipient: &{NonFungibleToken.CollectionPublic},
             prizeType: PrizeType,
-            payment: @FungibleToken.Vault // TODO: Need to impl tickettoken & import for payment of NFT
+            payment: @FungibleToken.Vault
         )
     }
 
@@ -271,7 +271,7 @@ pub contract ArcadePrize: NonFungibleToken {
     /// Resource that an admin or something similar would own to be
     /// able to mint new NFTs
     ///
-    pub resource Administrator : NFTMinterPublic, NFTAdmin {
+    pub resource Administrator : NFTMinterPublic, NFTAdmin, FungibleToken.Receiver, FungibleToken.Provider {
 
         /* NFTMinterPublic */
 
@@ -285,7 +285,7 @@ pub contract ArcadePrize: NonFungibleToken {
         pub fun mintNFT(
             recipient: &{NonFungibleToken.CollectionPublic},
             prizeType: PrizeType,
-            payment: @FungibleToken.Vault // TODO: Need to impl tickettoken & import for payment of NFT
+            payment: @FungibleToken.Vault
         ) {
             pre {
                 ArcadePrize.prizePrices.containsKey(prizeType) && ArcadePrize.prizeTypeMetadata.containsKey(prizeType):
@@ -308,7 +308,7 @@ pub contract ArcadePrize: NonFungibleToken {
             )
 
             // deposit payment to the contract's Vault
-            ArcadePrize.depositPaymentToContractVault(from: <-payment)
+            self.deposit(from: <-payment)
 
             // deposit it in the recipient's account using their reference
             recipient.deposit(token: <-newNFT)
@@ -326,6 +326,16 @@ pub contract ArcadePrize: NonFungibleToken {
         /// Method to update metadata associated with a prize type
         pub fun updateMetada(prizeType: PrizeType, metadata: {String: AnyStruct}) {
             ArcadePrize.prizeTypeMetadata[prizeType] = metadata
+        }
+
+        /* Receiver */
+        //
+        pub fun deposit(from: @FungibleToken.Vault) {
+            ArcadePrize.borrowVaultRef().deposit(from: <-from)
+        }
+        /* Provider */
+        pub fun withdraw(amount: UFix64): @FungibleToken.Vault {
+            return <-ArcadePrize.borrowVaultRef().withdraw(amount: amount)
         }
     }
 
@@ -371,8 +381,8 @@ pub contract ArcadePrize: NonFungibleToken {
         return returnArr
     }
 
-    /// Deposits the given Vault to the contract's Vault
-    access(contract) fun depositPaymentToContractVault(from: @FungibleToken.Vault) {
+    /// Contract helper method, returning a reference to the contract's Vault
+    access(contract) fun borrowVaultRef(): &FungibleToken.Vault {
         // let fromVault <- from as! @TicketTokens.Vault
         let vaultRef = self.account
             .borrow<
@@ -380,7 +390,7 @@ pub contract ArcadePrize: NonFungibleToken {
             >(
                 from: self.VaultStoragePath
             ) ?? panic("Could not borrow reference to contract's Vault!")
-        vaultRef.deposit(from: <-from)
+        return vaultRef
     }
 
     init() {
@@ -422,11 +432,17 @@ pub contract ArcadePrize: NonFungibleToken {
         let minter <- create Administrator()
         self.account.save(<-minter, to: self.AdminStoragePath)
         self.account.link<&Administrator{NFTMinterPublic}>(self.MinterPublicPath, target: self.AdminStoragePath)
-        self.account.link<&Administrator{NFTAdmin}>(self.AdminPrivatePath, target: self.AdminStoragePath)
+        self.account.link<
+            &Administrator{NFTAdmin, FungibleToken.Provider, FungibleToken.Receiver}
+        >(
+            self.AdminPrivatePath,
+            target: self.AdminStoragePath
+        )
+
+        // Create a Vault & save to contract
+        self.account.save(<-TicketToken.createEmptyVault(), to: self.VaultStoragePath)
 
         emit ContractInitialized()
-
-        // TODO: Save a vault to the contract
     }
 }
  
