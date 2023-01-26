@@ -20,6 +20,7 @@ pub contract ArcadePrize: NonFungibleToken {
     /// Storage and Public Paths
     pub let CollectionStoragePath: StoragePath
     pub let CollectionPublicPath: PublicPath
+    pub let ProviderPrivatePath: PrivatePath
     pub let AdminStoragePath: StoragePath
     pub let MinterPublicPath: PublicPath
     pub let AdminPrivatePath: PrivatePath
@@ -335,6 +336,28 @@ pub contract ArcadePrize: NonFungibleToken {
         return <- create Collection()
     }
 
+    /// Getter method to resolve metadata for the specified prize type as Display struct
+    /// or nil if the given prizeType doesn't exist
+    ///
+    /// @param prizeType: The type of prize (as declared in the enum PrizeType) for which
+    /// to resolve metadata
+    ///
+    /// @return The type's metadata as defined in the contract mapping prizeTypeMetadata
+    /// as a MetadataViews.Display struct or nil if the prizeType is invalid
+    ///
+    pub fun getPrizeTypeDisplayView(prizeType: PrizeType): MetadataViews.Display? {
+        if let metadata = self.prizeTypeMetadata[prizeType] {
+            return MetadataViews.Display(
+                name: (metadata["name"] as! String?)!,
+                description: (metadata["description"] as! String?)!,
+                thumbnail: MetadataViews.HTTPFile(
+                    url: (metadata["thumbnail"] as! String?)!
+                )
+            )
+        }
+        return nil
+    }
+
     /// Deposits the given Vault to the contract's Vault
     access(contract) fun depositPaymentToContractVault(from: @FungibleToken.Vault) {
         // let fromVault <- from as! @TicketTokens.Vault
@@ -354,6 +377,7 @@ pub contract ArcadePrize: NonFungibleToken {
         // Set the named paths
         self.CollectionStoragePath = /storage/ArcadePrizeCollection
         self.CollectionPublicPath = /public/ArcadePrizeCollection
+        self.ProviderPrivatePath = /private/ArcadePrizeCollectionProvider
         self.AdminStoragePath = /storage/ArcadePrizeAdmin
         self.MinterPublicPath = /public/ArcadePrizeMinter
         self.AdminPrivatePath = /private/ArcadePrizeAdmin

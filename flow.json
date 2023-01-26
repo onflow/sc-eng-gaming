@@ -1,10 +1,11 @@
 {
 	"contracts": {
+		"ArcadePrize": "./contracts/ArcadePrize.cdc",
 		"ChildAccount": "./contracts/ChildAuthAccount.cdc",
 		"FungibleToken": {
 			"source": "./contracts/utility/FungibleToken.cdc",
 			"aliases": {
-				"emulator": "f8d6e0586b0a20c7",
+				"emulator": "0xee82856bf20e2aa6",
 				"mainnet": "f233dcee88fe0abe",
 				"testnet": "9a0766d93b6608b7"
 			}
@@ -26,8 +27,6 @@
 				"testnet": "fd3d8fe2c8056370"
 			}
 		},
-        "ArcadePrize": "./contracts/ArcadePrize.cdc",
-        "TicketToken": "./contracts/TicketToken.cdc",
 		"NonFungibleToken": {
 			"source": "./contracts/utility/NonFungibleToken.cdc",
 			"aliases": {
@@ -36,7 +35,8 @@
 				"testnet": "0x631e88ae7f1d7c20"
 			}
 		},
-		"RockPaperScissorsGame": "./contracts/RockPaperScissorsGame.cdc"
+		"RockPaperScissorsGame": "./contracts/RockPaperScissorsGame.cdc",
+		"TicketToken": "./contracts/TicketToken.cdc"
 	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
@@ -52,17 +52,12 @@
 	"deployments": {
 		"emulator": {
 			"emulator-account": [
-				"FungibleToken",
 				"ChildAccount",
 				"NonFungibleToken",
 				"MetadataViews",
 				"GamingMetadataViews",
-				"GamePieceNFT",
-				"MonsterMaker",
-                "TicketToken",
-                "ArcadePrize",
-				"RockPaperScissorsGame"
-			]
+				"MonsterMaker"
+			],
 		}
 	}
 }

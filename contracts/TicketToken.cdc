@@ -9,7 +9,9 @@ pub contract TicketToken : FungibleToken {
     pub let VaultStoragePath: StoragePath
     pub let ReceiverPublicPath: PublicPath
     pub let BalancePublicPath: PublicPath
+    pub let ProviderPrivatePath: PrivatePath
     pub let AdminStoragePath: StoragePath
+    pub let MinterStoragePath: StoragePath
 
     /// TokensInitialized
     ///
@@ -192,12 +194,14 @@ pub contract TicketToken : FungibleToken {
     }
 
     init() {
-        self.totalSupply = 1000.0
+        self.totalSupply = 0.0
 
         self.VaultStoragePath = /storage/TicketTokenVault
         self.ReceiverPublicPath = /public/TicketTokenReceiver
+        self.ProviderPrivatePath = /private/TicketTokenProvider
         self.BalancePublicPath = /public/TicketTokenBalance
         self.AdminStoragePath = /storage/TicketTokenAdmin
+        self.MinterStoragePath = /storage/TicketTokenMinter
 
         // Create the Vault with the total supply of tokens and save it in storage
         //

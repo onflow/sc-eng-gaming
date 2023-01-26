@@ -1,4 +1,3 @@
-import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import GamingMetadataViews from "../../contracts/GamingMetadataViews.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 

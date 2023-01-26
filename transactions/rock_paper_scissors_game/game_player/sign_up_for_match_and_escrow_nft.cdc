@@ -1,15 +1,15 @@
 import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
-import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
+import MonsterMaker from "../../../contracts/MonsterMaker.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
 /// The signer signs up for the specified Match.id, setting up a GamePlayer resource
-/// if need be in the process and escrowing the specified GamePieceNFT
+/// if need be in the process and escrowing the specified MonsterMaker NFT
 ///
 transaction(matchID: UInt64, escrowNFTID: UInt64) {
 
     let gamePlayerRef: &RockPaperScissorsGame.GamePlayer
     let receiverCap: Capability<&{NonFungibleToken.Receiver}>
-    var nft: @GamePieceNFT.NFT
+    var nft: @MonsterMaker.NFT
 
     prepare(signer: AuthAccount) {
         // Check if a GamePlayer already exists, pass this block if it does
@@ -48,19 +48,19 @@ transaction(matchID: UInt64, escrowNFTID: UInt64) {
             )!
         
         // Get the account's Receiver Capability
-        self.receiverCap = signer
-            .getCapability<&
-                AnyResource{NonFungibleToken.Receiver}
-            >(GamePieceNFT.CollectionPublicPath)
+        self.receiverCap = signer.getCapability<
+                &{NonFungibleToken.Receiver}
+            >(
+                MonsterMaker.CollectionPublicPath
+            )
         // Get a reference to the account's Provider
-        let providerRef = signer
-            .borrow<&{
-                NonFungibleToken.Provider
-            }>(
-                from: GamePieceNFT.CollectionStoragePath
+        let providerRef = signer.borrow<
+                &{NonFungibleToken.Provider}
+            >(
+                from: MonsterMaker.CollectionStoragePath
             ) ?? panic("Could not borrow reference to account's Provider")
         // Withdraw the desired NFT
-        self.nft <-providerRef.withdraw(withdrawID: escrowNFTID) as! @GamePieceNFT.NFT
+        self.nft <-providerRef.withdraw(withdrawID: escrowNFTID) as! @MonsterMaker.NFT
     }
 
     execute {

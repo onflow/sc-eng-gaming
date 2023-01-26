@@ -13,10 +13,11 @@ transaction {
             signer.save(<-MonsterMaker.createEmptyCollection(), to: MonsterMaker.CollectionStoragePath)
         }
         if !signer.getCapability<
-                &MonsterMaker.Collection{NonFungibleToken.CollectionPublic, MonsterMaker.MonsterMakerCollectionPublic, MetadataViews.ResolverCollection}
+                &MonsterMaker.Collection{NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, MonsterMaker.MonsterMakerCollectionPublic, MetadataViews.ResolverCollection}
             >(
                 MonsterMaker.CollectionPublicPath
             ).check() {
+            signer.unlink(MonsterMaker.CollectionPublicPath)
             // create a public capability for the collection
             signer.link<&MonsterMaker.Collection{NonFungibleToken.CollectionPublic, MonsterMaker.MonsterMakerCollectionPublic, MetadataViews.ResolverCollection}>(MonsterMaker.CollectionPublicPath, target: MonsterMaker.CollectionStoragePath)
         }
@@ -25,6 +26,7 @@ transaction {
             >(
                 MonsterMaker.ProviderPrivatePath
             ).check() {
+            signer.unlink(MonsterMaker.ProviderPrivatePath)
             // create a private capability for the collection
             signer.link<&MonsterMaker.Collection{NonFungibleToken.Provider}>(MonsterMaker.CollectionPublicPath, target: MonsterMaker.CollectionStoragePath)
         }

@@ -1,5 +1,5 @@
 import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
-import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
+import MonsterMaker from "../../../contracts/MonsterMaker.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
 /// Transaction escrows the specified GamePieceNFT to the specified
@@ -15,20 +15,20 @@ transaction(matchID: UInt64, escrowNFTID: UInt64) {
             ) ?? panic("Could not borrow GamePlayer reference!")
 
         // Get the account's Receiver Capability
-        let receiverCap = acct
-            .getCapability<&
-                AnyResource{NonFungibleToken.Receiver}
-            >(GamePieceNFT.CollectionPublicPath)
+        let receiverCap = acct.getCapability<
+                &{NonFungibleToken.Receiver}
+            >(
+                MonsterMaker.CollectionPublicPath
+            )
         
         // Get a reference to the account's Provider
-        let providerRef = acct
-            .borrow<&{
-                NonFungibleToken.Provider
-            }>(
-                from: GamePieceNFT.CollectionStoragePath
+        let providerRef = acct.borrow<
+                &{NonFungibleToken.Provider}
+            >(
+                from: MonsterMaker.CollectionStoragePath
             ) ?? panic("Could not borrow reference to account's Provider")
         // Withdraw the desired NFT
-        let nft <-providerRef.withdraw(withdrawID: escrowNFTID) as! @GamePieceNFT.NFT
+        let nft <-providerRef.withdraw(withdrawID: escrowNFTID) as! @MonsterMaker.NFT
         
         // Escrow NFT
         gamePlayerRef
