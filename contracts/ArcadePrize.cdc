@@ -61,7 +61,8 @@ pub contract ArcadePrize: NonFungibleToken {
             self.name = (metadata["name"] as! String?)!
             self.description = (metadata["description"] as! String?)!
             self.thumbnail = (metadata["thumbnail"] as! String?)!
-            self.royalties = (metadata["royalties"] as! [MetadataViews.Royalty]?)!
+            let genericRoyalties = metadata["royalties"] as! [AnyStruct]?
+            self.royalties = ArcadePrize.castArrayToRoyalties(genericArray: genericRoyalties)
             self.metadata = metadata
             self.prizeType = (metadata["prizeType"] as! PrizeType?)!
         }
@@ -356,6 +357,18 @@ pub contract ArcadePrize: NonFungibleToken {
             )
         }
         return nil
+    }
+
+    /// Contract helper function to cast [AnyStruct] to [MetadataViews.Royalty]
+    pub fun castArrayToRoyalties(genericArray: [AnyStruct]?): [MetadataViews.Royalty] {
+        if genericArray == nil {
+            return []
+        }
+        let returnArr: [MetadataViews.Royalty] = []
+        for element in genericArray! {
+            returnArr.append(element as! MetadataViews.Royalty)
+        }
+        return returnArr
     }
 
     /// Deposits the given Vault to the contract's Vault
