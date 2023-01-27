@@ -1,4 +1,6 @@
 import FungibleToken from "./utility/FungibleToken.cdc"
+import MetadataViews from "./utility/MetadataViews.cdc"
+import FungibleTokenMetadataViews from "./utility/FungibleTokenMetadataViews.cdc"
 
 pub contract TicketToken : FungibleToken {
 
@@ -60,7 +62,7 @@ pub contract TicketToken : FungibleToken {
     /// out of thin air. A special Minter resource needs to be defined to mint
     /// new tokens.
     ///
-    pub resource Vault: FungibleToken.Provider, FungibleToken.Receiver, FungibleToken.Balance {
+    pub resource Vault: FungibleToken.Provider, FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver {
 
         /// The total balance of this vault
         pub var balance: UFix64
@@ -108,6 +110,62 @@ pub contract TicketToken : FungibleToken {
                 TicketToken.totalSupply = TicketToken.totalSupply - self.balance
             }
         }
+        /// The way of getting all the Metadata Views implemented by ExampleToken
+        ///
+        /// @return An array of Types defining the implemented views. This value will be used by
+        ///         developers to know which parameter to pass to the resolveView() method.
+        ///
+        pub fun getViews(): [Type]{
+            return [Type<FungibleTokenMetadataViews.FTView>(),
+                    Type<FungibleTokenMetadataViews.FTDisplay>(),
+                    Type<FungibleTokenMetadataViews.FTVaultData>()]
+        }
+        /// The way of getting a Metadata View out of the ExampleToken
+        ///
+        /// @param view: The Type of the desired view.
+        /// @return A structure representing the requested view.
+        ///
+        pub fun resolveView(_ view: Type): AnyStruct? {
+            switch view {
+                case Type<FungibleTokenMetadataViews.FTView>():
+                    return FungibleTokenMetadataViews.FTView(
+                        ftDisplay: self.resolveView(Type<FungibleTokenMetadataViews.FTDisplay>()) as! FungibleTokenMetadataViews.FTDisplay?,
+                        ftVaultData: self.resolveView(Type<FungibleTokenMetadataViews.FTVaultData>()) as! FungibleTokenMetadataViews.FTVaultData?
+                    )
+                case Type<FungibleTokenMetadataViews.FTDisplay>():
+                    let media = MetadataViews.Media(
+                            file: MetadataViews.HTTPFile(
+                            url: "https://cdn.midjourney.com/d08cc008-9c72-488b-b2de-77a47eb8f0fe/grid_0.png"
+                        ),
+                        mediaType: "image/svg+xml"
+                    )
+                    let medias = MetadataViews.Medias([media])
+                    return FungibleTokenMetadataViews.FTDisplay(
+                        name: "Flow Arcade Ticket Token",
+                        symbol: "FATT",
+                        description: "This token is rewarded as a prize for wining at the Flow Arcade games",
+                        externalURL: MetadataViews.ExternalURL("https://arcade.onflow.org"),
+                        logos: medias,
+                        socials: {
+                            "twitter": MetadataViews.ExternalURL("https://twitter.com/flow_blockchain")
+                        }
+                    )
+                case Type<FungibleTokenMetadataViews.FTVaultData>():
+                    return FungibleTokenMetadataViews.FTVaultData(
+                        storagePath: TicketToken.VaultStoragePath,
+                        receiverPath: TicketToken.ReceiverPublicPath,
+                        metadataPath: TicketToken.VaultPublicPath,
+                        providerPath: /private/exampleTokenVault,
+                        receiverLinkedType: Type<&TicketToken.Vault{FungibleToken.Receiver}>(),
+                        metadataLinkedType: Type<&TicketToken.Vault{FungibleToken.Balance, MetadataViews.Resolver}>(),
+                        providerLinkedType: Type<&TicketToken.Vault{FungibleToken.Provider}>(),
+                        createEmptyVaultFunction: (fun (): @TicketToken.Vault {
+                            return <-TicketToken.createEmptyVault()
+                        })
+                    )
+            }
+            return nil
+        }        
     }
 
     /// createEmptyVault
