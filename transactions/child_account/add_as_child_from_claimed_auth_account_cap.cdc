@@ -1,5 +1,5 @@
 // import ChildAccount from "../../contracts/ChildAccount.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 
 /// Signing account claims a Capability to specified Address's AuthAccount
@@ -17,7 +17,7 @@ transaction(
 
     let managerRef: &ChildAccount.ChildAccountManager
     let info: ChildAccount.ChildAccountInfo
-    let childAuthAccountCap: Capability<&AuthAccount>
+    let childAccountCap: Capability<&AuthAccount>
 
     prepare(signer: AuthAccount) {
         // Get ChildAccountManager Capability, linking if necessary
@@ -50,7 +50,7 @@ transaction(
                 from: ChildAccount.ChildAccountManagerStoragePath
             )!
         // Claim the previously published AuthAccount Capability from the given Address
-        self.childAuthAccountCap = signer.inbox
+        self.childAccountCap = signer.inbox
             .claim<
                 &AuthAccount
             >(
@@ -75,6 +75,6 @@ transaction(
 
     execute {
         // Add account as child to the ChildAccountManager
-        self.managerRef.addAsChildAccount(childAccountCap: self.childAuthAccountCap, childAccountInfo: self.info)
+        self.managerRef.addAsChildAccount(childAccountCap: self.childAccountCap, childAccountInfo: self.info)
     }
 }

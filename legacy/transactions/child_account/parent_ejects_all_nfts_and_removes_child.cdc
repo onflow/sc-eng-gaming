@@ -1,5 +1,4 @@
-// import ChildAccount from "../../contracts/ChildAccount.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
@@ -69,12 +68,12 @@ transaction(childAddress: Address) {
         /* --- Get child account's capabilities & references --- */
         //
         // Get reference to child account's AuthAccount
-        let childAuthAccountRef: &AuthAccount = self.managerRef
-            .getChildAuthAccountRef(
+        let childAccountRef: &AuthAccount = self.managerRef
+            .getChildAccountRef(
                 address: childAddress
             ) ?? panic("Signer does not have a child account with address ".concat(childAddress.toString()))
         // Get a reference to the child account's Collection
-        self.childCollectionRef = childAuthAccountRef.borrow<&
+        self.childCollectionRef = childAccountRef.borrow<&
                 GamePieceNFT.Collection
             >(
                 from: GamePieceNFT.CollectionStoragePath

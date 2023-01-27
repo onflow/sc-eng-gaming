@@ -3,8 +3,7 @@ import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
-// import ChildAccount from "../../contracts/ChildAccount.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 import TicketToken from "../../contracts/TicketToken.cdc"
 
 /// This transaction sets a user's main account up with the following
@@ -39,7 +38,7 @@ transaction(
     let minterRef: &{GamePieceNFT.MinterPublic}
     let collectionRef: &GamePieceNFT.Collection
     let managerRef: &ChildAccount.ChildAccountManager
-    let childAuthAccountCap: Capability<&AuthAccount>
+    let childAccountCap: Capability<&AuthAccount>
     let info: ChildAccount.ChildAccountInfo
 
     prepare(parent: AuthAccount, client: AuthAccount) {
@@ -69,7 +68,7 @@ transaction(
             childAccountInfo: self.info
         )
         // Link AuthAccountCapability & assign
-        self.childAuthAccountCap = child.linkAccount(
+        self.childAccountCap = child.linkAccount(
                 ChildAccount.AuthAccountCapabilityPath
             ) ?? panic("Problem linking AuthAccount Capability for ".concat(child.address.toString()))
 
@@ -249,7 +248,7 @@ transaction(
         // Mint NFT to child account's Collection
         self.minterRef.mintNFT(recipient: self.collectionRef)
         // Add the child account to the ChildAccountManager so its AuthAccountCapability can be maintained
-        self.managerRef.addAsChildAccount(childAccountCap: self.childAuthAccountCap, childAccountInfo: self.info)
+        self.managerRef.addAsChildAccount(childAccountCap: self.childAccountCap, childAccountInfo: self.info)
     }
 }
  

@@ -1,5 +1,5 @@
 // import ChildAccount from "../../contracts/ChildAccount.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
 import TicketToken from "../../contracts/TicketToken.cdc"
 

@@ -1,8 +1,7 @@
 import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
-// import ChildAccount from "../../contracts/ChildAccount.cdc"
 import MonsterMaker from "../../contracts/MonsterMaker.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
 import TicketToken from "../../contracts/TicketToken.cdc"
 

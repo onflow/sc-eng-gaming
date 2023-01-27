@@ -4,7 +4,7 @@ import ArcadePrize from "../../contracts/ArcadePrize.cdc"
 import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
 import TicketToken from "../../contracts/TicketToken.cdc"
 // import ChildAccount from "../../contracts/ChildAccount.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 
 /// Transaction to mint ArcadePrize.NFT to recipient's Collection, paying
 /// with the TicketToken.Vault in the signer's child account
@@ -73,7 +73,7 @@ transaction(fundingChildAddress: Address, minterAddress: Address) {
                 from: ChildAccount.ChildAccountManagerStoragePath
             ) ?? panic("Could not borrow reference to ChildAccountManager in signer's account at expected path!")
         // Borrow a reference to the signer's specified child account
-        let childAccount = managerRef.getChildAuthAccountRef(address: fundingChildAddress)
+        let childAccount = managerRef.getChildAccountRef(address: fundingChildAddress)
             ?? panic("Could not get AuthAccount reference for specified address ".concat(fundingChildAddress.toString()))
         // Get a reference to the child account's TicketToken Vault
         let vaultRef = childAccount.borrow<&TicketToken.Vault>(

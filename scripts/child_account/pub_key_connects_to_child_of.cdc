@@ -1,5 +1,4 @@
-// import ChildAccount from "../../contracts/ChildAccount.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 
 /// Takes the address where a ChildAccountCreator Capability lives, a public key as
 /// a String, and the address where a ChildAccountManagerViewer Capability lives

@@ -1,5 +1,4 @@
-// import ChildAccount from "../../contracts/ChildAccount.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 
 /// Signing account publishes a Capability to its AuthAccount for
 /// the specified parentAddress to claim

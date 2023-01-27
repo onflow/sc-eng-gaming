@@ -1,8 +1,7 @@
 import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
-// import ChildAccount from "../../contracts/ChildAccount.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 
 /// This transaction moves all GamePieceNFT.NFTs from the child account to the 
 /// parent account, assuming that the two accounts have been linked and the signing

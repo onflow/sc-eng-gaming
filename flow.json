@@ -1,7 +1,7 @@
 {
 	"contracts": {
 		"ArcadePrize": "./contracts/ArcadePrize.cdc",
-		"ChildAccount": "./contracts/ChildAuthAccount.cdc",
+		"ChildAccount": "./contracts/ChildAccount.cdc",
 		"FungibleToken": {
 			"source": "./contracts/utility/FungibleToken.cdc",
 			"aliases": {

@@ -1,8 +1,7 @@
 import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
-// import ChildAccount from "../../contracts/ChildAccount.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 
 /// Adds the labeled child account as a Child Account in the parent accounts'
 /// ChildAccountManager resource. The parent maintains an AuthAccount Capability
