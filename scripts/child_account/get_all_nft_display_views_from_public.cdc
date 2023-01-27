@@ -2,25 +2,30 @@ import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import ChildAccount from "../../contracts/ChildAccount.cdc"
 
+/// Custom struct to make interpretation of NFT & Collection data easy client side
 pub struct NFTData {
     pub let name: String
     pub let description: String
     pub let thumbnail: String
     pub let resourceID: UInt64
-    pub let ownerAddress: Address
+    pub let ownerAddress: Address?
     pub let collectionName: String
     pub let collectionDescription: String
     pub let collectionURL: String
+    pub let collectionStoragePathIdentifier: String?
+    pub let collectionPublicPathIdentifier: String
 
     init(
         name: String,
         description: String,
         thumbnail: String,
         resourceID: UInt64,
-        ownerAddress: Address,
+        ownerAddress: Address?,
         collectionName: String,
         collectionDescription: String,
-        collectionURL: String
+        collectionURL: String,
+        collectionStoragePathIdentifier: String?,
+        collectionPublicPathIdentifier: String
     ) {
         self.name = name
         self.description = description
@@ -30,9 +35,12 @@ pub struct NFTData {
         self.collectionName = collectionName
         self.collectionDescription = collectionDescription
         self.collectionURL = collectionURL
+        self.collectionStoragePathIdentifier = collectionStoragePathIdentifier
+        self.collectionPublicPathIdentifier = collectionPublicPathIdentifier
     }
 }
 
+/// Helper function that retrieves data about all publicly accessible NFTs in an account
 pub fun getAllViewsFromAddress(_ address: Address): [NFTData] {
     // Get the account
     let account = getAccount(address)
@@ -62,10 +70,12 @@ pub fun getAllViewsFromAddress(_ address: Address): [NFTData] {
                                 description: display.description,
                                 thumbnail: display.thumbnail.uri(),
                                 resourceID: resolverRef.uuid,
-                                ownerAddress: resolverRef.owner!.address,
+                                ownerAddress: resolverRef.owner?.address,
                                 collectionName: collectionDisplay.name,
                                 collectionDescription: collectionDisplay.description,
-                                collectionURL: collectionDisplay.externalURL.url
+                                collectionURL: collectionDisplay.externalURL.url,
+                                collectionStoragePathIdentifier: account.getLinkTarget(path)?.toString(),
+                                collectionPublicPathIdentifier: path.toString()
                             )
                             // Add it to our views
                             views.append(nftData)
@@ -79,6 +89,8 @@ pub fun getAllViewsFromAddress(_ address: Address): [NFTData] {
     return views
 }
 
+/// Script that retrieve data about all publicly accessible NFTs in an account and any of its
+/// child accounts
 pub fun main(address: Address): [NFTData] {
     let views: [NFTData] = []
     
