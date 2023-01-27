@@ -10,6 +10,14 @@
 				"testnet": "9a0766d93b6608b7"
 			}
 		},
+		"FungibleTokenMetadataViews": {
+			"source": "./contracts/utility/FungibleTokenMetadataViews.cdc",
+			"aliases": {
+				"emulator": "f8d6e0586b0a20c7",
+				"mainnet": "f233dcee88fe0abe",
+				"testnet": "9a0766d93b6608b7"
+			}
+		},
 		"GamePieceNFT": "./contracts/GamePieceNFT.cdc",
 		"GamingMetadataViews": "./contracts/GamingMetadataViews.cdc",
 		"MetadataViews": {
@@ -52,9 +60,10 @@
 	"deployments": {
 		"emulator": {
 			"emulator-account": [
-				"ChildAccount",
 				"NonFungibleToken",
 				"MetadataViews",
+				"FungibleTokenMetadataViews",
+				"ChildAccount",
 				"GamingMetadataViews",
 				"MonsterMaker"
 			]

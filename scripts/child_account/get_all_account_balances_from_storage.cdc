@@ -1,7 +1,6 @@
 import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
-// import ChildAccount from "../../contracts/ChildAccount.cdc"
-import ChildAccount from "../../contracts/ChildAuthAccount.cdc"
+import ChildAccount from "../../contracts/ChildAccount.cdc"
 
 // TODO - convert to support FungibleToken balances
 pub struct VaultView {
@@ -61,6 +60,8 @@ pub fun getAllBalancesFromAddress(_ address: Address): {Type: VaultView} {
     })
     return balances
 }
+
+// TODO: Only concerned with TicketTokens - something to think about for ChildAccountManager standard
 
 // {Address: {Type: Balance}}
 // [VaultView]
