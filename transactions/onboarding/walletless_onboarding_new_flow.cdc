@@ -133,7 +133,7 @@ transaction(
         newAccount.save(<-TicketToken.createEmptyVault(), to: TicketToken.VaultStoragePath)
         // Create a public capability to the Vault that only exposes the deposit function
         // & balance field through the Receiver & Balance interface
-        newAccount.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+        newAccount.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
             TicketToken.ReceiverPublicPath,
             target: TicketToken.VaultStoragePath
         )

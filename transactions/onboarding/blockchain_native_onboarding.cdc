@@ -136,7 +136,7 @@ transaction(
         child.save(<-TicketToken.createEmptyVault(), to: TicketToken.VaultStoragePath)
         // Create a public capability to the Vault that only exposes the deposit function
         // & balance field through the Receiver & Balance interface
-        child.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+        child.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
             TicketToken.ReceiverPublicPath,
             target: TicketToken.VaultStoragePath
         )
@@ -195,20 +195,20 @@ transaction(
             parent.save(<-TicketToken.createEmptyVault(), to: TicketToken.VaultStoragePath)
         }
 
-        if !parent.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+        if !parent.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
             TicketToken.ReceiverPublicPath
         ).check() {
             // Unlink any capability that may exist there
             parent.unlink(TicketToken.ReceiverPublicPath)
             // Create a public capability to the Vault that only exposes the deposit function
             // & balance field through the Receiver & Balance interface
-            parent.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+            parent.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
                 TicketToken.ReceiverPublicPath,
                 target: TicketToken.VaultStoragePath
             )
         }
 
-        if !parent.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+        if !parent.getCapability<&TicketToken.Vault{FungibleToken.Provider}>(
             TicketToken.ProviderPrivatePath
         ).check() {
             // Unlink any capability that may exist there

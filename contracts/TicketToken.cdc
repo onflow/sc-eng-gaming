@@ -135,9 +135,9 @@ pub contract TicketToken : FungibleToken {
                 case Type<FungibleTokenMetadataViews.FTDisplay>():
                     let media = MetadataViews.Media(
                             file: MetadataViews.HTTPFile(
-                            url: "https://cdn.midjourney.com/d08cc008-9c72-488b-b2de-77a47eb8f0fe/grid_0.png"
+                            url: "https://cdn.midjourney.com/fb016eac-4a63-4e3a-bfbd-dec229121584/grid_0.png"
                         ),
-                        mediaType: "image/svg+xml"
+                        mediaType: "image/png"
                     )
                     let medias = MetadataViews.Medias([media])
                     return FungibleTokenMetadataViews.FTDisplay(
@@ -154,7 +154,7 @@ pub contract TicketToken : FungibleToken {
                     return FungibleTokenMetadataViews.FTVaultData(
                         storagePath: TicketToken.VaultStoragePath,
                         receiverPath: TicketToken.ReceiverPublicPath,
-                        metadataPath: TicketToken.VaultPublicPath,
+                        metadataPath: TicketToken.BalancePublicPath,
                         providerPath: /private/exampleTokenVault,
                         receiverLinkedType: Type<&TicketToken.Vault{FungibleToken.Receiver}>(),
                         metadataLinkedType: Type<&TicketToken.Vault{FungibleToken.Balance, MetadataViews.Resolver}>(),

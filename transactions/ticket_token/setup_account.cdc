@@ -1,5 +1,6 @@
 import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
 import TicketToken from "../../contracts/TicketToken.cdc"
+import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 
 /// This transaction creates a TicketToken.Vault, saves it in signer's storage
 /// and links public & private capabilities
@@ -13,20 +14,20 @@ transaction {
             signer.save(<-TicketToken.createEmptyVault(), to: TicketToken.VaultStoragePath)
         }
 
-        if !signer.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+        if !signer.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
             TicketToken.ReceiverPublicPath
         ).check() {
             // Unlink any capability that may exist there
             signer.unlink(TicketToken.ReceiverPublicPath)
             // Create a public capability to the Vault that only exposes the deposit function
             // & balance field through the Receiver & Balance interface
-            signer.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+            signer.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
                 TicketToken.ReceiverPublicPath,
                 target: TicketToken.VaultStoragePath
             )
         }
 
-        if !signer.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance}>(
+        if !signer.getCapability<&TicketToken.Vault{FungibleToken.Provider}>(
             TicketToken.ProviderPrivatePath
         ).check() {
             // Unlink any capability that may exist there
