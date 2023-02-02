@@ -3,7 +3,7 @@ import MonsterMaker from "../../contracts/MonsterMaker.cdc"
 
 /// Script to get NFT IDs in an account's collection
 ///
-pub fun main(address: Address): [UInt64] {
+pub fun main(address: Address): [UInt64]? {
     let account = getAccount(address)
 
     let collectionRef = account
