@@ -149,6 +149,32 @@ pub contract ChildAccount {
 
         pub fun getTagPublicRef(): &{ChildAccountTagPublic}
     }
+    
+    /* --- ChildAccountCreator --- */
+
+    pub resource interface ChildAccountCreatorPublic {
+        pub fun getAddressFromPublicKey (publicKey: String): Address?
+    }
+
+    /// Anyone holding this resource could create accounts, keeping a mapping of their public keys to their addresses,
+    /// and later associate a parent account to any of it, by creating a ChildTagAccount into the previously created 
+    /// account and creating a ChildAccountController resource that should be hold by the parent account in a ChildAccountManager
+    /// 
+    pub resource ChildAccountCreator : ChildAccountCreatorPublic {
+        /// mapping of public_key: address
+        access(self) let createdChildren: {String: Address}
+
+        /// Returns the address of the account created by this resource if it exists
+        pub fun getAddressFromPublicKey (publicKey: String): Address?
+        /// Creates a new account, funding with the signer account, adding the public key
+        /// contained in the ChildAccountInfo, and saving a ChildAccountTag with unassigned
+        /// parent account containing the provided ChildAccountInfo metadata
+        pub fun createChildAccount(
+            signer: AuthAccount,
+            initialFundingAmount: UFix64,
+            childAccountInfo: ChildAccountInfo
+        ): AuthAccount
+    }
 
     /** --- ChildAccountManager --- */
 
