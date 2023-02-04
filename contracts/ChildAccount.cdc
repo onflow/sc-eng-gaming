@@ -78,7 +78,6 @@ pub contract ChildAccount {
 
 
     /** --- Child Account Tag--- */
-        //check
     ///
     ///
     ///
@@ -271,7 +270,7 @@ pub contract ChildAccount {
             )
 
             // Add some initial funds to the new account, pulled from the signing account.  Amount determined by initialFundingAmount
-            newAccount.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver)
+            newAccount.getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver)
                 .borrow()!
                 .deposit(
                     from: <- signer.borrow<&{
@@ -450,54 +449,6 @@ pub contract ChildAccount {
             return newAccount
         }
 
-        /// Add a ChildAccountController to this manager resource
-        ///
-        // TODO: Remove - I don't think the order of childaccountcontroller before childaccounttag makes
-        // sense for this construction - we need the tag to create the controller
-        pub fun addChildAccountController(newAccountController: @ChildAccountController, addOwnKey: Bool) {
-            pre {
-                !self.childAccounts.containsKey(newAccountController.getTagPublicRef().address):
-                    "Child account with given address already exists!"
-            }
-            if (addOwnKey) {
-                newAccountController.getAuthAcctRef().keys.add(
-                    publicKey: self.owner!.keys.get(keyIndex: 0)!.publicKey,
-                    hashAlgorithm: HashAlgorithm.SHA3_256,
-                    weight: 1000.0
-                )
-            }
-            // Create ChildAccountTag
-            let child <-create ChildAccountTag(
-                    parentAddress: self.owner!.address,
-                    address: newAccountController.getTagPublicRef().address,
-                    info: newAccountController.getTagPublicRef().info
-                )
-            // Save the ChildAccountTag in the child account's storage & link
-            newAccountController.getAuthAcctRef().save(<-child, to: ChildAccount.ChildAccountTagStoragePath)
-            newAccountController.getAuthAcctRef().link<&{ChildAccountTagPublic}>(
-                ChildAccount.ChildAccountTagPublicPath,
-                target: ChildAccount.ChildAccountTagStoragePath
-            )
-            newAccountController.getAuthAcctRef().link<&ChildAccountTag>(
-                ChildAccount.ChildAccountTagPrivatePath,
-                target: ChildAccount.ChildAccountTagStoragePath
-            )
-            // Get a Capability to the linked ChildAccountTag Cap in child's private storage
-            let tagCap = newAccountController.getAuthAcctRef()
-                .getCapability<&
-                    ChildAccountTag
-                >(
-                    ChildAccount.ChildAccountTagPrivatePath
-                )
-            // Ensure the capability is valid before inserting it in the controller
-            assert(tagCap.check(), message: "Problem linking ChildAccoutTag Capability in new child account!")
-            // Add the capability to the ChildAccountController
-            newAccountController.setTagCapability(tagCapability: tagCap)
-            // Add the controller to the dictionary
-            let oldController <- self.childAccounts[newAccountController.getTagPublicRef().address] <- newAccountController
-            destroy oldController
-        }
-
         /// Add an existing account as a child account to this manager resource. This would be done in
         /// a multisig transaction which should be possible if the parent account controls both
         ///
@@ -618,6 +569,31 @@ pub contract ChildAccount {
             destroy self.childAccounts
         }
         
+    }
+
+    /// Returns true if the provided public key (provided as String) has not been
+    /// revoked on the given account address
+    pub fun isKeyActiveOnAccount(publicKey: String, address: Address): Bool {
+        // Public key strings must have even length
+        if publicKey.length % 2 == 0 {
+            var keyIndex = 0
+            var keysRemain = true
+            // Iterate over keys on given account address
+            while keysRemain {
+                // Get the key as byte array
+                if let keyArray = getAccount(address).keys.get(keyIndex: keyIndex)?.publicKey?.publicKey {
+                    // Encode the key as a string and compare
+                    if publicKey == String.encodeHex(keyArray) {
+                        return !getAccount(address).keys.get(keyIndex: keyIndex)!.isRevoked
+                    }
+                    keyIndex = keyIndex + 1
+                } else {
+                    keysRemain = false
+                }
+            }
+            return false
+        }
+        return false
     }
 
     pub fun createChildAccountManager(): @ChildAccountManager {

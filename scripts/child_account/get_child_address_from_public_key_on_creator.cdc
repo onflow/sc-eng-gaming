@@ -11,7 +11,13 @@ pub fun main(creatorAddress: Address, pubKey: String): Address? {
         >(
             ChildAccount.ChildAccountCreatorPublicPath
         ).borrow() {
-        return creatorRef.getAddressFromPublicKey(publicKey: pubKey)
+        if let address = creatorRef.getAddressFromPublicKey(publicKey: pubKey) {
+            if ChildAccount.isKeyActiveOnAccount(publicKey: pubKey, address: address) {
+                return address
+            }
+        }
+        return nil
     }
     return nil
 }
+ 
