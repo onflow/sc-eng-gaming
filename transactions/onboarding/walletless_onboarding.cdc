@@ -76,7 +76,7 @@ transaction(
         // Grab Collection related references & Capabilities
         let collectionRef = newAccount.borrow<&MonsterMaker.Collection>(from: MonsterMaker.CollectionStoragePath)!
         
-        /* --- Make sure new account has a GamePieceNFT.NFT to play with --- */
+        /* --- Make sure new account has a MonsterMaker.NFT to play with --- */
         //
         // Borrow a reference to the NFTMinter Capability in minter account's storage
         // NOTE: This assumes a Capability is stored, and not the base resource - this would occurr

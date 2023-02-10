@@ -65,10 +65,7 @@
 				"FungibleTokenMetadataViews",
 				"ChildAccount",
 				"GamingMetadataViews",
-				"MonsterMaker",
-				"ArcadePrize",
-				"TicketToken",
-				"RockPaperScissorsGame"
+				"MonsterMaker"
 			]
 		}
 	}

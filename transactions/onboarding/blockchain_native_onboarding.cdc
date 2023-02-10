@@ -126,7 +126,7 @@ transaction(
             RockPaperScissorsGame.GamePlayerPublicPath,
             target: RockPaperScissorsGame.GamePlayerStoragePath
         )
-        // Link GamePlayerID Capability
+        // Link GamePlayerID & DelegatedGamePlayer Capability
         child.link<&{
             RockPaperScissorsGame.DelegatedGamePlayer,
             RockPaperScissorsGame.GamePlayerID

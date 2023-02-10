@@ -18,9 +18,9 @@ The entirety of that composable gaming future is possible on Flow, and starts wi
 
 ### Gameplay Overview
 
-To showcase this promised composability, we constructed a multi-dApp experience starting with a game of Rock, Paper, Scissors (RPS). Straightforward enough, players can engage in single or two-player single round matches of RPS. After configuring their `GamePlayer` resource, they can start a match by escrowing any NFT. The match is playable once both players have escrowed their NFTs, or after the first player to escrow if in single player mode. The escrowed NFT gets an attachment that retrieves its win/loss record and another that maintains the playable moves for the game - rock, paper, and scissors, as expected.
+To showcase this promised composability, we constructed contracts to support a multi-dApp experience starting with a game of Rock, Paper, Scissors (RPS). Straightforward enough, players can engage in single or two-player single round matches of RPS. After configuring their `GamePlayer` resource, they can start a match by escrowing any NFT. The match is playable once both players have escrowed their NFTs, or after the first player to escrow if in single player mode. The escrowed NFT gets an attachment that retrieves its win/loss record and another that maintains the playable moves for the game - rock, paper, and scissors, as expected.
 
-Once playable, the match proceeds in stages - commit and resolve. Players first must commit their moves. After both players have submitted moves, the match can be resolved. On resolution, a winner is determined and the associated NFT's win/loss record is amended with the match results. Of course, once the match is over (or if a timeout is reached without resolution) the escrowed NFTs can then be returned to their respective escrowing players.
+Once playable, the match proceeds in stages - commit and resolve (to be replaced by a commit-reveal pattern to obfuscate on-chain moves). Players first must commit their moves. After both players have submitted moves, the match can be resolved. On resolution, a winner is determined and the associated NFT's win/loss record is amended with the match results. Of course, once the match is over (or if a timeout is reached without resolution) the escrowed NFTs can then be returned to their respective escrowing players.
 
 The [game dApp demo](https://github.com/onflow/walletless-arcade-example) showcases how developers can build on these contracts to create novel in-game experiences using the hybrid custody model. To facilitate a more full game experience, `TicketToken` was introduced to be awarded on wins, just like an arcade. After onboarding a user with the hybrid custody model implementation, a dApp can perform all of these actions without requiring a single user signature all while the user maintains full access to the app account.
 
@@ -51,111 +51,45 @@ As mentioned above, the supporting contracts for this game have been compartment
 * **TicketToken** - A simple FungibleToken implementation intended for use as redemption tokens in exchange for `ArcadePrize` NFTs
 * **ArcadePrize** - Another example implementation, this time of a NonFungibleToken. Minting requires `TicketToken` redemption. An interesting note, you can redeem
 
-### **GamingMetadataViews**
-
-This contract proposes a new set of [NFT metadata views](https://github.com/onflow/flow-nft/blob/master/contracts/MetadataViews.cdc) for Gaming. Gaming is an increasing use case for `NFT`s, and it's' possible to imagine many different ways that gaming-specific metadata can be generalized into shared metadata views. There are countless types of gaming-related metadata that could be shared this way, allowing third party apps or even other games to create unique experiences or metrics using these interoperable pieces of data. This is possible because they are all accessible via the `NFT` itself, and in many cases via the contract also!
-
-#### **`GameContractMetadata`**
-For game-related contracts and resources, `GameContractMetadata` defines information identifying the originating contract and allows a developer to attach external URLs and media that would be helpful on the frontend.
-
-#### **`BasicWinLoss` & `BasicWinLossRetriever`**
-As a proof of concept, we have defined a basic metadata struct to show the win/loss record (`BasicWinLoss`) for an `NFT` for any game it participates in. It tracks wins, losses, and ties and exposes the ability to retrieve those values (stored in the game contract in our construction) directly from the `NFT` resource. While the implementation defined in this repo is very simple, you can imagine a more complex set of gaming metadata containing an `NFT`'s health and defense attributes, evolution characteristics, etc., making this pattern useful for any sort of game you might be designing.
-
-In our construction, the game contract stores win/loss data, maintaining its own histories of NFT's `BasicWinLoss`. This allows others to query all win/loss histories., create interesting metrics and records based on the data, allow anyone to retrieve any of the data easily from a central place, and also enable anyone with the NFT object itself or a reference to it to easily retrieve the data stored on it without directly relying on a central contract.
-
-The `BasicWinLossRetriever` interface defines an interface for a resource that can retrieve this `BasicWinLoss` record. This retriever is implemented along with `GameResource` and `MetadataViews.Resolver` as an Attachment for any `NonFungibleToken.INFT`. It is then added within a `Match` when an NFT is escrowed so the win/loss record of that NFT can be retrieved..
-
-#### **`AssignedMovesView` & `AssignedMoves`**
-The `AssignedMovesView` is defined to provide a metadata struct containing info relating to the associated game, NFT and the moves assiged to that NFT.
-
-In order to maintain, add and remove moves, the `AssignedMoves` interface defines a generic resource with an array of moves represented as `AnyStruct`. Addition and removal of moves is limited by `access(contract)` so that only the contract in which the resource is implemented can add and remove moves - even the owner of the base resource cannot alter the assigned moves.
-
-While everyone gets the same moves in Rock, Paper, Scissors, this setup can be helpful in a game where players have to earn moves, moves are single use (e.g. power-up move, etc.), deck-based games where moves are expended, etc.
-
-#### **`GameResource`**
-This is a very simple interface allowing for the addition of `GameContractMetadata` to an implementing resource.
-
-#### ***Considerations***
-A consideration to note here on the side of the game developer is that the storage costs for this game data will be incurred on the account to which the game contract is deployed. For this, you get a public and central location which is very useful for building a leaderboard of `NFT`'s win/loss performance. 
-
-Alternatively, you could construct an `NFT` so that the metadata would be stored on the NFT itself, but you would lose that in-built on-chain leaderboard and will need to consider if and how you'll want to enable that functionality. Some solutions involve maintaining off-chain (but verifiable) stats based on indexed events or simply requiring a user to pay for the storage themselves while maintaining a Capability to the `NFT`s that allows you to query their stats on a time interval.
-
-### **MonsterMaker**
-
-As mentioned above, there can be many implementations of an NFT that would make it relevant for use in a game. To showcase how Cadence's native attachments bolster the composability of on-chain game logic, we decided to use an existing NFT implementation. Other games can implement their own [Attachments](https://github.com/onflow/cadence/blob/feature/attachments/docs/language/attachments.md) and add them to these or other NFTs.
-
-There was much discussion about whether an NFT's win/loss records should be stored directly on the NFT as an attachment, or on that game contract and attach a retriever for the NFT to recall its record. This is ultimately a design decision, with each approach having its pros/cons. Because we wanted an emergent on-chain leaderboard, we decided to store all records on the game contract. However, had we found an acceptable event indexing service or wanted to build one ourselves, we could have relied on off-chain indexers to maintain win/loss history for a leaderboard & stored the data directly on the NFT.
-
-The usual components of a standard `NFT` contract such as `Collection`, `Minter`, and associated interface implementations are present as well.
-
-### **RockPaperScissorsGame**
-
-All the of above components are put together in this smart contract implementation of single-round match Rock, Paper, Scissors. Again, this is a simple proof of concept that will hopefully illuminate the power of Cadence and Flow for the purpose of game development on-chain.
-
-Before getting into the contract level details, let's first cover the basic gameplay setup defined here. The idea is that two players engage in a single round of Rock, Paper, Scissors where Rock > Scissors > Paper > Rock > ... and so on.
-
-A `Match` is mediated only by the contract logic, Capabilities, and conditions. While Match resources & win/loss records are stored in the contract account, the game is otherwise peer-to-peer. Once a `Match` has been created, the players escrow their `NFT`s so that the game can record the match win/loss history of that `NFT`. After both moves have been submitted, a winner is decided, win/loss results are recorded, and the `NFT`s are returned to their owners.
-
-Now let's go over what that looks like in the contract. In broad strokes for a two-player `Match`, each `GamePlayer` maintains a mapping of `Match.id` to `MatchLobbyActions` and another of `Match.id` to `MatchPlayerActions`.
-
-`MatchLobbyActions` allow the player to `escrowNFTToMatch()` (which must occur by both players before a match can be played) along with getters for Match winner information.
-
-The pattern outlined above allows a `GamePlayer` to create a `Match` via `GamePlayer.createMatch()`, saving the new `Match` to the contract's account storage, and linking `MatchLobbyActions` and `MatchPlayerActions` to the contracts account's private storage. When creating a `Match`; however, a player must also escrow their NFT providing their `NonFungibleToken.Receiver` along with it so the NFT can be returned. Requiring "skin in the game", so to speak, helps to minimize the spam vector where an attacker can simply create an arbitrary number of Matches to take up account storage. Once the player's NFT has been escrowed to the `Match`, a `MatchPlayerActions` Capability is returned and is added to the `GamePlayer`'s `matchPlayerCapabilities`. 
-
-To add a `GamePlayer` to a match, the player could call `signUpForMatch()` with the desired `matchID` which would add the `MatchLobbyActions` to the `GamePlayer`'s `matchLobbyCapabilities`. Alternatively, the `GamePlayerPublic` interface exposes the ability for a `GamePlayer` to be added to a `Match` by anyone, which you can see in the `setup_new_multiplayer_match.cdc` transaction. The latter method is the on-chain version of inviting your friend to a `Match` as there is no obligation for them to participate.
-
-Once a match has been set up, two NFTs must be escrowed. Then each player can submit moves via `MatchPlayerActions.submitMoves()`, requiring both the move and a reference to the player's `GamePlayerID` Capability. We require this reference since both players have access to the same Capability, exposing a cheating vector whereby one player could submit the other player's move if the contract lacked a mechanism for identity verification. Since access control is a matter of *what you have* (not *who you are*) in Cadence, we take a reference to this `GamePlayerID` Capability and pull the submitting player's id from the reference (which should be kept private by the player).
-
-Once both players' moves have been submitted completing the "commit" phase, `resolveMatch()` can be called on the `Match` which does the following:
-
-1. determines the winner
-2. alters the `BasicWinLoss` metadata of the `NFT` in `winLossRecords` based on the outcome
-
-To return escrowed NFTs, `returnPlayerNFTs()` can be called by either player after resolution (or timeout is reached), with the backup method `retrieveUnclaimedNFT()` allowing players to retrieve their individual NFTs should a problem with the one of the players' Receivers prevent return of both NFTs.
-
-Also know that a `Match` can be played in single-player mode. In this case, a player escrows their NFT and submits their move as usual. Once they submit their move, they must then call the `submitAutomatedPlayerMove()` contract method which generates & submits a move as the second automated player. In all cases, `resolveMatch()` is called after moves have been submitted to determine the outcome, but must be called in a separate transaction than move submission. This is enforced by block height difference between move submissions - not an ideal solution.
-
-These calls require separate transactions to prevent cheating on second move submission. For example, I could submit my move as rock and set a post-condition that that the outcome from the match results in a win for me, allowing me to game the system.
-
-Note that the automated player's move is generated using `unsafeRandom()` which can be gamed. An oracle or a safer randomness API implemented into Flow and Cadence can and will at some point solve this problem, removing the need for these workarounds. Until then, we compartmentalized the `Match` into these commit-resolve stages.
-
->Note that a `Match` can only be utilized once.
-
-Taking a look at the contract, you'll see that the core logic of Rock, Paper, Scissors is exposed in the contract function `determineRockPaperScissorsWinner()`. This was done in hopes that the core logic could be used in other variations. You could imagine another contract that defines a `Match` resource using other `NFT`s or that combines logic of a hypothetical tic-tac-toe game or that runs for multiple rounds and requires a buy-in from players which goes to the winner. Again, this is designed to be built on by the Flow community, so have fun with it and make building the game part of the fun!
-
-#### **`RPSBasicWinLossRetriever`** 
-The `BasicWinLossRetriever` attachment effectively serves as a pointer to the game's `BasicWinLoss` data, allowing the game to define the access to and conditions under which the metadata could be altered while still retrieving the data from the NFT it refers to.
-
-The simplest way to explain the storage patern of an `NFT`'s win/loss data is that the `NFT`'s `BasicWinLoss` is stored on the relevant game contract while the `NFT` stores an attached getter (the retriever) that can access and return its `BasicWinLoss` record within that game.
-
-#### `RPSAssignedMoves`
-To model how a game might provide moves for gameplay, we've created the `RPSAssignedMoves` resource. This resource is attached to escrowed NFTs and seeded with your standard moves for Rock, Paper, Scissors. Other games might add and remove available moves throughout gameplay and validate whether a submitted move is valid given the player's escrowed NFT. For example, maybe my `AssignedMoves` resource represents a deck of single use cards from which a card is removed when it's played. Alternatively, I might have a fighter that loses the ability to play moves as their health declines. Again, the focus here is demonstrating the definition of a resource that is given to a player, but containing attributes that only contract game logic can alter.
-
-#### ***Considerations***
-
-A primary concern for us in the construction of this game is improving the UX such that a player wouldn't have to submit transactions for each move. This is a core problem for smart contract powered gaming, and likely something that requires changes to the protocol's on-chain account representation and/or higher levels of abstraction around account associations and identity.
-
-A potential workaround in Cadence at present is a Capabilities-based approach, where I create a Capability that exposes restricted access to my `GamePlayer` resource and give that to some trusted agent - say a game client. Then, I tell that game client what transaction to submit for me using that Capability. For a number of reasons, we've decided against this approach, but primarily due to Capabilities' present lack of auditability.
-
-That's all to say that we recognize this problem, many minds are working on it, and the UX will vastly improve in coming months. For the purpose of this proof of concept, we've chosen to move forward with the base contract components upon which we can soon build that seamless UX (which is soon to come).
-
-One more consideration comes from the contract's acceptance of any NFT. While this maximizes openness, it also means that NFTs with the same ID cause collisions in the win/loss record mapping indexed on escrowed NFT IDs. This shouldn't be an issue for NFTs that assign ids on UUIDs, but users could experience a case where they effectively share a win/loss record with another NFT of the same ID. This could be handled by indexing on the hash of an NFT's ID along with its Type which should yield a unique value or alternatively, the NFTs UUID. The latter would be a harder ask as it's unlikely a requestor would have the NFT's UUID on hand if it's not already the equivalent to its ID.
-
-A bit of a note on best practices...it's evident that defining on-chain game logic must involve some degree of adversarial thinking. For example, we could have (and did at one point) include `returnPlayerNFTs()` in `resolveMatch()` to remove the need for an additional call. However, we discovered that a malicious `Receiver` could `panic` on `deposit()` which would prevent `Match` resolution. This along with the revelation that I could assure game outcomes with the afforementioned post-condition on results led us to the commit-resolve pattern you see in the contracts & transactions.
+### **Composition**
+Taking a look at Rock Paper Scissors, you'll see that it stands on its own - a user with any NFT can engage with the game to play single and multiplayer matches. The same goes for TicketTokens and MonsterMaker contracts in that they are independent components not necessarily designed to be used together. We created each contract as a composable building block and put them together to create a unique [game dApp demo](https://github.com/onflow/walletless-arcade-example), incorporating ChildAccounts as a middle layer abstracting user identity from a single account to a network of associated accounts. 
 
 ___
 
-### Happy Path Walkthrough
+### Happy Path User Walkthrough
 
 With the context and components explained, we can more closely examine how they interact in a full user interaction. For simplicity, we'll assume everything goes as it's designed and walk the happy path.
 
-1. User onboarding in a single transaction - `onboard_player.cdc`
-    1. Setup `GamePieceNFT.Collection` & link Capabilities
-    1. Mint `GamePieceNFT.NFT` to player's Collection
-        1. `MintedNFT` and `Deposit` events emitted
-    1. Setup `RockPlayerScissorsGame.GamePlayer` & link Capabilities
+#### Onboarding
+With linked accounts, there are two ways a user can onboard. First, a dApp can onboard a user with Web2 credentials, creating a Flow account for the user and abstracting away key management. We'll call this "Wallet-less" onboarding. Second, a user native to the Flow ecosystem can connect their wallet and start the dApp experience with controll over the app account. In our version, the dApp will still abstract key management, but will additionally delegate control over the app account to the user's authenticated account via AuthAccount Capabilities. We'll call this the "blockchain-native" onboarding flow.
+
+**Wallet-less Onboarding**
+1. After a user authenticates via some traditional Web2 authentication mechanism, the dApp initiates walletless onboarding
+    1. A new public/private key pair is generated
+    1. Providing the generated public key, app account metadata, and MonsterMaker components, the walletless onboarding transaction starts by creating a new account from the signer's `ChildAccountCreator` resource
+    1. A MonsterMaker Collection is configured in the new account
+    1. The signer mints a MonsterMaker NFT to the new account's Collection
+    1. A GamePlayer resource is configured in the new account so it can play RockPaperScissorsGame Matches
+    1. A TicketToken Vault is saved & linked in the new account
+
+**Blockchain-native Onboarding**
+1. After user's wallet has been connected, run the blockchain-native multisig onboarding transaction signed by both a developer account & the user. Note that this would require a backend account pre-configured with a `ChildAccountCreator` & funded with FLOW to pay for new account creation - more on this in the Flow CLI demo walkthrough. This onboarding transaction does the following.
+    1. Given a generated public key (private key managed by the game dev)
+    1. Creates a new account
+    1. Links an AuthAccount Capability in the new account's private storage
+    1. Configures the account with a MonsterMaker Collection
+    1. Configures the new account with a GamePlayer resource
+    1. Sets up a TicketToken Vault in the new account
+    1. Sets up MonsterMaker collection in the user's connected account
+    1. Sets up a TicketToken Vault in the user's connected account
+    1. Configures a `ChildAccountManager` in the user's account
+    1. Mints a MonsterMaker NFT to the new account's Collection
+    1. Links the new account as a child of the user's account via the configured `ChildAccountManager`, giving the user delegated access of the newly created account
+
+#### Gameplay
+
 1. Single-Player Gameplay
-    1. Player creates a new match, escrowing their NFT along with their NFT `Receiver`, emitting `NewMatchCreated` and `PlayerEscrowedNFTToMatch`
+    1. Player creates a new match, escrowing their NFT along with their NFT `Receiver`, emitting `NewMatchCreated` and `PlayerEscrowedNFTToMatch`. Note that match timeout is established on creation, which prevents the escrowed NFT from being retrieved during gameplay.
         1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
         1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
     1. Player submits their move
@@ -164,12 +98,12 @@ With the context and components explained, we can more closely examine how they 
         1. `MoveSubmitted` event is emitted with relevant `matchID` and `submittingGamePlayerID` (the contract's designated `GamePlayer.id` in this case)
     1. In a separate transaction (enforced by block height), player calls `resolveMatch()` to determine the outcome of the `Match`
         1. The win/loss record is recorded for the player's NFT
-        1. The win/loss record is recorded for the designated `dummyNFTID`
+        1. The win/loss record is recorded for the designated contract's `dummyNFTID`
         1. The escrowed NFT is returned to the escrowing player
         1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, and `winningNFTID`.
-    1. Player calls for escrowed NFT to be returned via `returnPlayersNFTs()`. Since the `Match` returns the escrowed NFTs directly via the given `Receiver` Capability, we made this a separate call to prevent malicious Capabilities from disallowing resolution. In this case, the worst a malicious Capability could do would be 
+    1. Player calls for escrowed NFT to be returned via `returnPlayersNFTs()`. Since the `Match` returns the escrowed NFTs directly via the given `Receiver` Capability, we made this a separate call to prevent malicious Capabilities from disallowing resolution. In this case, the worst a malicious Capability could do would be force the other player to call `retrieveUnclaimedNFT()` in order to have their NFT returned.
 1. Multi-Player Gameplay
-    1. Player one creates a new match, escrowing their NFT
+    1. Player one creates a new match, escrowing their NFT. Note that match timeout is established on creation, which prevents the escrowed NFT from being retrieved during gameplay.
         1. `RPSAssignedMoves` are attached to their escrowed NFT if they are not already attached
         1. `RPSWinLossRetriever` is attached to the escrowed NFT if they are not already attached
     1. Player one adds `MatchLobbyActions` Capability to Player two's `GamePlayerPublic`
@@ -186,28 +120,6 @@ With the context and components explained, we can more closely examine how they 
         1. Each NFT is returned to their respective owners
         1. `MatchOver` is emitted along with the `matchID`, `winningGamePlayerID`, `winningNFTID` and `returnedNFTIDs`
     1. Any player calls for escrowed NFT to be returned via `returnPlayersNFTs()`. Since the `Match` returns the escrowed NFTs directly via the given `Receiver` Capability, we made this a separate call to prevent malicious Capabilities from disallowing resolution. In this case, the worst a malicious Capability could do would be to require that the other player call `retrieveUnclaimedNFT()` in a separate transaction to retrieve their singular NFT from escrow.
-
-## TODO - Transaction Diagrams
-
-Below you'll find diagrams that visualize the flow between all components for each major game-related transaction.
-
-### `onboard_player`
-![Onboard player with GamePieceNFT Collection & NFT](/images/rps_onboard_player.png)
-
-### `setup_new_singleplayer_match`
-![GamePlayer sets up new Match](/images/rps_setup_new_singleplayer_match.png)
-
-### `setup_new_multiplayer_match`
-![TODO](/todo)
-
-### `escrow_nft_to_existing_match`
-![TODO](/todo)
-
-### `submit_both_singleplayer_moves`
-![TODO](/todo)
-
-### `resolve_match`
-![TODO](/todo)
 
 ___
 
@@ -226,140 +138,433 @@ In this edge case, the `Receiver` Capability provided upon escrowing would no lo
 #### **Player provides a Receiver Capability that panics in its deposit() method**
 
 This wouldn't be encounterd by the `Match` until `returnPlayerNFTs()` is called after match resolution. Depending on the order of the `Receiver` Capabilities in the `nftReceivers` mapping, this could prevent the other player from retrieving their NFT via that function. At that point, however, the winner & loser have been decided and the game is over (`inPlay == false`). The other player could then call `retrieveUnclaimedNFT()` to retrieve the NFT that the trolling Receiver was preventing from being returned.
+
+#### **Player changes their mind after NFT escrow & before move submission**
+
+In the event a player changes their mind after creating a match, they'd currently have to wait the length of timeout to call `returnPlayerNFTs()`. Changing this behavior is scoped as a future improvement to enable abandoning a match before initiating gameplay, likely only to be updated in singleplayer mode matches.
 ___
 
 ## Demo on Emulator Using Flow CLI
 
-To demo the functionality of this repo, clone it and follow the steps below by entering each command using [Flow CLI](https://github.com/onflow/flow-cli) from the package root:
+To demo the functionality of this repo, clone it and follow the steps below by entering each command using the AuthAccount Capability pre-release version of [Flow CLI](https://github.com/onflow/flow-cli/releases/tag/v0.45.1-cadence-attachments-3) from the package root:
 
-### TODO - consolidate onboarding transaction to include child account creation & on-chain association
+### Pre-Requisites
 
-1. Single player
+- Start the emulator
+    
+    ```sh
+    flow emulator start
+    ```
+    
+- Create the game developer account
+    
+    ```sh
+    flow accounts create # account name: game-dev
+    ```
+    
+- Add the game dev contracts to the flow.json. Your deployments section should look like:
+    
+    ```json
+    "deployments": {
+        "emulator": {
+            "emulator-account": [
+                "NonFungibleToken",
+                "MetadataViews",
+                "FungibleTokenMetadataViews",
+                "ChildAccount",
+                "GamingMetadataViews",
+                "MonsterMaker"
+            ],
+            "game-dev": [
+                "TicketToken",
+                "ArcadePrize",
+                "RockPaperScissorsGame"
+            ]
+        }
+    }
+    ```
+    
+- Deploy the contracts
+    
+    ```sh
+    flow deploy
+    ```
+    
+- Configure the game dev account
+    - `ChildAccountCreator` resource configured & `ChildAccountCreatorPublic` Capability linked
+        - `child_account/setup_child_account_creator`
+        
+        ```sh
+        flow transactions send transactions/child_account/setup_child_account_creator.cdc --signer game-dev
+        ```
+        
+    - `FlowToken` balance to fund new account creation
+        
+        ```sh
+        flow transactions send transactions/flowToken/mint_tokens.cdc 01cf0e2f2f715450 <AMOUNT>
+        ```
+        
+    - `MonsterMaker.NFTMinter` Capability has been published by the [deployment account](https://testnet.flowscan.org/account/0xfd3d8fe2c8056370) for the game dev backend account and claimed by that account. This is due to how the MonsterMaker minter was configured and that it is already deployed to testnet.
+        
+        ```sh
+        flow transactions send transactions/monster_maker/publish_nft_minter_capability.cdc <CAPABILITY_NAME> <RECEIVER_ADDRESS>
+        ```
+        
+        ```sh
+        flow transactions send transactions/monster_maker/claim_nft_minter_capability.cdc <CAPABILITY_NAME> <PROVIDER_ADDRESS> --signer game-dev
+        ```
 
-    1. Create account - account name: parent-main
-    ```
-    flow accounts create
-    ```
+### Walletless Demo Walkthrough
 
-    1. Mint Flow to the new account
-    ```
-    flow transactions send ./transactions/flowToken/mint_tokens.cdc 01cf0e2f2f715450 100.0
-    ```
+#### **Onboarding**
 
-    1. Generate a public, private key pair - you'll want to copy the generated public key
-    ```
+1. Generate public/private key pair
+    
+    ```sh
     flow keys generate
     ```
-
-    1. Onboard the new user with a `GamePieceNFT.Collection`, `RockPaperScissorsGame.GamePlayer` & `ChildAccount.ChildAccountManager` with a child account, passing the generated public key & initial funding amount we'll pass from the parent to the child account. This transaction also configures necessary game resources in the created child account, namely `GamePieceNFT.Collection` & `NFT` as well as access to the parent account's `RockPaperScissorsGame.GamePlayer` via their `RockPaperScissorsGame.DelegatedGamePlayer` Capability
+    
+2. Initialize walletless onboarding
+    1. `onboarding/walletless_onboarding`
+        1. `pubKey: String,`
+        2. `fundingAmt: UFix64,`
+        3. `childAccountName: String,`
+        4. `childAccountDescription: String,`
+        5. `clientIconURL: String,`
+        6. `clientExternalURL: String,`
+        7. `monsterBackground: Int,`
+        8. `monsterHead: Int,`
+        9. `monsterTorso: Int,`
+        10. `monsterLeg: Int`
+    
+    ```sh
+    flow transactions send transactions/onboarding/walletless_onboarding.cdc <PUBLIC_KEY> <FUNDING_AMT> <CHILD_ACCOUNT_NAME> <CHILD_ACCOUNT_DESC> <CLIENT_ICON_URL> <CLIENT_EXT_URL> <BACKGROUND> <HEAD> <TORSO> <LEG> --signer game-dev
     ```
-    flow transactions send ./transactions/onboarding/onboard_new_user_and_player.cdc <PUBLIC_KEY> 10.0 RPSClient "Child account used for RockPaperScissors web app" "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR2KvcOwctyase2_P7lQxbxIutmLKFPch6rNw&usqp=CAU" "https://www.cheezewizards.com/" --signer parent-main
+    
+3. Query for new account address from public key
+    1. `child_account/get_child_address_from_public_key_on_creator: Address`
+        1. `creatorAddress: Address`
+        2. `pubKey: String`
+    
+    ```sh
+    flow scripts execute scripts/child_account/get_child_address_from_public_key_on_creator.cdc 01cf0e2f2f715450 <PUBLIC_KEY>
     ```
-
-    1. Get the child account's address giving the script the public key used to create the new account.
-    ```
-    flow scripts execute ./scripts/child_account/get_child_address_from_public_key.cdc 01cf0e2f2f715450 <PUBLIC_KEY>
-    ```
-
-    1. Get the NFT IDs in the child's Collection
-    ```
-    flow scripts execute ./scripts/game_piece_nft/get_collection_ids.cdc 0x179b6b1cb6755e31
-    ```
-
-    1. The child account will then be created. You will want to add this account to your `flow.json` in [advanced format](https://developers.flow.com/tools/flow-cli/configuration#advanced-format-1). Be sure to find the child address (likely `0x179b6b1cb6755e31`) in the emitted events and input the previously generated private key under the account's `privateKey` attribute in the `flow.json`. You will also want to add an alias for the `parent-main` account's private key since that account also has key access to the newly created `child` account. The `accounts` attribute in your `flow.json` should look like this:
-    ```
+    
+4. Add the child account to your flow.json (assuming following along on flow-cli)
+    
+    ```json
     "accounts": {
-		"emulator-account": {
-			"address": "f8d6e0586b0a20c7",
-			"key": "<EMULATOR_ACCOUNT_PRIVATE_KEY>"
-		},
-		"parent-main": {
-			"address": "01cf0e2f2f715450",
-			"key": "<PARENT_MAIN_PRIVATE_KEY>"
-		},
-		"child": {
-			"address": "0x179b6b1cb6755e31",
-			"key": {
-				"type": "hex",
-				"index": 0,
-				"signatureAlgorithm": "ECDSA_P256",
-				"hashAlgorithm": "SHA3_256",
-				"privateKey": "<CHILD_PRIVATE_KEY>"
-			}
-		},
-		"parent-child": {
-			"address": "0x179b6b1cb6755e31",
-			"key": {
-				"type": "hex",
-				"index": 1,
-				"signatureAlgorithm": "ECDSA_P256",
-				"hashAlgorithm": "SHA3_256",
-				"privateKey": "<PARENT_MAIN_PRIVATE_KEY>"
-			}
-		}
-	}
+    		"emulator-account": {
+    				"address": "f8d6e0586b0a20c7",
+    				"key": "<EMULATOR_ACCOUNT_PRIVATE_KEY>"
+    		},
+    		"game-dev": {
+    				"address": "01cf0e2f2f715450",
+    				"key": "<GAME_DEV_PRIVATE_KEY>"
+    		},
+    		"child": {
+    				"address": "179b6b1cb6755e31",
+    				"key": "<CHILD_PRIVATE_KEY>"
+    		}
+    }
     ```
+#### **Gameplay**
 
-    1. Now that both the parent and child accounts have been configured, let's play a single-player match, using the child account as a game client would...
-
-        1. Create new Match
-        ```
-        flow transactions send ./transactions/rock_paper_scissors_game/delegated_game_player/setup_new_singleplayer_match.cdc 38 10 --signer child
-        ```
-        1. Submit moves
-        ```
-        flow transactions send ./transactions/rock_paper_scissors_game/delegated_game_player/submit_both_singleplayer_moves.cdc 39 0 --signer child
-        ```
-        1. Resolve the Match & return NFTs
-        ```
-        flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc 39 --signer child
-        ```
-        1. Get the moves submitted for the Match
-        ```
-        flow scripts execute scripts/rock_paper_scissors_game/get_match_move_history.cdc 39
-        ```
-            
-            1. Alternatively, you can get the move history in a simplified format
-            ```
-            flow scripts execute scripts/rock_paper_scissors_game/get_match_move_history_as_raw_values.cdc 39
-            ```
+1. Query for `NFT.id` 
+    1. `game_piece_nft/get_collection_ids: [UInt64]`
+        * `address: Address`
+    
+    ```sh
+    flow scripts execute scripts/monster_maker/get_collection_ids.cdc 179b6b1cb6755e31
+    ```
+    
+2. Query for `GamePlayer.id`
+    1. `rock_paper_scissors_game/get_game_player_id: UInt64`
+        * `playerAddress: Address`
+    
+    ```sh
+    flow scripts execute scripts/rock_paper_scissors_game/get_game_player_id.cdc 179b6b1cb6755e31
+    ```
+    
+3. Setup a new singleplayer `Match`
+    1. `rock_paper_scissors_game/game_player/setup_new_singleplayer_match`
+        1. `submittingNFTID: UInt64`
+        2. `matchTimeLimitInMinutes: UInt`
+    
+    ```sh
+    flow transactions send transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc <NFT_ID> <TIME_LIMIT> --signer child
+    ```
+    
+4. Query `Match.id`
+    1. Listen for `NewMatchCreated` event filtered on `creatorID == GamePlayer.id`
+    2. `rock_paper_scissors_game/get_matches_in_play: [UInt64]`
+        * `address: Address`
+    
+    ```sh
+    flow scripts execute scripts/rock_paper_scissors_game/get_matches_in_play.cdc 179b6b1cb6755e31 
+    ```
+    
+5. Submit moves for the `Match`
+    1. `rock_paper_scissors_game/game_player/submit_both_singleplayer_moves`
+        1. `matchID: UInt64`
+        2. `move: UInt8`
+    
+    ```sh
+    flow transactions send transactions/rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc <MATCH_ID> <MOVE> --signer child
+    ```
+    
+6. Resolve `Match` & return escrowed NFTs
+    1. `rock_paper_scissors_game/game_player/resolve_match_and_return_nfts`
+        * `matchID: UInt64`
+    
+    ```sh
+    flow transactions send transactions/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc <MATCH_ID> --signer child
+    ```
+    
+7. Query move history for both players
+    1. Listen for `MatchOver` event filtered on `matchID == Match.id` and map user’s `GamePlayer.id` to `player1ID` or `player2ID` in the event values, displaying the `player1MoveRawValue` and `player2MoveRawValue` as appropriate
+    2. `rock_paper_scissors_game/get_match_move_history: {UInt64: RockPaperScissorsGame.SubmittedMove}?`
+        * `matchID: UInt64`
         
-        1. Check Win/Loss record
+        ```sh
+        flow scripts execute scripts/rock_paper_scissors_game/get_match_move_history.cdc <MATCH_ID>
         ```
-        flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x179b6b1cb6755e31 38
-        ```
-
-    1. Next we'll transfer assets from child account to parent account, signing with parent account
         
-        1. To do this, we'll need to construct a [complex transaction](https://developers.flow.com/tools/flow-cli/complex-transactions). Let's start by building our transaction & saving the payload.
+    3. `rock_paper_scissors_game/get_match_move_history_as_raw_values: {UInt64: UInt8}?`
+        * `matchID: UInt64`
+        
+        ```sh
+        flow scripts execute scripts/rock_paper_scissors_game/get_match_move_history_as_raw_values.cdc <MATCH_ID>
         ```
-        flow transactions build ./transactions/child_account/parent_claims_player_and_all_nfts.cdc --proposer parent-main --payer parent-main --authorizer parent-main --authorizer parent-child --filter payload --save parent_claims_player_and_all_nfts
+        
+8. Query player’s NFT win/loss record
+    1. `game_piece_nft/get_rps_win_loss: GamingMetadataViews.BasicWinLoss?`
+        1. `address: Address`
+        2. `id: UInt64`
+        
+        ```sh
+        flow scripts execute scripts/monster_maker/get_rps_win_loss.cdc 179b6b1cb6755e31 <NFT_ID>
         ```
 
-        1. Then, we'll sign the transaction. Even though the `parent-main` account's single private key gives it access to both its account and the `child` account, we'll need to sign twice. That's because the chain doesn't care about accounts, it just wants to know that it got the right signature for the address to access the account. We do this by signing first with our `parent-main` and secondly with our `parent-child`. Looking back at the `flow.json` you'll see that both aliases have the same address, but the addresses they map to and their relative indexes tell `flow-cli` where to get the necessary signatures. This is not relevant to the demo, but helpful to know for these sorts of key setups. Let's finally sign that transaction...
-        ```
-        flow transactions sign parent_claims_player_and_all_nfts --signer parent-main --signer parent-child --filter payload --save parent_claims_player_and_all_nfts
-        ```
+#### **Connect Wallet & Link Accounts**
 
-        1. Now we can finally send the built & signed transaction
-        ```
-        flow transactions send-signed parent_claims_player_and_all_nfts
-        ```
+There are two ways to go about this process. One involves a multi-signature transaction where both the existing app account (soon to be “child” account) and the user’s main account (soon to be “parent” account) sign a transaction in which all changes are made. Another approach is to have the app account sign a transaction publishing its AuthAccount capability to then be claimed by the user’s account in a subsequent transaction.
 
-    1. And lastly, we'll get the win/loss record from the transferred NFT to show that the record stays with the NFT
+For both the following transaction, you'll want to create an account if following along in flow-cli
+
+```sh
+flow accounts create # account name: parent
+```
+
+**Multi-Sig**
+
+1. Both accounts sign a transaction, configuring a `ChildAccountManager` in the user’s main account and capturing the child account’s AuthAccount capability in said `ChildAccountManager`. The `GamePlayer` resource in the child account is moved to the now parent account and a `DelegatedGamePlayer` capability is granted to the child account, saved in it `ChildAccountTag`. 
+In the end, the two accounts are linked by resource representation on-chain and both are configured such that the app has all it needs to play the game on behalf of the player and the user’s main account (AKA parent account) maintains an AuthAccount capability on the app account (AKA child account) so resources can be transferred from the child account without need for the app’s involvement.
+    
+    * `multisig_add_as_child`
+    
+        ```bash
+        flow transactions build transactions/child_account/add_as_child_multisig.cdc --proposer parent --payer parent --authorizer parent --authorizer child --filter payload --save add_as_child_multisig
+        ```
+        
+        ```bash
+        flow transactions sign add_as_child_multisig --signer parent --signer child --filter payload --save add_as_child_multisig
+        ```
+        
+        ```bash
+        flow transactions send-signed add_as_child_multisig
+        ```
+    
+2. Alternatively, if we want to move the NFT from the child account to the parent’s Collection while linking, we can run the following
+ℹ️ Note: This transaction makes all checks necessary to configure the parent account with Collection & ChildAccountManager resources & capabilities. It additionally checks if the child account has already been linked before transferring the NFT, so you’ll see that this transaction is used in the Blockchain-native flow for withdrawals as well.
+    
+    * `multisig_add_as_child_and_nft_transfer`
+        * `nftID: UInt64`
+    
+    ```bash
+    flow transactions build transactions/child_account/multisig_add_as_child_and_nft_transfer.cdc <NFT_ID> --proposer parent --payer parent --authorizer parent --authorizer child --filter payload --save multisig_add_as_child_and_nft_transfer
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/submit_move.cdc 38 1 --signer p2
+    
+    ```bash
+    flow transactions sign multisig_add_as_child --signer parent --signer child --filter payload --save multisig_add_as_child_and_nft_transfer
     ```
-    1. Resolve the Match & return NFTs
+    
+    ```bash
+    flow transactions send-signed multisig_add_as_child_and_nft_transfer
     ```
-    flow transactions send ./transactions/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc 38 --signer p1
+
+
+
+### Blockchain-Native Onboarding
+<aside>
+🔔 Reminder to fulfill pre-requisites from above
+</aside>
+
+#### Onboarding
+
+1. Generate public/private key pair
+    
+    ```sh
+    flow keys generate
     ```
-1. Check Win/Loss record
+    
+2. Initialize blockchain-native onboarding
+    1. `onboarding/blockchain_native_onboarding`
+        1. `pubKey: String`
+        2. `fundingAmt: UFix64`
+        3. `childAccountName: String`
+        4. `childAccountDescription: String`
+        5. `clientIconURL: String`
+        6. `clientExternalURL: String`
+        7. `minterAddress: Address`
+        
+        <aside>
+        ⚠️ Note: If you’re using `flow-cli`, you’ll want to add the created account as `“child”` to your `flow.json` before continuing. This is similar to the same step in walletless onboarding above
+        </aside>
+        
+3. Query for new account address from public key 
+    1. `child_account/get_child_address_from_public_key_on_creator: Address`
+        1. `creatorAddress: Address`
+        2. `pubKey: String`
+    
+    ```sh
+    flow scripts execute scripts/child_account/get_child_address_from_public_key_on_creator.cdc 01cf0e2f2f715450 <PUBLIC_KEY>
     ```
-    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 0x01cf0e2f2f715450 29
+    
+
+#### Minting TicketToken
+
+Based on Match results (queried by in [7](https://www.notion.so/RPSGame-Onboarding-Walkthrough-201b7ae989704d6dbddb789028395e13) & [8](https://www.notion.so/RPSGame-Onboarding-Walkthrough-201b7ae989704d6dbddb789028395e13) above and checked against the [GamePlayer.id](http://GamePlayer.id) queried in [2](https://www.notion.so/RPSGame-Onboarding-Walkthrough-201b7ae989704d6dbddb789028395e13)), we’ll want to mint tokens to the child account’s `TicketToken.Vault`. These tokens can be redeemed for an `ArcadePrize.NFT` later in the demo.
+
+1. Mint tokens to the player’s app account
+    1. `ticket_token/mint_tokens`
+        1. `recipient: Address`
+        2. `amount: UFix64`
+        
+        ```sh
+        flow transactions send transactions/ticket_token/mint_tokens.cdc 179b6b1cb6755e31 <AMOUNT> --signer game-dev
+        ```
+        
+2. Query the balance of tokens in the account
+    1. `ticket_token/get_balance: UFix64` - panics if Vault is not configured
+        * `of: Address`
+    
+    ```sh
+    flow scripts execute scripts/ticket_token/get_balance.cdc 179b6b1cb6755e31
     ```
-    1. Check Win/Loss record
+    
+
+#### Minting ArcadePrize.NFT
+
+In this section, we’ll use the TicketToken.Vault in the child account to pay for an NFT to the signing account’s Collection. This serves as an example for how a dApp can present and utilize the assets in a connected account’s child account(s), creating a seamless experience compared to the fragmented UX previously inherent to isolated app accounts.
+
+1. Query for the TicketToken.Vault.balance in each of the user’s child accounts
+    1. `ticket_token/get_all_account_balances_from_storage: {Address: UFix64}`
+        * `parentAddress: Address`
+    
+        ```sh
+        flow scripts execute scripts/ticket_token/get_balance_of_all_child_accounts.cdc <PARENT_ADDRESS>
+        ```
+    
+    1. `child_account/get_all_account_balances_from_storage: {Type: VaultInfo}`
+        * `address: Address`
+    
+    ```sh
+    fse scripts/child_account/get_all_account_balances_from_storage.cdc <PARENT_ADDRESS>
     ```
-    flow scripts execute scripts/game_piece_nft/get_rps_win_loss.cdc 179b6b1cb6755e31 36
+    
+    ```jsx
+    // Where VaultInfo has the following interface
+    pub struct VaultInfo {
+        pub let name: String?
+        pub let symbol: String?
+        pub var balance: UFix64
+        pub let description: String?
+        pub let externalURL: String?
+        pub let logos: MetadataViews.Medias?
+        pub let storagePathIdentifier: String
+        pub let receiverPathIdentifier: String?
+        pub let providerPathIdentifier: String?
+    
+        pub fun addBalance(_ addition: UFix64)
+    }
     ```
- 
+    
+2. Query for all publicly accessible NFTs in the connected account & its child accounts
+    * `child_account/get_all_nft_display_views_from_public: [NFTData]`
+        * `address: Address`
+
+    ```bash
+    flow scripts execute scripts/child_account/get_all_nft_display_views_from_public.cdc <PARENT_ADDRESS>
+    ```
+
+    ```jsx
+    // Where NFTData has the following interface
+    pub struct NFTData {
+        pub let name: String
+        pub let description: String
+        pub let thumbnail: String
+        pub let resourceID: UInt64
+        pub let ownerAddress: Address?
+        pub let collectionName: String
+        pub let collectionDescription: String
+        pub let collectionURL: String
+        pub let collectionStoragePathIdentifier: String?
+        pub let collectionPublicPathIdentifier: String
+    }
+    ```
+
+1. Mint a rainbow duck for 10.0 TicketTokens, redeeming the TicketTokens in the user’s child account & minting to the signer’s Collection
+    1. `arcade_prize/mint_rainbow_duck_paying_with_child_vault`
+        1. `fundingChildAddress: Address`
+        2. `minterAddress: Address`
+    
+    ```sh
+    flow transactions send transactions/arcade_prize/mint_rainbow_duck_paying_with_child_vault.cdc 179b6b1cb6755e31 01cf0e2f2f715450 --signer parent
+    ```
+    
+4. Again query for all publicly accessible NFTs in the connected account & its child accounts to see the NFT that was minted among all of the user’s owned NFTs
+    1. `child_account/get_all_nft_display_views_from_public: [NFTData]`
+        * `address: Address`
+    
+    ```bash
+    flow scripts execute scripts/child_account/get_all_nft_display_views_from_public.cdc <PARENT_ADDRESS>
+    ```
+___
+
+### Playing Self-Custodied on Testnet
+
+The contracts will be deployed the week of February 13th, and this README will be updated with all contract addresses once that occurs. The following instructions are just reference until then.
+
+If you want to play this game on testnet in a fully fledged Hybrid Custody dApp, check out our demo implementation [here](https://github.com/onflow/walletless-arcade-example). <- To be updated once live on testnet.
+
+As for good old fashioned self-custody, while you won't be able to perform TicketToken minting, you can play RockPaperScissors Matches using your own wallet and NFTs. You could however use your own NFTs to engage with the contracts via Flow CLI, [FlowRunner](https://runflow.pratikpatel.io/) or [Raft](https://raft.page/nvdtf/welcome-to-raft). Here's how:
+
+1. Mint a [MonsterMaker NFT](https://monster-maker-web-client.vercel.app/)
+    1. Connect your wallet
+    1. Initialize your account
+    1. Choose your monster configuration
+    1. Mint!
+    1. View in app. Alternatively, you can check out your account in [FlowView](https://testnet.flowview.app/)
+1. Once you have your NFT, you need to setup your account's GamePlayer resource
+    * `/rock_paper_scissors_game/game_player/setup_game_player.cdc`
+1. After you have an NFT & GamePlayer configured, you're ready to play the game!
+    * `/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc`
+        1. `submittingNFTID: UInt64`
+        1. `matchTimeLimitInMinutes: UInt`
+1. Submit your move & the randomized second player's move
+    * `/rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc`
+        1. `matchID: UInt64`
+        1. `move: UInt8`
+1. Resolve the Match & return your NFT. Note that resolution needs to occur at least one block from when the last move was submitted.
+    * `/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc`
+        * `matchID: UInt64`
+1. Query the moves played for the Match
+    * `rock_paper_scissors_game/get_match_move_history: {UInt64: RockPaperScissorsGame.SubmittedMove}?`
+        * `matchID: UInt64`
+1. You can additionally query your NFT's win/loss record
+    * `game_piece_nft/get_rps_win_loss: GamingMetadataViews.BasicWinLoss?`
+        1. `address: Address`
+        2. `id: UInt64`
+
+And you just used a MonsterMaker NFT to play singleplayer Rock Paper Scissors on-chain!
