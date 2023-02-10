@@ -256,18 +256,18 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     
     ```json
     "accounts": {
-    		"emulator-account": {
-    				"address": "f8d6e0586b0a20c7",
-    				"key": "<EMULATOR_ACCOUNT_PRIVATE_KEY>"
-    		},
-    		"game-dev": {
-    				"address": "01cf0e2f2f715450",
-    				"key": "<GAME_DEV_PRIVATE_KEY>"
-    		},
-    		"child": {
-    				"address": "179b6b1cb6755e31",
-    				"key": "<CHILD_PRIVATE_KEY>"
-    		}
+        "emulator-account": {
+            "address": "f8d6e0586b0a20c7",
+            "key": "<EMULATOR_ACCOUNT_PRIVATE_KEY>"
+        },
+        "game-dev": {
+            "address": "01cf0e2f2f715450",
+            "key": "<GAME_DEV_PRIVATE_KEY>"
+        },
+        "child": {
+            "address": "179b6b1cb6755e31",
+            "key": "<CHILD_PRIVATE_KEY>"
+        }
     }
     ```
 #### **Gameplay**
