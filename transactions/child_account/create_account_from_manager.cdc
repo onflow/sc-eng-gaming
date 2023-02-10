@@ -2,9 +2,10 @@ import ChildAccount from "../../contracts/ChildAccount.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 
 /// This transaction creates an account using the signer's public key at index 0,
-/// using the ChildAccountCreator with the signer as the account's payer
+/// using the ChildAccountManager with the signer as the account's payer
 /// Additionally, the new account is funded with the specified amount of Flow
-/// from the signing account's FlowToken Vault
+/// from the signing account's FlowToken Vault.AccountKey
+/// NOTE: Public key assumes SignatureAlgorithm.ECDSA_P256
 ///
 transaction(
         signerPubKeyIndex: Int,
@@ -40,8 +41,8 @@ transaction(
             >(
                 from: ChildAccount.ChildAccountManagerStoragePath
             ) ?? panic(
-                "No ChildAccountCreator in signer's account at "
-                .concat(ChildAccount.ChildAccountCreatorStoragePath.toString())
+                "No ChildAccountManager in signer's account at "
+                .concat(ChildAccount.ChildAccountManagerStoragePath.toString())
             )
         // Get the signer's key at the specified index
         let key: AccountKey = signer.keys.get(keyIndex: signerPubKeyIndex) ?? panic("No key with given index")

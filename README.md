@@ -43,7 +43,7 @@ As mentioned above, the supporting contracts for this game have been compartment
 
 * **RockPaperScissorsGame** - As you might imagine, this contract contains the game's moves, logic as well as resources and interfaces defining the rules of engagement in the course of a match. Additionally, receivers for Capabilities to matches are defined in `GamePlayer` resource and interfaces that allow players to create matches, be added and add others to matches, and engage with the matches they're in. The `Match` resource is defined as a single round of Rock, Paper, Scissors that can be played in either single or two player modes, with single-player modes randomizing the second player's move on a contract function call.
 
-#### **Parent-Child Account Hierarchy**
+#### **Linked Accounts**
 * **ChildAccount** - The resources enabling the "parent-child" account hierarchical model are defined within this contract. `ChildAccountCreator` can be used to create app accounts, funding creation by the signer and tagging accounts with pertinent metadata (`ChildAccountInfo`) in a `ChildAccountTag`. A parent account maintains a `ChildAccountManager` which captures any linked child accounts' `AuthAccount` and `ChildAccountTag` Capabilities in a `ChildAccountController`, indexing the nested resource on the child account's address.
 
 #### **Supporting**
@@ -53,7 +53,7 @@ As mentioned above, the supporting contracts for this game have been compartment
 
 ### **GamingMetadataViews**
 
-This contract proposes a new set of [NFT metadata views](https://github.com/onflow/flow-nft/blob/master/contracts/MetadataViews.cdc) for Gaming. Gaming is a subdomain of `NFT`s, and it's' possible to imagine many different ways that gaming-specific metadata can be generalized into shared metadata views. There are countless types of gaming-related metadata that could be shared this way, allowing third party apps or even other games to create unique experiences or metrics using these interoperable pieces of data. This is possible because they are all accessible via the `NFT` itself, and in many cases via the contract also!
+This contract proposes a new set of [NFT metadata views](https://github.com/onflow/flow-nft/blob/master/contracts/MetadataViews.cdc) for Gaming. Gaming is an increasing use case for `NFT`s, and it's' possible to imagine many different ways that gaming-specific metadata can be generalized into shared metadata views. There are countless types of gaming-related metadata that could be shared this way, allowing third party apps or even other games to create unique experiences or metrics using these interoperable pieces of data. This is possible because they are all accessible via the `NFT` itself, and in many cases via the contract also!
 
 #### **`GameContractMetadata`**
 For game-related contracts and resources, `GameContractMetadata` defines information identifying the originating contract and allows a developer to attach external URLs and media that would be helpful on the frontend.
@@ -61,7 +61,7 @@ For game-related contracts and resources, `GameContractMetadata` defines informa
 #### **`BasicWinLoss` & `BasicWinLossRetriever`**
 As a proof of concept, we have defined a basic metadata struct to show the win/loss record (`BasicWinLoss`) for an `NFT` for any game it participates in. It tracks wins, losses, and ties and exposes the ability to retrieve those values (stored in the game contract in our construction) directly from the `NFT` resource. While the implementation defined in this repo is very simple, you can imagine a more complex set of gaming metadata containing an `NFT`'s health and defense attributes, evolution characteristics, etc., making this pattern useful for any sort of game you might be designing.
 
-In our construction, the game contract stored win/loss data, maintaining their own histories of NFT's `BasicWinLoss` so that they can create interesting metrics and records based on the data, allow anyone to retrieve any of the data easily from a central place, and also enable anyone with the NFT object itself or a reference to it to easily retrieve the data stored on it without directly relying on a central contract.
+In our construction, the game contract stores win/loss data, maintaining its own histories of NFT's `BasicWinLoss`. This allows others to query all win/loss histories., create interesting metrics and records based on the data, allow anyone to retrieve any of the data easily from a central place, and also enable anyone with the NFT object itself or a reference to it to easily retrieve the data stored on it without directly relying on a central contract.
 
 The `BasicWinLossRetriever` interface defines an interface for a resource that can retrieve this `BasicWinLoss` record. This retriever is implemented along with `GameResource` and `MetadataViews.Resolver` as an Attachment for any `NonFungibleToken.INFT`. It is then added within a `Match` when an NFT is escrowed so the win/loss record of that NFT can be retrieved..
 
@@ -80,19 +80,13 @@ A consideration to note here on the side of the game developer is that the stora
 
 Alternatively, you could construct an `NFT` so that the metadata would be stored on the NFT itself, but you would lose that in-built on-chain leaderboard and will need to consider if and how you'll want to enable that functionality. Some solutions involve maintaining off-chain (but verifiable) stats based on indexed events or simply requiring a user to pay for the storage themselves while maintaining a Capability to the `NFT`s that allows you to query their stats on a time interval.
 
-### **GamePieceNFT**
+### **MonsterMaker**
 
-As mentioned above, there can be many implementations of an `NFT` that would make it relevant for use in a game. Our `GamePieceNFT` is as minimal and generic as possible so that it can be used in a number of simple games. Fundamentally, the `NFT` defined here serves as a receiver for attachments added to it throughout gameplay.
-
-Games can implement their own [Attachments](https://github.com/onflow/cadence/blob/feature/attachments/docs/language/attachments.md) and add them to these NFTs. This makes the NFT maximally composable! Future Attachment features like iteration will enable the base `NFT` to provide more context about its attachments, so this feature will only get more powerful & composable.
+As mentioned above, there can be many implementations of an NFT that would make it relevant for use in a game. To showcase how Cadence's native attachments bolster the composability of on-chain game logic, we decided to use an existing NFT implementation. Other games can implement their own [Attachments](https://github.com/onflow/cadence/blob/feature/attachments/docs/language/attachments.md) and add them to these or other NFTs.
 
 There was much discussion about whether an NFT's win/loss records should be stored directly on the NFT as an attachment, or on that game contract and attach a retriever for the NFT to recall its record. This is ultimately a design decision, with each approach having its pros/cons. Because we wanted an emergent on-chain leaderboard, we decided to store all records on the game contract. However, had we found an acceptable event indexing service or wanted to build one ourselves, we could have relied on off-chain indexers to maintain win/loss history for a leaderboard & stored the data directly on the NFT.
 
 The usual components of a standard `NFT` contract such as `Collection`, `Minter`, and associated interface implementations are present as well.
-
-#### ***Considerations***
-
-For this proof of concept, we did not find gating minting necessary, but anyone referring to this design should consider if doing so for things like rate-limiting, rarity, etc. Additionally, each GamePieceNFT is relatively similar in that the metadata between each is largely the same with the exception of the NFT's ID. This is because we believe that the game attachments added to each NFT will differentiate them, and we wanted that to shine through. This NFT can be thought of like a semi-fungible token that gets more fungible the more you use it!
 
 ### **RockPaperScissorsGame**
 
@@ -100,7 +94,7 @@ All the of above components are put together in this smart contract implementati
 
 Before getting into the contract level details, let's first cover the basic gameplay setup defined here. The idea is that two players engage in a single round of Rock, Paper, Scissors where Rock > Scissors > Paper > Rock > ... and so on.
 
-A `Match` is mediated only by the contract logic, Capabilities, and conditions. While Match resources & win/loss records are stored in the contract account, the game is otherwise peer-to-peer. Once a `Match` has been created, the players submit their `NFT`s so that the game can record the match win/loss history of that `NFT`. After both moves have been submitted, a winner is decided, win/loss results are recorded, and the `NFT`s are returned to their owners.
+A `Match` is mediated only by the contract logic, Capabilities, and conditions. While Match resources & win/loss records are stored in the contract account, the game is otherwise peer-to-peer. Once a `Match` has been created, the players escrow their `NFT`s so that the game can record the match win/loss history of that `NFT`. After both moves have been submitted, a winner is decided, win/loss results are recorded, and the `NFT`s are returned to their owners.
 
 Now let's go over what that looks like in the contract. In broad strokes for a two-player `Match`, each `GamePlayer` maintains a mapping of `Match.id` to `MatchLobbyActions` and another of `Match.id` to `MatchPlayerActions`.
 
@@ -112,16 +106,18 @@ To add a `GamePlayer` to a match, the player could call `signUpForMatch()` w
 
 Once a match has been set up, two NFTs must be escrowed. Then each player can submit moves via `MatchPlayerActions.submitMoves()`, requiring both the move and a reference to the player's `GamePlayerID` Capability. We require this reference since both players have access to the same Capability, exposing a cheating vector whereby one player could submit the other player's move if the contract lacked a mechanism for identity verification. Since access control is a matter of *what you have* (not *who you are*) in Cadence, we take a reference to this `GamePlayerID` Capability and pull the submitting player's id from the reference (which should be kept private by the player).
 
-Once both players' moves have been submitted, `resolveMatch()` can be called on the `Match` which does the following:
+Once both players' moves have been submitted completing the "commit" phase, `resolveMatch()` can be called on the `Match` which does the following:
 
 1. determines the winner
 2. alters the `BasicWinLoss` metadata of the `NFT` in `winLossRecords` based on the outcome
 
 To return escrowed NFTs, `returnPlayerNFTs()` can be called by either player after resolution (or timeout is reached), with the backup method `retrieveUnclaimedNFT()` allowing players to retrieve their individual NFTs should a problem with the one of the players' Receivers prevent return of both NFTs.
 
-Also know that a `Match` can be played in single-player mode. In this case, a player escrows their NFT and submits their move as usual. Once they submit their move, they must then call the `submitAutomatedPlayerMove()` contract method which generates & submits a move as the second automated player. After the moves have been submitted, `resolveMatch()` is then called to determine the outcome, but must be called in a separate transaction than move submission. This is enforced by block height difference between move submissions - not an ideal solution.
+Also know that a `Match` can be played in single-player mode. In this case, a player escrows their NFT and submits their move as usual. Once they submit their move, they must then call the `submitAutomatedPlayerMove()` contract method which generates & submits a move as the second automated player. In all cases, `resolveMatch()` is called after moves have been submitted to determine the outcome, but must be called in a separate transaction than move submission. This is enforced by block height difference between move submissions - not an ideal solution.
 
-We enforce separate transaction call because the automated player's move is generated using `unsafeRandom()` which can be gamed. For example, I could submit my move as rock and set a post-condition that that the outcome from the generated move results in a win, allowing me to game the system. An oracle or a safer randomness API implemented into Flow and Cadence can and will at some point solve this problem, removing the need for these workarounds. Until then, we compartmentalized the `Match` into these commit-resolve stages.
+These calls require separate transactions to prevent cheating on second move submission. For example, I could submit my move as rock and set a post-condition that that the outcome from the match results in a win for me, allowing me to game the system.
+
+Note that the automated player's move is generated using `unsafeRandom()` which can be gamed. An oracle or a safer randomness API implemented into Flow and Cadence can and will at some point solve this problem, removing the need for these workarounds. Until then, we compartmentalized the `Match` into these commit-resolve stages.
 
 >Note that a `Match` can only be utilized once.
 
