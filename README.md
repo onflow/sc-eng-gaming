@@ -58,11 +58,11 @@ Taking a look at Rock Paper Scissors, you'll see that it stands on its own - a u
 
 ___
 
-### Happy Path User Walkthrough
+## Happy Path User Walkthrough
 
 With the context and components explained, we can more closely examine how they interact in a full user interaction. For simplicity, we'll assume everything goes as it's designed and walk the happy path.
 
-#### Onboarding
+### **Onboarding**
 With linked accounts, there are two ways a user can onboard. First, a dApp can onboard a user with Web2 credentials, creating a Flow account for the user and abstracting away key management. We'll call this "Wallet-less" onboarding. Second, a user native to the Flow ecosystem can connect their wallet and start the dApp experience with controll over the app account. In our version, the dApp will still abstract key management, but will additionally delegate control over the app account to the user's authenticated account via AuthAccount Capabilities. We'll call this the "blockchain-native" onboarding flow.
 
 **Wallet-less Onboarding**
@@ -88,7 +88,7 @@ With linked accounts, there are two ways a user can onboard. First, a dApp can o
     1. Mints a MonsterMaker NFT to the new account's Collection
     1. Links the new account as a child of the user's account via the configured `ChildAccountManager`, giving the user delegated access of the newly created account
 
-#### Gameplay
+### Gameplay
 
 1. Single-Player Gameplay
     1. Player creates a new match, escrowing their NFT along with their NFT `Receiver`, emitting `NewMatchCreated` and `PlayerEscrowedNFTToMatch`. Note that match timeout is established on creation, which prevents the escrowed NFT from being retrieved during gameplay.
@@ -148,7 +148,7 @@ ___
 
 ## Demo on Emulator Using Flow CLI
 
-To demo the functionality of this repo, clone it and follow the steps below by entering each command using the AuthAccount Capability pre-release version of [Flow CLI](https://github.com/onflow/flow-cli/releases/tag/v0.45.1-cadence-attachments-3) from the package root:
+To demo the functionality of this repo, clone it and follow the steps below by entering each command using [Flow CLI](https://github.com/onflow/flow-cli/releases/tag/v0.45.1-cadence-attachments-3) (Attachments/AuthAccount Capability pre-release version) from the package root:
 
 ### Pre-Requisites
 
@@ -227,7 +227,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     ```
     
 2. Initialize walletless onboarding
-    1. `onboarding/walletless_onboarding`
+    * `onboarding/walletless_onboarding`
         1. `pubKey: String,`
         2. `fundingAmt: UFix64,`
         3. `childAccountName: String,`
@@ -244,7 +244,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     ```
     
 3. Query for new account address from public key
-    1. `child_account/get_child_address_from_public_key_on_creator: Address`
+    * `child_account/get_child_address_from_public_key_on_creator: Address`
         1. `creatorAddress: Address`
         2. `pubKey: String`
     
@@ -273,7 +273,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 #### **Gameplay**
 
 1. Query for `NFT.id` 
-    1. `game_piece_nft/get_collection_ids: [UInt64]`
+    * `game_piece_nft/get_collection_ids: [UInt64]`
         * `address: Address`
     
     ```sh
@@ -281,7 +281,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     ```
     
 2. Query for `GamePlayer.id`
-    1. `rock_paper_scissors_game/get_game_player_id: UInt64`
+    * `rock_paper_scissors_game/get_game_player_id: UInt64`
         * `playerAddress: Address`
     
     ```sh
@@ -289,7 +289,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     ```
     
 3. Setup a new singleplayer `Match`
-    1. `rock_paper_scissors_game/game_player/setup_new_singleplayer_match`
+    * `rock_paper_scissors_game/game_player/setup_new_singleplayer_match`
         1. `submittingNFTID: UInt64`
         2. `matchTimeLimitInMinutes: UInt`
     
@@ -307,7 +307,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     ```
     
 5. Submit moves for the `Match`
-    1. `rock_paper_scissors_game/game_player/submit_both_singleplayer_moves`
+    * `rock_paper_scissors_game/game_player/submit_both_singleplayer_moves`
         1. `matchID: UInt64`
         2. `move: UInt8`
     
@@ -316,14 +316,14 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     ```
     
 6. Resolve `Match` & return escrowed NFTs
-    1. `rock_paper_scissors_game/game_player/resolve_match_and_return_nfts`
+    * `rock_paper_scissors_game/game_player/resolve_match_and_return_nfts`
         * `matchID: UInt64`
     
     ```sh
     flow transactions send transactions/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc <MATCH_ID> --signer child
     ```
     
-7. Query move history for both players
+7. Query move history for both players one of a number of ways:
     1. Listen for `MatchOver` event filtered on `matchID == Match.id` and map user’s `GamePlayer.id` to `player1ID` or `player2ID` in the event values, displaying the `player1MoveRawValue` and `player2MoveRawValue` as appropriate
     2. `rock_paper_scissors_game/get_match_move_history: {UInt64: RockPaperScissorsGame.SubmittedMove}?`
         * `matchID: UInt64`
@@ -340,7 +340,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
         ```
         
 8. Query player’s NFT win/loss record
-    1. `game_piece_nft/get_rps_win_loss: GamingMetadataViews.BasicWinLoss?`
+    * `game_piece_nft/get_rps_win_loss: GamingMetadataViews.BasicWinLoss?`
         1. `address: Address`
         2. `id: UInt64`
         
@@ -411,7 +411,7 @@ In the end, the two accounts are linked by resource representation on-chain and 
     ```
     
 2. Initialize blockchain-native onboarding
-    1. `onboarding/blockchain_native_onboarding`
+    * `onboarding/blockchain_native_onboarding`
         1. `pubKey: String`
         2. `fundingAmt: UFix64`
         3. `childAccountName: String`
@@ -425,7 +425,7 @@ In the end, the two accounts are linked by resource representation on-chain and 
         </aside>
         
 3. Query for new account address from public key 
-    1. `child_account/get_child_address_from_public_key_on_creator: Address`
+    * `child_account/get_child_address_from_public_key_on_creator: Address`
         1. `creatorAddress: Address`
         2. `pubKey: String`
     
@@ -439,7 +439,7 @@ In the end, the two accounts are linked by resource representation on-chain and 
 Based on Match results (queried by in [7](https://www.notion.so/RPSGame-Onboarding-Walkthrough-201b7ae989704d6dbddb789028395e13) & [8](https://www.notion.so/RPSGame-Onboarding-Walkthrough-201b7ae989704d6dbddb789028395e13) above and checked against the [GamePlayer.id](http://GamePlayer.id) queried in [2](https://www.notion.so/RPSGame-Onboarding-Walkthrough-201b7ae989704d6dbddb789028395e13)), we’ll want to mint tokens to the child account’s `TicketToken.Vault`. These tokens can be redeemed for an `ArcadePrize.NFT` later in the demo.
 
 1. Mint tokens to the player’s app account
-    1. `ticket_token/mint_tokens`
+    * `ticket_token/mint_tokens`
         1. `recipient: Address`
         2. `amount: UFix64`
         
@@ -448,7 +448,7 @@ Based on Match results (queried by in [7](https://www.notion.so/RPSGame-Onboardi
         ```
         
 2. Query the balance of tokens in the account
-    1. `ticket_token/get_balance: UFix64` - panics if Vault is not configured
+    * `ticket_token/get_balance: UFix64` - panics if Vault is not configured
         * `of: Address`
     
     ```sh
@@ -470,27 +470,27 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
     
     1. `child_account/get_all_account_balances_from_storage: {Type: VaultInfo}`
         * `address: Address`
-    
-    ```sh
-    fse scripts/child_account/get_all_account_balances_from_storage.cdc <PARENT_ADDRESS>
-    ```
-    
-    ```jsx
-    // Where VaultInfo has the following interface
-    pub struct VaultInfo {
-        pub let name: String?
-        pub let symbol: String?
-        pub var balance: UFix64
-        pub let description: String?
-        pub let externalURL: String?
-        pub let logos: MetadataViews.Medias?
-        pub let storagePathIdentifier: String
-        pub let receiverPathIdentifier: String?
-        pub let providerPathIdentifier: String?
-    
-        pub fun addBalance(_ addition: UFix64)
-    }
-    ```
+        
+        ```sh
+        fse scripts/child_account/get_all_account_balances_from_storage.cdc <PARENT_ADDRESS>
+        ```
+        
+        ```jsx
+        // Where VaultInfo has the following interface
+        pub struct VaultInfo {
+            pub let name: String?
+            pub let symbol: String?
+            pub var balance: UFix64
+            pub let description: String?
+            pub let externalURL: String?
+            pub let logos: MetadataViews.Medias?
+            pub let storagePathIdentifier: String
+            pub let receiverPathIdentifier: String?
+            pub let providerPathIdentifier: String?
+        
+            pub fun addBalance(_ addition: UFix64)
+        }
+        ```
     
 2. Query for all publicly accessible NFTs in the connected account & its child accounts
     * `child_account/get_all_nft_display_views_from_public: [NFTData]`
@@ -517,7 +517,7 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
     ```
 
 1. Mint a rainbow duck for 10.0 TicketTokens, redeeming the TicketTokens in the user’s child account & minting to the signer’s Collection
-    1. `arcade_prize/mint_rainbow_duck_paying_with_child_vault`
+    * `arcade_prize/mint_rainbow_duck_paying_with_child_vault`
         1. `fundingChildAddress: Address`
         2. `minterAddress: Address`
     
@@ -525,8 +525,8 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
     flow transactions send transactions/arcade_prize/mint_rainbow_duck_paying_with_child_vault.cdc 179b6b1cb6755e31 01cf0e2f2f715450 --signer parent
     ```
     
-4. Again query for all publicly accessible NFTs in the connected account & its child accounts to see the NFT that was minted among all of the user’s owned NFTs
-    1. `child_account/get_all_nft_display_views_from_public: [NFTData]`
+1. Again query for all publicly accessible NFTs in the connected account & its child accounts to see the NFT that was minted among all of the user’s owned NFTs
+    * `child_account/get_all_nft_display_views_from_public: [NFTData]`
         * `address: Address`
     
     ```bash
