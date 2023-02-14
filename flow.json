@@ -4,7 +4,7 @@
 			"source": "./contracts/ArcadePrize.cdc",
 			"aliases": {
 				"emulator": "0xf8d6e0586b0a20c7",
-				"testnet": "0x22094f6e4423cdb8"
+				"testnet": "0x917b2b1dafdcfa58"
 			}
 		},
 		"ChildAccount": {
@@ -12,6 +12,13 @@
 			"aliases": {
 				"emulator": "0xf8d6e0586b0a20c7",
 				"testnet": "0x1b655847a90e644a"
+			}
+		},
+		"FlowToken": {
+			"source": "./contracts/utility/FlowToken.cdc",
+			"aliases": {
+				"emulator": "0xee82856bf20e2aa6",
+				"testnet": "0x7e60df042a9c0868"
 			}
 		},
 		"FungibleToken": {
@@ -34,7 +41,7 @@
 			"source": "./contracts/GamingMetadataViews.cdc",
 			"aliases": {
 				"emulator": "0xf8d6e0586b0a20c7",
-				"testnet": "0x22094f6e4423cdb8"
+				"testnet": "0x917b2b1dafdcfa58"
 			}
 		},
 		"MetadataViews": {
@@ -65,21 +72,22 @@
 			"source": "./contracts/RockPaperScissorsGame.cdc",
 			"aliases": {
 				"emulator": "0xf8d6e0586b0a20c7",
-				"testnet": "0x22094f6e4423cdb8"
+				"testnet": "0x917b2b1dafdcfa58"
 			}
 		},
 		"TicketToken": {
 			"source": "./contracts/TicketToken.cdc",
 			"aliases": {
 				"emulator": "0xf8d6e0586b0a20c7",
-				"testnet": "0x22094f6e4423cdb8"
+				"testnet": "0x917b2b1dafdcfa58"
 			}
 		}
 	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
-		"mainnet": "access.mainnet.nodes.onflow.org:9000",
-		"testnet": "access.devnet.nodes.onflow.org:9000"
+		"testnet": "access.devnet.nodes.onflow.org:9000",
+		"mainnet": "access.mainnet.nodes.onflow.org:9000"
+		
 	},
 	"accounts": {
 		"emulator-account": {
@@ -91,7 +99,7 @@
 			"key": "$LINKED_ACCOUNTS"
 		},
 		"game-account": {
-			"address": "0x22094f6e4423cdb8",
+			"address": "0x917b2b1dafdcfa58",
 			"key": "$GAME_ACCOUNT"
 		}
 	},
