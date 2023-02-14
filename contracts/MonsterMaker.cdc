@@ -1,5 +1,5 @@
-import NonFungibleToken from "./NonFungibleToken.cdc"
-import MetadataViews from "./MetadataViews.cdc"
+import NonFungibleToken from "./utility/NonFungibleToken.cdc"
+import MetadataViews from "./utility/MetadataViews.cdc"
 
 // The Monster contract containing sub-types and their specification:
 //
