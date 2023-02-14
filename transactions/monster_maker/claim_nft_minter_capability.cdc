@@ -3,20 +3,15 @@ import MonsterMaker from "../../contracts/MonsterMaker.cdc"
 /// Transaction that links an NFTMinter at the specified path (if it doesn't already exist),
 /// retrieves it, and publishes it for the specified recipient under the given name
 ///
-transaction(capabilityName: String, capabilityPath: CapabilityPath, recipient: Address) {
+transaction(capabilityName: String, storagePath: StoragePath, provider: Address) {
     prepare(signer: AuthAccount) {
-        if !signer.getCapability<&MonsterMaker.NFTMinter>(capabilityPath).check() {
-            signer.unlink(capabilityPath)
-            signer.link<&MonsterMaker.NFTMinter>(
-                capabilityPath,
-                target: MonsterMaker.MinterStoragePath
-            )
+        let minterCap = signer.inbox.claim<&MonsterMaker.NFTMinter>(
+            capabilityName,
+            provider: provider
+        ) ?? panic("No Capability available!")
+        if !minterCap.check() {
+            panic("Problem with Capability")
         }
-        let minterCap = signer.getCapability<&MonsterMaker.NFTMinter>(capabilityPath)
-        signer.inbox.publish(
-            minterCap,
-            name: capabilityName,
-            recipient: recipient
-        )
+        signer.save(minterCap, to: storagePath)
     }
 }
