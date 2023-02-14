@@ -60,6 +60,18 @@
 				"testnet": "0xfd3d8fe2c8056370"
 			}
 		},
+		"GamePieceNFT": {
+			"source": "./contracts/GamePieceNFT.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7"
+			}
+		},
+		"DynamicNFT": {
+			"source": "./contracts/DynamicNFT.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7"
+			}
+		},
 		"NonFungibleToken": {
 			"source": "./contracts/utility/NonFungibleToken.cdc",
 			"aliases": {
@@ -111,7 +123,11 @@
 				"FungibleTokenMetadataViews",
 				"ChildAccount",
 				"GamingMetadataViews",
-				"MonsterMaker"
+				"DynamicNFT",
+				"GamePieceNFT",
+				"TicketToken",
+				"ArcadePrize",
+				"RockPaperScissorsGame"
 			]
 		}
 	}
