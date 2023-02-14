@@ -1,6 +1,14 @@
-import NonFungibleToken from "./utility/NonFungibleToken.cdc"
-import MetadataViews from "./utility/MetadataViews.cdc"
+import NonFungibleToken from "./NonFungibleToken.cdc"
+import MetadataViews from "./MetadataViews.cdc"
 
+// The Monster contract containing sub-types and their specification:
+//
+// - Events
+// - The Monster NFT Resource
+// - MetadataViews that it supports, and their content
+// - The Collection Resource
+// - Minter Resource
+// - init() function
 pub contract MonsterMaker: NonFungibleToken {
 
     // totalSupply
@@ -19,9 +27,7 @@ pub contract MonsterMaker: NonFungibleToken {
     //
     pub let CollectionStoragePath: StoragePath
     pub let CollectionPublicPath: PublicPath
-    pub let ProviderPrivatePath: PrivatePath
     pub let MinterStoragePath: StoragePath
-    pub let MinterPrivatePath: PrivatePath
 
     pub struct MonsterComponent {
         pub var background: Int
@@ -350,9 +356,7 @@ pub contract MonsterMaker: NonFungibleToken {
         // Set our named paths
         self.CollectionStoragePath = /storage/MonsterMakerCollection
         self.CollectionPublicPath = /public/MonsterMakerCollection
-        self.ProviderPrivatePath = /private/MonsterMakerCollectionProvider
         self.MinterStoragePath = /storage/MonsterMakerMinter
-        self.MinterPrivatePath = /private/MonsterMakerMinter
 
         // Create a Collection resource and save it to storage
         let collection <- create Collection()
@@ -371,3 +375,4 @@ pub contract MonsterMaker: NonFungibleToken {
         emit ContractInitialized()
     }
 }
+ 

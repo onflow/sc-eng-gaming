@@ -24,9 +24,9 @@ transaction {
         if !signer.getCapability<
                 &MonsterMaker.Collection{NonFungibleToken.Provider}
             >(
-                MonsterMaker.ProviderPrivatePath
+                /private/MonsterMakerCollectionProvider
             ).check() {
-            signer.unlink(MonsterMaker.ProviderPrivatePath)
+            signer.unlink(/private/MonsterMakerCollectionProvider)
             // create a private capability for the collection
             signer.link<&MonsterMaker.Collection{NonFungibleToken.Provider}>(MonsterMaker.CollectionPublicPath, target: MonsterMaker.CollectionStoragePath)
         }

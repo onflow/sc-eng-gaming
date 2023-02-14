@@ -1,18 +1,22 @@
 import MonsterMaker from "../../contracts/MonsterMaker.cdc"
 
-/// This transactions gets a published NFTMinter Capability from the specified provider
-/// and saves it in the StoragePath
+/// Transaction that links an NFTMinter at the specified path (if it doesn't already exist),
+/// retrieves it, and publishes it for the specified recipient under the given name
 ///
-transaction(capabilityName: String, publishFor: Address) {
-
+transaction(capabilityName: String, capabilityPath: CapabilityPath, recipient: Address) {
     prepare(signer: AuthAccount) {
-        // Link the NFTMinter Capability if not already linked
-        if !signer.getCapability<&MonsterMaker.NFTMinter>(MonsterMaker.MinterPrivatePath).check() {
-            signer.unlink(MonsterMaker.MinterPrivatePath)
-            signer.link<&MonsterMaker.NFTMinter>(MonsterMaker.MinterPrivatePath, target: MonsterMaker.MinterStoragePath)
+        if !signer.getCapability<&MonsterMaker.NFTMinter>(capabilityPath).check() {
+            signer.unlink(capabilityPath)
+            signer.link<&MonsterMaker.NFTMinter>(
+                capabilityPath,
+                target: MonsterMaker.MinterStoragePath
+            )
         }
-        // Get a capability to the minter
-        let minterCap = signer.getCapability<&MonsterMaker.NFTMinter>(MonsterMaker.MinterPrivatePath)
-        signer.inbox.publish(minterCap, name: capabilityName, recipient: publishFor)
+        let minterCap = signer.getCapability<&MonsterMaker.NFTMinter>(capabilityPath)
+        signer.inbox.publish(
+            minterCap,
+            name: capabilityName,
+            recipient: recipient
+        )
     }
 }

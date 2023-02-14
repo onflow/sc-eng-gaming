@@ -93,13 +93,13 @@ transaction {
             )
         }
         // Check public capabilities on the parent's collection
-        if !parent.getCapability<&MonsterMaker.Collection{NonFungibleToken.Provider}>(MonsterMaker.ProviderPrivatePath).check() {
+        if !parent.getCapability<&MonsterMaker.Collection{NonFungibleToken.Provider}>(/private/MonsterMakerCollectionProvider).check() {
             // Link the Provider Capability in private storage
-            parent.unlink(MonsterMaker.ProviderPrivatePath)
+            parent.unlink(/private/MonsterMakerCollectionProvider)
             parent.link<&{
                 NonFungibleToken.Provider
             }>(
-                MonsterMaker.ProviderPrivatePath,
+                /private/MonsterMakerCollectionProvider,
                 target: MonsterMaker.CollectionStoragePath
             )
         }
