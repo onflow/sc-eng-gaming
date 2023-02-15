@@ -105,7 +105,7 @@ transaction(
         //
         // Borrow a reference to the Minter Capability in minter account's storage
         self.minterRef = signer.borrow<
-                &Capability<&GamePieceNFT.Minter>
+                &GamePieceNFT.Minter
             >(
                 from: GamePieceNFT.MinterStoragePath
             ) ?? panic("Couldn't borrow reference to Minter Capability in storage at ".concat(GamePieceNFT.MinterStoragePath.toString()))
