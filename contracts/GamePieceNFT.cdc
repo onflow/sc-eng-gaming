@@ -6,20 +6,10 @@ import DynamicNFT from "./DynamicNFT.cdc"
 
 /// GamePieceNFT
 ///
-/// In this contract, we defined an NFT designed for use in games.
-/// The primary differentiation between this and standard NFTs is the
-/// mapping of GamingMetadataViews.BasicWinLossRetriever Capabilities
-/// and the function addWinLossRetriever() which is included so that
-/// games in which the NFT is used can add said Capability. This pattern
-/// emerged as a way to enable win/loss data for games where the NFT is
-/// played to be mutated by the games and enable the NFT to maintain
-/// win/loss data for any game in which it's played without the need for
-/// the owner to pay for the storage of that win/loss data.
-///
-/// We hope that this pattern can be built on for more complex gaming
-/// applications with more complex metadata as a powerful method for 
-/// defining attributes that can be mutated, but in a manner that ensures
-/// mutation is only performed by the game in which the NFT is played.
+/// In this contract, we defined an NFT designed to receive attachments
+/// as resources which implements interfaces defined in DynamicNFT. It's
+/// heavily modeled on MonsterMaker, using images from that NFT collection
+/// as well as many values & methods from that collection.
 ///
 pub contract GamePieceNFT: NonFungibleToken {
 
@@ -93,9 +83,7 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
         
         pub fun description(): String {
-            return "Monster "
-                .concat(" with serial number ")
-                .concat(self.id.toString())
+            return "Monster with serial number ".concat(self.id.toString())
         }
 
         pub fun thumbnail(): MetadataViews.HTTPFile {

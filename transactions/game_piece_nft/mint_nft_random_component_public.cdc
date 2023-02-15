@@ -16,13 +16,13 @@ transaction(minterAddress: Address) {
 
     prepare(signer: AuthAccount) {
 
-        // Borrow a reference to the MinterPublic in storage
+        // Borrow a reference to the MinterPublic
         self.minterPublicRef = getAccount(minterAddress).getCapability<
                 &GamePieceNFT.Minter{GamePieceNFT.MinterPublic}
             >(
                 GamePieceNFT.MinterPublicPath
             ).borrow()
-            ?? panic("Couldn't borrow reference to MinterPublic from Capability")
+            ?? panic("Couldn't borrow reference to MinterPublic at ".concat(address.toString()))
         // if the account doesn't already have a collection
         if signer.borrow<&GamePieceNFT.Collection>(from: GamePieceNFT.CollectionStoragePath) == nil {
             // create & save it to the account
@@ -30,9 +30,7 @@ transaction(minterAddress: Address) {
         }
         if !signer.getCapability<
                 &GamePieceNFT.Collection{NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, GamePieceNFT.GamePieceNFTCollectionPublic, MetadataViews.ResolverCollection}
-            >(
-                GamePieceNFT.CollectionPublicPath
-            ).check() {
+            >(GamePieceNFT.CollectionPublicPath).check() {
             signer.unlink(GamePieceNFT.CollectionPublicPath)
             // create a public capability for the collection
             signer.link<
@@ -44,9 +42,7 @@ transaction(minterAddress: Address) {
         }
         if !signer.getCapability<
                 &GamePieceNFT.Collection{NonFungibleToken.Provider}
-            >(
-                GamePieceNFT.ProviderPrivatePath
-            ).check() {
+            >(GamePieceNFT.ProviderPrivatePath).check() {
             signer.unlink(GamePieceNFT.ProviderPrivatePath)
             // create a private capability for the collection
             signer.link<

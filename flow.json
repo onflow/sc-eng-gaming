@@ -64,13 +64,6 @@
 				"testnet": "0x631e88ae7f1d7c20"
 			}
 		},
-		"MonsterMaker": {
-			"source": "./contracts/MonsterMaker.cdc",
-			"aliases": {
-				"emulator": "0xf8d6e0586b0a20c7",
-				"testnet": "0xfd3d8fe2c8056370"
-			}
-		},
 		"NonFungibleToken": {
 			"source": "./contracts/utility/NonFungibleToken.cdc",
 			"aliases": {
@@ -106,11 +99,11 @@
 		},
 		"linked-accounts": {
 			"address": "0x1b655847a90e644a",
-            "key": "$LINKED_ACCOUNTS"
+			"key": "$LINKED_ACCOUNTS"
 		},
 		"game-account": {
 			"address": "0x917b2b1dafdcfa58",
-             "key": "$GAME_ACCOUNT"
+			"key": "$GAME_ACCOUNT"
 		}
 	},
 	"deployments": {

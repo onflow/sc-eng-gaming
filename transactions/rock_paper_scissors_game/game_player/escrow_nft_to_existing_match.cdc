@@ -2,7 +2,7 @@ import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
 import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
-/// Transaction escrows the specified MonsterMaker to the specified
+/// Transaction escrows the specified GamePieceNFT to the specified
 /// Match.id for which the signer has a MatchLobbyActions in their GamePlayer
 ///
 transaction(matchID: UInt64, escrowNFTID: UInt64) {
