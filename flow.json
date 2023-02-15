@@ -17,7 +17,8 @@
 		"DynamicNFT": {
 			"source": "./contracts/DynamicNFT.cdc",
 			"aliases": {
-				"emulator": "0xf8d6e0586b0a20c7"
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x917b2b1dafdcfa58"
 			}
 		},
 		"FlowToken": {
@@ -46,7 +47,8 @@
 		"GamePieceNFT": {
 			"source": "./contracts/GamePieceNFT.cdc",
 			"aliases": {
-				"emulator": "0xf8d6e0586b0a20c7"
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x917b2b1dafdcfa58"
 			}
 		},
 		"GamingMetadataViews": {
