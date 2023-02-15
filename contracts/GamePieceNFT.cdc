@@ -78,11 +78,11 @@ pub contract GamePieceNFT: NonFungibleToken {
 
         init(
             metadata: {String: AnyStruct},
-            component: GamePieceNFT.Component
+            component: GamePieceNFT.MonsterComponent
         ) {
             self.id = self.uuid
             self.attachments <- {}
-            self.description = metadata["description"]! as! String
+            self.metadata = metadata
             self.component = component
         }
 
@@ -99,7 +99,7 @@ pub contract GamePieceNFT: NonFungibleToken {
         }
 
         pub fun thumbnail(): MetadataViews.HTTPFile {
-          return MetadataViews.HTTPFile(url: "https://monster-maker.vercel.app/api/image/".concat(MonsterMaker.componentToString(self.component)))
+          return MetadataViews.HTTPFile(url: "https://monster-maker.vercel.app/api/image/".concat(GamePieceNFT.componentToString(self.component)))
         }
 
         /** --- DynamicNFT.Dynamic --- */
@@ -450,12 +450,18 @@ pub contract GamePieceNFT: NonFungibleToken {
     pub resource interface MinterAdmin {
         pub fun setMintingPermissions(allowMinting: Bool)
         pub fun mintingAllowed(): Bool
-        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic})
+        pub fun mintNFT(
+            recipient: &{NonFungibleToken.CollectionPublic},
+            component: GamePieceNFT.MonsterComponent
+        )
     }
 
     pub resource interface MinterPublic {
         pub fun mintingAllowed(): Bool
-        pub fun mintNFT(recipient: &{NonFungibleToken.CollectionPublic})
+        pub fun mintNFT(
+            recipient: &{NonFungibleToken.CollectionPublic},
+            component: GamePieceNFT.MonsterComponent
+        )
     }
 
     pub resource Minter : MinterAdmin, MinterPublic {
@@ -490,13 +496,12 @@ pub contract GamePieceNFT: NonFungibleToken {
         ///
         pub fun mintNFT(
             recipient: &{NonFungibleToken.CollectionPublic}, 
-            component: MonsterMaker.MonsterComponent
+            component: GamePieceNFT.MonsterComponent
         ) {
             pre {
                 self.allowMinting: "Minting not currently allowed!"
             }
             let metadata: {String: AnyStruct} = {}
-            let component: MonsterComponent = GamePieceNFT.getRandomComponent()
             let currentBlock = getCurrentBlock()
             metadata["mintedBlock"] = currentBlock.height
             metadata["mintedTime"] = currentBlock.timestamp
@@ -507,7 +512,7 @@ pub contract GamePieceNFT: NonFungibleToken {
             metadata["legs"] = component.legs
             
             // create a new NFT
-            var newNFT <- create MonsterMaker.NFT(
+            var newNFT <- create GamePieceNFT.NFT(
                 metadata: metadata,
                 component: component, 
             )
@@ -523,7 +528,7 @@ pub contract GamePieceNFT: NonFungibleToken {
                 component: component
             )
 
-            MonsterMaker.totalSupply = MonsterMaker.totalSupply + 1
+            GamePieceNFT.totalSupply = GamePieceNFT.totalSupply + 1
         }
     }
 
@@ -574,9 +579,9 @@ pub contract GamePieceNFT: NonFungibleToken {
         self.MinterPrivatePath = /private/GamePieceNFTMinter
 
         // Create & save the Minter resource
-        self.account.save(<-create NFTMinter(), to: self.MinterStoragePath)
-        self.account.link<&{GamePieceNFT.MinterPublic}>(self.MinterPublicPath, target: self.MinterStoragePath)
-        self.account.link<&{GamePieceNFT.MinterAdmin}>(self.MinterPrivatePath, target: self.MinterStoragePath)
+        self.account.save(<-create Minter(), to: self.MinterStoragePath)
+        self.account.link<&GamePieceNFT.Minter{GamePieceNFT.MinterPublic}>(self.MinterPublicPath, target: self.MinterStoragePath)
+        self.account.link<&GamePieceNFT.Minter{GamePieceNFT.MinterAdmin}>(self.MinterPrivatePath, target: self.MinterStoragePath)
 
         emit ContractInitialized()
     }

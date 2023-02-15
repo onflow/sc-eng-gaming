@@ -1,4 +1,3 @@
-import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
 /// Transaction that sets up GamePlayer resource in signing account

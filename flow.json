@@ -14,10 +14,16 @@
 				"testnet": "0x1b655847a90e644a"
 			}
 		},
+		"DynamicNFT": {
+			"source": "./contracts/DynamicNFT.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7"
+			}
+		},
 		"FlowToken": {
 			"source": "./contracts/utility/FlowToken.cdc",
 			"aliases": {
-				"emulator": "0xee82856bf20e2aa6",
+				"emulator": "0x0ae53cb6e3f42a79",
 				"testnet": "0x7e60df042a9c0868"
 			}
 		},
@@ -25,16 +31,22 @@
 			"source": "./contracts/utility/FungibleToken.cdc",
 			"aliases": {
 				"emulator": "0xee82856bf20e2aa6",
-				"testnet": "0x9a0766d93b6608b7",
-				"mainnet": "0xf233dcee88fe0abe"
+				"mainnet": "0xf233dcee88fe0abe",
+				"testnet": "0x9a0766d93b6608b7"
 			}
 		},
 		"FungibleTokenMetadataViews": {
 			"source": "./contracts/utility/FungibleTokenMetadataViews.cdc",
 			"aliases": {
 				"emulator": "0xf8d6e0586b0a20c7",
-				"testnet": "0x9a0766d93b6608b7",
-				"mainnet": "0xf233dcee88fe0abe"
+				"mainnet": "0xf233dcee88fe0abe",
+				"testnet": "0x9a0766d93b6608b7"
+			}
+		},
+		"GamePieceNFT": {
+			"source": "./contracts/GamePieceNFT.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7"
 			}
 		},
 		"GamingMetadataViews": {
@@ -48,9 +60,8 @@
 			"source": "./contracts/utility/MetadataViews.cdc",
 			"aliases": {
 				"emulator": "0xf8d6e0586b0a20c7",
-				"testnet": "0x631e88ae7f1d7c20",
-				"mainnet": "0x1d7e57aa55817448"
-				
+				"mainnet": "0x1d7e57aa55817448",
+				"testnet": "0x631e88ae7f1d7c20"
 			}
 		},
 		"MonsterMaker": {
@@ -58,18 +69,6 @@
 			"aliases": {
 				"emulator": "0xf8d6e0586b0a20c7",
 				"testnet": "0xfd3d8fe2c8056370"
-			}
-		},
-		"GamePieceNFT": {
-			"source": "./contracts/GamePieceNFT.cdc",
-			"aliases": {
-				"emulator": "0xf8d6e0586b0a20c7"
-			}
-		},
-		"DynamicNFT": {
-			"source": "./contracts/DynamicNFT.cdc",
-			"aliases": {
-				"emulator": "0xf8d6e0586b0a20c7"
 			}
 		},
 		"NonFungibleToken": {
@@ -97,9 +96,8 @@
 	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
-		"testnet": "access.devnet.nodes.onflow.org:9000",
-		"mainnet": "access.mainnet.nodes.onflow.org:9000"
-		
+		"mainnet": "access.mainnet.nodes.onflow.org:9000",
+		"testnet": "access.devnet.nodes.onflow.org:9000"
 	},
 	"accounts": {
 		"emulator-account": {
@@ -108,11 +106,11 @@
 		},
 		"linked-accounts": {
 			"address": "0x1b655847a90e644a",
-			"key": "$LINKED_ACCOUNTS"
+            "key": "$LINKED_ACCOUNTS"
 		},
 		"game-account": {
 			"address": "0x917b2b1dafdcfa58",
-			"key": "$GAME_ACCOUNT"
+             "key": "$GAME_ACCOUNT"
 		}
 	},
 	"deployments": {

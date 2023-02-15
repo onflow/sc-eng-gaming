@@ -1,9 +1,9 @@
 import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
-import MonsterMaker from "../../../contracts/MonsterMaker.cdc"
+import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
 /// The signer signs up for the specified Match.id, setting up a GamePlayer resource
-/// if need be in the process and escrowing the specified MonsterMaker NFT
+/// if need be in the process and escrowing the specified GamePieceNFT NFT
 ///
 transaction(matchID: UInt64, escrowNFTID: UInt64) {
 
@@ -51,16 +51,16 @@ transaction(matchID: UInt64, escrowNFTID: UInt64) {
         self.receiverCap = signer.getCapability<
                 &{NonFungibleToken.Receiver}
             >(
-                MonsterMaker.CollectionPublicPath
+                GamePieceNFT.CollectionPublicPath
             )
         // Get a reference to the account's Provider
         let providerRef = signer.borrow<
                 &{NonFungibleToken.Provider}
             >(
-                from: MonsterMaker.CollectionStoragePath
+                from: GamePieceNFT.CollectionStoragePath
             ) ?? panic("Could not borrow reference to account's Provider")
         // Withdraw the desired NFT
-        self.nft <-providerRef.withdraw(withdrawID: escrowNFTID) as! @MonsterMaker.NFT
+        self.nft <-providerRef.withdraw(withdrawID: escrowNFTID) as! @GamePieceNFT.NFT
     }
 
     execute {
