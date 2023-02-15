@@ -96,7 +96,7 @@ transaction {
             )
         }
         // Check for private capabilities
-        if !parent.getCapability<&GamePieceNFT.Collection{NonFungibleToken.Provider}}>(GamePieceNFT.ProviderPrivatePath).check() {
+        if !parent.getCapability<&GamePieceNFT.Collection{NonFungibleToken.Provider}>(GamePieceNFT.ProviderPrivatePath).check() {
             // Link the Provider Capability in private storage
             parent.unlink(GamePieceNFT.ProviderPrivatePath)
             parent.link<
