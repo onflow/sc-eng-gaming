@@ -7,7 +7,7 @@ transaction {
     prepare(signer: AuthAccount) {
         // Return early if already configured
         if let ref = signer.borrow<&ChildAccount.ChildAccountCreator>
-                                (from: ChildAccount.ChildAccountCreatorStoragePath) {
+            (from: ChildAccount.ChildAccountCreatorStoragePath) {
             return
         }
         signer.save(

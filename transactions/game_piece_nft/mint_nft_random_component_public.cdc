@@ -22,7 +22,7 @@ transaction(minterAddress: Address) {
             >(
                 GamePieceNFT.MinterPublicPath
             ).borrow()
-            ?? panic("Couldn't borrow reference to MinterPublic at ".concat(address.toString()))
+            ?? panic("Couldn't borrow reference to MinterPublic at ".concat(minterAddress.toString()))
         // if the account doesn't already have a collection
         if signer.borrow<&GamePieceNFT.Collection>(from: GamePieceNFT.CollectionStoragePath) == nil {
             // create & save it to the account

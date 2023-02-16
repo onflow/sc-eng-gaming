@@ -542,31 +542,44 @@ If you want to play this game on testnet in a fully fledged Hybrid Custody dApp,
 
 As for good old fashioned self-custody, while you won't be able to perform TicketToken minting, you can play RockPaperScissors Matches using your own wallet and NFTs. You could however use your own NFTs to engage with the contracts via Flow CLI, [FlowRunner](https://runflow.pratikpatel.io/) or [Raft](https://raft.page/nvdtf/welcome-to-raft). Here's how:
 
-1. Mint a [MonsterMaker NFT](https://monster-maker-web-client.vercel.app/)
-    1. Connect your wallet
-    1. Initialize your account
-    1. Choose your monster configuration
-    1. Mint!
-    1. View in app. Alternatively, you can check out your account in [FlowView](https://testnet.flowview.app/)
-1. Once you have your NFT, you need to setup your account's GamePlayer resource
-    * `/rock_paper_scissors_game/game_player/setup_game_player.cdc`
-1. After you have an NFT & GamePlayer configured, you're ready to play the game!
+1. Onboard your account with GamePieceNFT Collection, NFT, & GamePlayer resource
+    * `onboarding/self_custody_onboarding.cdc`
+        * `minterAddress: Address`
+    ```
+    flow transactions send transactions/onboarding/self_custody_onboarding.cdc 917b2b1dafdcfa58 --signer <YOUR_ACCOUNT_NAME> --network testnet
+    ```
+    1. Check out your new resources on [FlowView](https://testnet.flowview.app/) & note your GamePlayer.id & NFT.id
+1. After you have a Collection, NFT, & GamePlayer configured, you're ready to play the game!
     * `/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc`
         1. `submittingNFTID: UInt64`
         1. `matchTimeLimitInMinutes: UInt`
+    ```
+    flow transactions send transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc <NFT_ID> <MATCH_TIMEOUT> --signer <YOUR_ACCOUNT_NAME> --network testnet
+    ```
 1. Submit your move & the randomized second player's move
     * `/rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc`
         1. `matchID: UInt64`
-        1. `move: UInt8`
+        1. `move: UInt8` - 0: rock, 1: paper, 2: scissors
+    ```
+    flow transactions send transactions/rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc <MATCH_ID> <MOVE> --signer <YOUR_ACCOUNT_NAME> --network testnet
+    ```
 1. Resolve the Match & return your NFT. Note that resolution needs to occur at least one block from when the last move was submitted.
     * `/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc`
         * `matchID: UInt64`
+    ```
+    flow transactions send transactions/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc <MATCH_ID> --signer <YOUR_ACCOUNT_NAME> --network testnet
+    ```
+    
 1. Query the moves played for the Match
     * `rock_paper_scissors_game/get_match_move_history: {UInt64: RockPaperScissorsGame.SubmittedMove}?`
         * `matchID: UInt64`
+    ```
+    flow scripts execute scripts/rock_paper_scissors_game/get_match_move_history.cdc <MATCH_ID> --network testnet
+    ```
 1. You can additionally query your NFT's win/loss record
     * `game_piece_nft/get_rps_win_loss: GamingMetadataViews.BasicWinLoss?`
         1. `address: Address`
         2. `id: UInt64`
-
-And you just used a MonsterMaker NFT to play singleplayer Rock Paper Scissors on-chain!
+    ```
+    flow scripts execute scripts/ <YOUR_ADDRESS> <NFT_ID> --network testnet
+    ```
