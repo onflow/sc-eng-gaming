@@ -8,11 +8,11 @@
 
 As gaming makes its way into Web 3.0, bringing with it the next swath of mainstream users, we created this repo as a playground to develop proof of concept implementations that showcase the power of on-chain games built with the Cadence resource-oriented programming language. Through this exploration, we discovered the importance of improving onboarding, reducing friction in dApp user experience, and so iterated our way to a working hybrid custody model. It's our hope that the work and exploration here uncovers unique design patterns that are useful towards composable game designs and, more broadly, novel dApp custody models, helping to pave the way for a thriving community of developers building the best dApps in the world on Flow.
 
-For our first proof of concept game, we've created the `RockPaperScissorsGame` and supporting contract `GamingMetadataViews`. Taken together with any NFT (`MonsterMaker` as an example), these contracts define an entirely on-chain game with a dynamic NFT that accesses an ongoing record of its win/loss data via native Cadence attachments added to the NFT upon escrow.
+For our first proof of concept game, we've created the `RockPaperScissorsGame` and supporting contract `GamingMetadataViews`. As a learning ground for upcoming Cadence Attachments, we wanted to demonstrate how NFT metadata could be altered via gameplay in an entirely separate contract than it was defined. So we created `DynamicNFT` which contains interfaces for attachments & receivers for those attachments. The attachment receiver portion of that model is implemented in `GamePieceNFT` (modeled heavily after [`MonsterMaker`](https://github.com/onflow/monster-maker)) and the attachments are implemented in `RockPaperScissorsGame`. Taken together with any NFT implementing `DynamicNFT`, these contracts define an entirely on-chain game with a dynamic NFT that accesses an ongoing record of its win/loss data via native Cadence attachments added to the NFT upon escrow.
 
 As this proof of concept has been iteratively improved, we've created a host of reference examples demonstrating how game developers could build games on Flow - some entirely on-chain while others blend on and off-chain architectures along with considerations for each design. The repo you're viewing places focus on on-chain, player-mediated gameplay along with support for linked accounts (AKA hybrid custody model).
 
-We believe that smart contract-powered gaming is not only possible, but that it will add to the gaming experience and unlock totally new mechanisms of gameplay. Imagine a world where games require minimal, if any, backend support - just a player interfacing with an open-sourced local client making calls to a smart contract. Player's get maximum transparency, trustlessness, verifiability, and total ownership of their game assets. By leveraging the new [hybrid custody model](https://flow.com/post/flow-blockchain-mainstream-adoption-easy-onboarding-wallets) enabled in this repo and implemented in [@onflow/flow-games-retro](https://github.com/onflow/flow-games-retro), the UX and custodial challenges inherent to building on-chain games are alleviated, empowering developers to push the boundaries of in-game asset ownership, platform interoperability, and data & resource composability.
+We believe that smart contract-powered gaming is not only possible, but that it will add to the gaming experience and unlock totally new mechanisms of gameplay. Imagine a world where games require minimal, if any, backend support - just a player interfacing with an open-sourced local client making calls to a smart contract. Player's get maximum transparency, trustlessness, verifiability, and total ownership of their game assets. By leveraging the new [hybrid custody model](https://flow.com/post/flow-blockchain-mainstream-adoption-easy-onboarding-wallets) enabled in this repo via the `ChildAccount` contract and implemented in an upcoming demo dApp, the UX and custodial challenges inherent to building on-chain games are alleviated, empowering developers to push the boundaries of in-game asset ownership, platform interoperability, and data & resource composability.
 
 With a community of open-source developers building on a shared blockchain, creativity could be poured into in-game experiences via community supported game clients while all players rest assured that their game assets are secured and core game logic remains unchanged. Game leaderboards emerge as inherent to the architecture of a publicly queryable blockchain, and eventually efficient Access Node querying. Game assets and logic designed for use in one game can be used as building blocks in another, while matches and tournaments could be defined to have real stakes and rewards.
 
@@ -20,11 +20,11 @@ The entirety of that composable gaming future is possible on Flow, and starts wi
 
 ### Gameplay Overview
 
-To showcase this promised composability, we constructed contracts to support a multi-dApp experience starting with a game of Rock, Paper, Scissors (RPS). Straightforward enough, players can engage in single or two-player single round matches of RPS. After configuring their `GamePlayer` resource, they can start a match by escrowing any NFT. The match is playable once both players have escrowed their NFTs (or after the first player to escrow if in single player mode). The escrowed NFT gets an attachment that retrieves its win/loss record and another that maintains the playable moves for the game - rock, paper, and scissors, as expected.
+To showcase this promised composability, we constructed contracts to support a multi-dApp experience starting with a game of Rock, Paper, Scissors (RPS). Straightforward enough, players can engage in single or two-player single round matches of RPS. After configuring their `GamePlayer` resource, they can start a match by escrowing a `GamePieceNFT`. The match is playable once both players have escrowed their NFTs (or after the first player to escrow if in single player mode). The escrowed NFT gets an attachment that retrieves its win/loss record and another that maintains the playable moves for the game - rock, paper, and scissors, as expected.
 
 Once playable, the match proceeds in stages - commit and resolve (to be replaced by a commit-reveal pattern to obfuscate on-chain moves). Players first must commit their moves. After both players have submitted moves, the match can be resolved. On resolution, a winner is determined and the associated NFT's win/loss record is amended with the match results. Of course, once the match is over (or if a timeout is reached without resolution) the escrowed NFTs can then be returned to their respective escrowing players.
 
-The [game dApp demo](https://github.com/onflow/walletless-arcade-example) showcases how developers can build on these contracts to create novel in-game experiences using the hybrid custody model. To facilitate a fuller game experience, `TicketToken` was introduced to be awarded on wins, just like an arcade. After onboarding a user with a hybrid custody model implementation, a dApp can perform all actions without requiring a single user signature all while the user maintains full access to the app account via delegated AuthAccount Capability.
+The soon to be revealed game dApp demo showcases how developers can build on these contracts to create novel in-game experiences using the hybrid custody model. To facilitate a fuller game experience in said dApp, `TicketToken` was introduced as a player reward for winning matches, just like an arcade. After onboarding a user with a hybrid custody model implementation, a dApp can perform all actions without requiring a single user signature all while the user maintains full access to the app account via delegated AuthAccount Capability stored in their `ChildAccountManager`.
 
 The accompanying `TicketToken` and `ArcadePrize` contracts aren't special in and of themselves - simple FT and NFT contracts. However, once a user links their wallet with the app account used to play `RockPaperScissorsGame` - the account issued `TicketToken` on match wins - the authenticated account is issued an AuthAccount Capability on the app account. This on-chain linking between accounts establishes what we'll call a "parent-child" hierarchy between user accounts where the user's wallet mediated account is the "parent" to the partitioned "child" account.
 
@@ -41,7 +41,7 @@ This small use case unlocks a whole world of possibilities, merging walled garde
 As mentioned above, the supporting contracts for this game have been compartmentalized to four primary contracts. At a high level, those are:
 
 #### **Gaming**
-* **GamingMetadataViews** - Defining the metadata structs relevant to an NFT's win/loss data and assigned moves as well as interfaces designed to be implemented as attachments for NFTs.
+* **GamingMetadataViews** - Defining the metadata structs relevant to an NFT's win/loss data and assigned moves as well as interfaces designed to be implemented as attachments for NFTs. These interfaces enable the implementing contracts to alter values associated with data on an NFT's attachments via limited access control, a useful feature for smart contract game development, among other use cases.
 
 * **RockPaperScissorsGame** - As you might imagine, this contract contains the game's moves, logic as well as resources and interfaces defining the rules of engagement in the course of a match. Additionally, receivers for Capabilities to matches are defined in `GamePlayer` resource and interfaces that allow players to create matches, be added and add others to matches, and engage with the matches they're in. The `Match` resource is defined as a single round of Rock, Paper, Scissors that can be played in either single or two player modes, with single-player modes randomizing the second player's move on a contract function call.
 
@@ -49,12 +49,13 @@ As mentioned above, the supporting contracts for this game have been compartment
 * **ChildAccount** - The resources enabling the "parent-child" account hierarchical model are defined within this contract. `ChildAccountCreator` can be used to create app accounts, funding creation by the signer and tagging accounts with pertinent metadata (`ChildAccountInfo`) in a `ChildAccountTag`. A parent account maintains a `ChildAccountManager` which captures any linked child accounts' `AuthAccount` and `ChildAccountTag` Capabilities in a `ChildAccountController`, indexing the nested resource on the child account's address.
 
 #### **Supporting**
-* **MonsterMaker** - An example NFT implementation, [seen elsewhere](https://monster-maker-web-client.vercel.app/) in Flow demos, used to demonstrate NFT escrow in `RockPaperScissorsGame` gameplay.
+* **DynamicNFT** - This contract defines interfaces for attachments & resources which receive those attachments as nested resources as well as resolve metadata related those attachments.
+* **GamePieceNFT** - An example NFT implementation of `DynamicNFT`, [featuring png's seen elsewhere](https://monster-maker-web-client.vercel.app/) in Flow demos, and used to demonstrate NFT escrow in `RockPaperScissorsGame` gameplay.
 * **TicketToken** - A simple FungibleToken implementation intended for use as redemption tokens in exchange for `ArcadePrize` NFTs
 * **ArcadePrize** - Another example implementation, this time of a NonFungibleToken. Minting requires `TicketToken` redemption. An interesting note, you can redeem
 
 ### **Composition**
-Taking a look at Rock Paper Scissors, you'll see that it stands on its own - a user with any NFT can engage with the game to play single and multiplayer matches. The same goes for TicketTokens and MonsterMaker contracts in that they are independent components not necessarily designed to be used together. We created each contract as a composable building block and put them together to create a unique [game dApp demo](https://github.com/onflow/walletless-arcade-example), incorporating ChildAccounts as a middle layer abstracting user identity from a single account to a network of associated accounts. 
+Taking a look at `RockPaperScissorsGame`, you'll see that it stands on its own - a user with any `DynamicNFT` can engage with the game to play single and multiplayer matches. The same goes for `TicketToken` and `GamePieceNFT` contracts in that they are independent components not necessarily designed to be used together. We created each set of contracts as composable building blocks and put them together to create a unique dApp experience, incorporating ChildAccounts as a middle layer abstracting user identity from a single account to a network of associated accounts. 
 
 ___
 
@@ -68,9 +69,9 @@ With linked accounts, there are two ways a user can onboard. First, a dApp can o
 **Wallet-less Onboarding**
 1. After a user authenticates via some traditional Web2 authentication mechanism, the dApp initiates walletless onboarding
     1. A new public/private key pair is generated
-    1. Providing the generated public key, app account metadata, and MonsterMaker components, the walletless onboarding transaction starts by creating a new account from the signer's `ChildAccountCreator` resource
-    1. A MonsterMaker Collection is configured in the new account
-    1. The signer mints a MonsterMaker NFT to the new account's Collection
+    1. Providing the generated public key, app account metadata, and MonsterComponent, the walletless onboarding transaction starts by creating a new account from the signer's `ChildAccountCreator` resource
+    1. A GamePieceNFT Collection is configured in the new account
+    1. The signer mints a GamePieceNFT to the new account's Collection
     1. A GamePlayer resource is configured in the new account so it can play RockPaperScissorsGame Matches
     1. A TicketToken Vault is saved & linked in the new account
 
@@ -79,13 +80,13 @@ With linked accounts, there are two ways a user can onboard. First, a dApp can o
     1. Given a generated public key (private key managed by the game dev)
     1. Creates a new account
     1. Links an AuthAccount Capability in the new account's private storage
-    1. Configures the account with a MonsterMaker Collection
+    1. Configures the account with a GamePieceNFT Collection
     1. Configures the new account with a GamePlayer resource
     1. Sets up a TicketToken Vault in the new account
-    1. Sets up MonsterMaker collection in the user's connected account
+    1. Sets up GamePieceNFT collection in the user's connected account
     1. Sets up a TicketToken Vault in the user's connected account
     1. Configures a `ChildAccountManager` in the user's account
-    1. Mints a MonsterMaker NFT to the new account's Collection
+    1. Mints a GamePieceNFT to the new account's Collection
     1. Links the new account as a child of the user's account via the configured `ChildAccountManager`, giving the user delegated access of the newly created account
 
 ### Gameplay
