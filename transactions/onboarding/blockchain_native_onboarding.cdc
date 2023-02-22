@@ -6,25 +6,11 @@ import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 import ChildAccount from "../../contracts/ChildAccount.cdc"
 import TicketToken from "../../contracts/TicketToken.cdc"
 
-// TODO: Update summary comment
-/// This transaction sets a user's main account up with the following
-///   - GamePieceNFT.Collection
-///   - ChildAccount.ChildAccountManager with ChildAccountController for new child account
-/// And configures the new account with resources & Capabilities to play RockPaperScissorsGame Matches
-/// This transaction assumes that the child accounts has already been created & has published 
-/// a Capability to its AuthAccount in a separate transaction.
-///
-/// Note: A "child account" is an account that has delegated a Capability on its AuthAccount to another
-/// account, making the receiving account its "parent". 
-/// This relationship is represented on-chain via the ChildAccountManager.childAccounts mapping. Know that
-/// the private key to this child account is generated outside of the context of this transaction and that
-/// any assets in child accounts should be considered at risk if any party other than the parent has 
-/// access to the given public key's paired private key. In the context of this repo, child accounts
-/// are used by local game clients to facilitate a gameplay UX that does not require user transactions
-/// at every step while still giving true ownership over game assets to the player. This setup is otherwise known as
-/// a Hybrid Account construction - combining the benefits of app & non-custodial accounts.
-/// While this approach does compromise on security, convenience is far improved. Given this security risk, only
-/// trusted game clients should be used & users should consider moving very valuable assets to their parent account.
+/// This transaction creates a new account, funding creation with the signed client account and
+/// configuring it with a GamePieceNFT Collection & NFT, RockPaperScissorsGame GamePlayer, and
+/// TicketToken Vault. The parent account is configured with a GamePieceNFT Collection, TicketToken
+/// Vault, and ChildAccountManager. Lastly, the new account is then linked to the signing parent
+/// account, establishing it as a linked account of the parent account.
 ///
 transaction(
         pubKey: String,
