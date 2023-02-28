@@ -99,13 +99,13 @@
 			"address": "f8d6e0586b0a20c7",
 			"key": "83c4da8100a5bb0086fd0835e0b48dbdf507ca4aa15dab56edccee06c82eb110"
 		},
-		"linked-accounts": {
-			"address": "0x1b655847a90e644a",
-			"key": "$LINKED_ACCOUNTS"
-		},
 		"game-account": {
-			"address": "0x917b2b1dafdcfa58",
+			"address": "917b2b1dafdcfa58",
 			"key": "$GAME_ACCOUNT"
+		},
+		"linked-accounts": {
+			"address": "1b655847a90e644a",
+			"key": "$LINKED_ACCOUNTS"
 		}
 	},
 	"deployments": {
