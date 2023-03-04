@@ -1372,7 +1372,7 @@ pub contract RockPaperScissorsGame {
             ),
             contractAddress: self.account.address,
             externalURL: MetadataViews.ExternalURL(
-                "https://www.cheezewizards.com/"
+                "https://walletless-arcade-game.vercel.app/"
             )
         )
         self.winLossRecords = {}

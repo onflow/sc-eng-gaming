@@ -7,7 +7,7 @@ import DynamicNFT from "./DynamicNFT.cdc"
 /// GamePieceNFT
 ///
 /// In this contract, we defined an NFT designed to receive attachments
-/// as resources which implements interfaces defined in DynamicNFT. It's
+/// as nested resources which implement interfaces defined in DynamicNFT. It's
 /// heavily modeled on MonsterMaker, using images from that NFT collection
 /// as well as many values & methods from that collection.
 ///

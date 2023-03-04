@@ -5,8 +5,7 @@ import ChildAccount from "../../contracts/ChildAccount.cdc"
 import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
 import TicketToken from "../../contracts/TicketToken.cdc"
 
-// TODO: Add check on existing child of parent
-/// Adds the labeled child account as a Child Account in the parent accounts'
+/// Adds the labeled child account as a Child Account in the parent account's
 /// ChildAccountManager resource. The parent maintains an AuthAccount Capability
 /// on the child's account. Requires transaction be signed by both parties so that
 /// the GamePlayer resource can be moved from the child's to the parent's account,
