@@ -6,10 +6,10 @@ import ChildAccount from "../../contracts/ChildAccount.cdc"
 transaction {
     prepare(signer: AuthAccount) {
         // Return early if already configured
-        if signer.borrow<&ChildAccount.ChildAccountCreator>(from: ChildAccount.ChildAccountCreatorStoragePath) == nil {
+        if signer.borrow<&ChildAccount.ChildAccountManager>(from: ChildAccount.ChildAccountManagerStoragePath) == nil {
             signer.save(
-                <-ChildAccount.createChildAccountCreator(),
-                to: ChildAccount.ChildAccountCreatorStoragePath
+                <-ChildAccount.createChildAccountManager(),
+                to: ChildAccount.ChildAccountManagerStoragePath
             )
         }
         // Link the public Capability

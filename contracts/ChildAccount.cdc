@@ -30,9 +30,10 @@ import MetadataViews from "./utility/MetadataViews.cdc"
 pub contract ChildAccount {
 
     pub event AccountAddedAsChild(parent: Address, child: Address)
-    pub event ChildAccountCreatedFromManager(parent: Address, child: Address)
-    pub event AccountCreatedFromCreator(creator: Address?, newAccount: Address)
+    pub event ChildAccountCreatedFromManager(parent: Address, child: Address, originatingPublicKey: String)
+    pub event AccountCreatedFromCreator(creator: Address?, newAccount: Address, originatingPublicKey: String)
     pub event ChildAccountGrantedCapability(parent: Address, child: Address, capabilityType: Type)
+    pub event ParentAccountRevokedCapability(parent: Address, child: Address, capabilityType: Type)
     pub event ChildAccountRemoved(parent: Address, child: Address)
     pub event ChildAccountManagerCreated()
     pub event ChildAccountCreatorCreated()
@@ -95,7 +96,7 @@ pub contract ChildAccount {
     pub resource ChildAccountTag : ChildAccountTagPublic {
         /// Pointer to this account's parent account
         pub var parentAddress: Address?
-        /// The address of the residing account
+        /// The address of the account where the `ChildAccountTag` resource resides
         pub let address: Address
         /// Metadata about the purpose of this child account
         pub let info: ChildAccountInfo
@@ -137,10 +138,11 @@ pub contract ChildAccount {
 
         /** --- ChildAccountTag --- */
         //
-        /// Retrieves a granted Capability as a reference or nil if it does not exist. This
-        /// serves as a stand-in for Capability auditing & easy revocation until Capability
-        /// Controllers make their way to Cadence, enabling a parent account to issue, audit
-        /// and easily revoke Capabilities to child accounts.
+        /// Retrieves a granted Capability as a reference or nil if it does not exist. 
+        /// 
+        //  **NB**: This is a temporary solution for Capability auditing & easy revocation 
+        /// until CapabilityControllers make their way to Cadence, enabling a parent account 
+        /// to issue, audit and easily revoke Capabilities to child accounts.
         /// 
         /// @param type: The Type of Capability being requested
         ///
@@ -345,7 +347,7 @@ pub contract ChildAccount {
             )
 
             self.createdChildren.insert(key:childAccountInfo.originatingPublicKey, newAccount.address)
-            emit AccountCreatedFromCreator(creator: self.owner?.address, newAccount: newAccount.address)
+            emit AccountCreatedFromCreator(creator: self.owner?.address, newAccount: newAccount.address, originatingPublicKey: childAccountInfo.originatingPublicKey)
             return newAccount
         }
     }
@@ -515,7 +517,7 @@ pub contract ChildAccount {
                 )
             // Add the controller to this manager
             self.childAccounts[newAccount.address] <-! controller
-            emit ChildAccountCreatedFromManager(parent: self.owner!.address, child: newAccount.address)
+            emit ChildAccountCreatedFromManager(parent: self.owner!.address, child: newAccount.address, originatingPublicKey: childAccountInfo.originatingPublicKey)
             return newAccount
         }
 
@@ -618,6 +620,7 @@ pub contract ChildAccount {
                 ) ?? panic("Problem with ChildAccountTag Capability for given address: ".concat(from.toString()))
             tagRef.revokeCapability(type)
                 ?? panic("Capability not properly revoked")
+            emit ParentAccountRevokedCapability(parent: self.owner!.address, child: from, capabilityType: type)
         }
 
         /// Remove ChildAccountTag, returning its Capability if it exists. Note, doing so
@@ -703,4 +706,3 @@ pub contract ChildAccount {
         self.ChildAccountCreatorPublicPath = /public/ChildAccountCreator
     }
 }
- 
