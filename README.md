@@ -179,15 +179,15 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 
 - Start the emulator & deploy the contracts
     
-    ```sh
-    flow run
-    ```
-
-- Setup a `ChildAccountCreator` in the service account
-
-    ```sh
-    flow transactions execute transactions/child_account/setup_child_account_creator.cdc
-    ```
+    - In one terminal window, run:
+        ```sh
+        flow emulator start
+        ```
+    
+    - In another terminal window deploy the contracts with:
+        ```sh
+        flow deploy
+        ```
 
 ## Walletless Demo Walkthrough
 
@@ -202,18 +202,14 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 2. Initialize walletless onboarding
     * `onboarding/walletless_onboarding`
         1. `pubKey: String,`
-        2. `fundingAmt: UFix64,`
-        3. `childAccountName: String,`
-        4. `childAccountDescription: String,`
-        5. `clientIconURL: String,`
-        6. `clientExternalURL: String,`
-        7. `monsterBackground: Int,`
-        8. `monsterHead: Int,`
-        9. `monsterTorso: Int,`
-        10. `monsterLeg: Int`
+        1. `fundingAmt: UFix64,`
+        1. `monsterBackground: Int,`
+        1. `monsterHead: Int,`
+        1. `monsterTorso: Int,`
+        1. `monsterLeg: Int`
     
     ```sh
-    flow transactions send transactions/onboarding/walletless_onboarding.cdc <PUBLIC_KEY> <FUNDING_AMT> <CHILD_ACCOUNT_NAME> <CHILD_ACCOUNT_DESC> <CLIENT_ICON_URL> <CLIENT_EXT_URL> <BACKGROUND> <HEAD> <TORSO> <LEG>
+    flow transactions send transactions/onboarding/walletless_onboarding.cdc <PUBLIC_KEY> <FUNDING_AMT> <BACKGROUND> <HEAD> <TORSO> <LEG>
     ```
     
 3. Query for new account address from public key
@@ -222,7 +218,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
         2. `pubKey: String`
     
     ```sh
-    flow scripts execute scripts/child_account/get_child_address_from_public_key_on_creator.cdc f8d6e0586b0a20c7 <PUBLIC_KEY>
+    flow scripts execute scripts/linked_accounts/get_child_address_from_public_key_on_creator.cdc f8d6e0586b0a20c7 <PUBLIC_KEY>
     ```
     
 4. Add the child account to your flow.json (assuming following along on flow-cli)
@@ -273,7 +269,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
         * `address: Address`
     
     ```sh
-         
+    flow scripts execute scripts/rock_paper_scissors_game/get_matches_in_play.cdc 01cf0e2f2f715450
     ```
     
 5. Submit moves for the `Match`
@@ -333,10 +329,14 @@ flow accounts create # account name: parent
 1. Both accounts sign a transaction, configuring a `ChildAccountManager` in the user’s main account and capturing the child account’s AuthAccount capability in said `ChildAccountManager`. The `GamePlayer` resource in the child account is moved to the now parent account and a `DelegatedGamePlayer` capability is granted to the child account, saved in it `ChildAccountTag`. 
 In the end, the two accounts are linked by resource representation on-chain and both are configured such that the app has all it needs to play the game on behalf of the player and the user’s main account (AKA parent account) maintains an AuthAccount capability on the app account (AKA child account) so resources can be transferred from the child account without need for the app’s involvement.
     
-    * `multisig_add_as_child`
+    * `linked_accounts/multisig_add_as_child`
+        1. `linkedAccountName: String`
+        1. `linkedAccountDescription: String`
+        1. `clientThumbnailURL: String`
+        1. `clientExternalURL: String`
     
         ```bash
-        flow transactions build transactions/child_account/add_as_child_multisig.cdc --proposer parent --payer parent --authorizer parent --authorizer child --filter payload --save add_as_child_multisig
+        flow transactions build transactions/linked_accounts/add_as_child_multisig.cdc <CHILD_ACCOUNT_NAME> <CHILD_ACCOUNT_DESC> <CLIENT_ICON_URL> <CLIENT_EXT_URL> --proposer parent --payer parent --authorizer parent --authorizer child --filter payload --save add_as_child_multisig
         ```
         
         ```bash
@@ -354,7 +354,7 @@ In the end, the two accounts are linked by resource representation on-chain and 
         * `nftID: UInt64`
     
     ```bash
-    flow transactions build transactions/child_account/multisig_add_as_child_and_nft_transfer.cdc <NFT_ID> --proposer parent --payer parent --authorizer parent --authorizer child --filter payload --save multisig_add_as_child_and_nft_transfer
+    flow transactions build transactions/linked_accounts/multisig_add_as_child_and_nft_transfer.cdc <NFT_ID> --proposer parent --payer parent --authorizer parent --authorizer child --filter payload --save multisig_add_as_child_and_nft_transfer
     ```
     
     ```bash
@@ -364,8 +364,6 @@ In the end, the two accounts are linked by resource representation on-chain and 
     ```bash
     flow transactions send-signed multisig_add_as_child_and_nft_transfer
     ```
-
-
 
 ## Blockchain-Native Onboarding Demo
 <aside>
@@ -400,7 +398,7 @@ In the end, the two accounts are linked by resource representation on-chain and 
         2. `pubKey: String`
     
     ```sh
-    flow scripts execute scripts/child_account/get_child_address_from_public_key_on_creator.cdc 01cf0e2f2f715450 <PUBLIC_KEY>
+    flow scripts execute scripts/linked_accounts/get_child_address_from_public_key_on_creator.cdc 01cf0e2f2f715450 <PUBLIC_KEY>
     ```
     
 
@@ -442,7 +440,7 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
         * `address: Address`
         
         ```sh
-        fse scripts/child_account/get_all_account_balances_from_storage.cdc 179b6b1cb6755e31
+        fse scripts/linked_accounts/get_all_account_balances_from_storage.cdc 179b6b1cb6755e31
         ```
         
         ```jsx
@@ -467,7 +465,7 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
         * `address: Address`
 
     ```sh
-    flow scripts execute scripts/child_account/get_all_nft_display_views_from_storage.cdc 179b6b1cb6755e31
+    flow scripts execute scripts/linked_accounts/get_all_nft_display_views_from_storage.cdc 179b6b1cb6755e31
     ```
 
     ```jsx
@@ -500,7 +498,7 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
         * `address: Address`
     
     ```bash
-    flow scripts execute scripts/child_account/get_all_nft_display_views_from_storage.cdc 179b6b1cb6755e31
+    flow scripts execute scripts/linked_accounts/get_all_nft_display_views_from_storage.cdc 179b6b1cb6755e31
     ```
 ___
 
