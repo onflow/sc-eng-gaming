@@ -12,9 +12,7 @@ transaction(
     linkedAccountName: String,
     linkedAccountDescription: String,
     clientThumbnailURL: String,
-    clientExternalURL: String,
-    authAccountPathSuffix: String,
-    handlerPathSuffix: String
+    clientExternalURL: String
 ) {
 
     let collectionRef: &LinkedAccounts.Collection
@@ -64,9 +62,9 @@ transaction(
 
         /* --- Link the child account's AuthAccount Capability & assign --- */
         //
-        // Assign the PrivatePath where we'll link the AuthAccount Capability
-        let authAccountPath: PrivatePath = PrivatePath(identifier: authAccountPathSuffix)
-            ?? panic("Could not construct PrivatePath from given suffix: ".concat(authAccountPathSuffix))
+        // **NOTE:** You'll want to consider adding the AuthAccount Capability path suffix as a transaction arg
+        let authAccountPath: PrivatePath = PrivatePath(identifier: "RPSAuthAccountCapability")
+            ?? panic("Couldn't create Private Path from identifier: RPSAuthAccountCapability")
         // Get the AuthAccount Capability, linking if necessary
         if !child.getCapability<&AuthAccount>(authAccountPath).check() {
             // Unlink any Capability that may be there
@@ -92,13 +90,15 @@ transaction(
 
     execute {
         // Add child account if it's parent-child accounts aren't already linked
+        // *NOTE:*** You may want to add handlerPathSuffix as a transaction arg for greater flexibility as
+        // this is where the LinkedAccounts.Handler will be saved in the linked account
         if !self.collectionRef.getLinkedAccountAddresses().contains(self.linkedAccountAddress) {
             // Add the child account
             self.collectionRef.addAsChildAccount(
                 linkedAccountCap: self.authAccountCap,
                 linkedAccountMetadata: self.info,
                 linkedAccountMetadataResolver: nil,
-                handlerPathSuffix: handlerPathSuffix
+                handlerPathSuffix: "RPSLinkedAccountHandler"
             )
         }
     }

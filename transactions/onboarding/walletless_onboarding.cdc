@@ -15,10 +15,6 @@ import TicketToken from "../../contracts/TicketToken.cdc"
 transaction(
         pubKey: String,
         fundingAmt: UFix64,
-        childAccountName: String,
-        childAccountDescription: String,
-        clientIconURL: String,
-        clientExternalURL: String,
         monsterBackground: Int,
         monsterHead: Int,
         monsterTorso: Int,

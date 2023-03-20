@@ -64,7 +64,9 @@ transaction(
             originatingPublicKey: pubKey
         )
         // Link AuthAccountCapability & assign
+        // **NOTE:** You'll want to consider adding the AuthAccount Capability path suffix as a transaction arg
         let authAccountCapPrivatePath: PrivatePath = PrivatePath(identifier: "RPSAuthAccountCapability")
+            ?? panic("Couldn't create Private Path from identifier: RPSAuthAccountCapability")
         self.linkedAccountCap = child.linkAccount(authAccountCapPrivatePath)
             ?? panic("Problem linking AuthAccount Capability for ".concat(child.address.toString()))
 
