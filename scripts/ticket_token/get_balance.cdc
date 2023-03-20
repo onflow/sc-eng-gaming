@@ -5,9 +5,7 @@ import TicketToken from "../../contracts/TicketToken.cdc"
 /// in the specified address
 ///
 pub fun main(of: Address): UFix64 {
-    return getAccount(of).getCapability<
-        &TicketToken.Vault{FungibleToken.Balance}
-    >(
+    return getAccount(of).getCapability<&TicketToken.Vault{FungibleToken.Balance}>(
         TicketToken.ReceiverPublicPath
     ).borrow()
     ?.balance

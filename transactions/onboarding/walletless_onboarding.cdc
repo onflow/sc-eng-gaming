@@ -1,4 +1,5 @@
-import ChildAccount from "../../contracts/ChildAccount.cdc"
+import LinkedAccounts from "../../contracts/LinkedAccounts.cdc"
+import AccountCreator from "../../contracts/utility/AccountCreator.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
 import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
@@ -6,11 +7,10 @@ import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 import TicketToken from "../../contracts/TicketToken.cdc"
 
-/// This transaction creates an account from the given public key, using the
-/// ChildAccountCreator with the signer as the account's payer, additionally
-/// funding the new account with the specified amount of Flow from the signer's
-/// account. The newly created account is then configured with resources &
-/// Capabilities necessary to play RockPaperScissorsGame Matches.
+/// This transaction creates an account from the given public key, using the signer's AccountCreator.Creator with the
+/// signer as the account's payer, additionally funding the new account with the specified amount of Flow from the 
+/// signer's account. The newly created account is then configured with resources & Capabilities necessary to play 
+/// RockPaperScissorsGame Matches.
 ///
 transaction(
         pubKey: String,
@@ -28,28 +28,39 @@ transaction(
     prepare(signer: AuthAccount) {
         /* --- Create a new account --- */
         //
-        // Get a reference to the signer's ChildAccountCreator
-        let creatorRef = signer.borrow<
-                &ChildAccount.ChildAccountCreator
-            >(
-                from: ChildAccount.ChildAccountCreatorStoragePath
-            ) ?? panic(
-                "No ChildAccountCreator in signer's account at "
-                .concat(ChildAccount.ChildAccountCreatorStoragePath.toString())
+        // Ensure resource is saved where expected
+        if signer.type(at: AccountCreator.CreatorStoragePath) == nil {
+            signer.save(
+                <-AccountCreator.createNewCreator(),
+                to: AccountCreator.CreatorStoragePath
             )
-        // Construct the ChildAccountInfo metadata struct
-        let info = ChildAccount.ChildAccountInfo(
+        }
+        // Ensure public Capability is linked
+        if !signer.getCapability<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
+            AccountCreator.CreatorPublicPath).check() {
+            // Link the public Capability
+            signer.unlink(AccountCreator.CreatorPublicPath)
+            signer.link<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
+                AccountCreator.CreatorPublicPath,
+                target: AccountCreator.CreatorStoragePath
+            )
+        }
+        // Get a reference to the client's AccountCreator.Creator
+        let creatorRef = signer.borrow<&AccountCreator.Creator>(
+                from: AccountCreator.CreatorStoragePath
+            ) ?? panic("No AccountCreator in signer's account!")
+        // Construct the AccountInfo metadata struct
+        let info = LinkedAccountMetadataViews.AccountInfo(
                 name: childAccountName,
                 description: childAccountDescription,
-                clientIconURL: MetadataViews.HTTPFile(url: clientIconURL),
-                clienExternalURL: MetadataViews.ExternalURL(clientExternalURL),
-                originatingPublicKey: pubKey
+                thumbnail: MetadataViews.HTTPFile(url: clientIconURL),
+                externalURL: MetadataViews.ExternalURL(clientExternalURL)
             )
         // Create the account
-        let newAccount = creatorRef.createChildAccount(
+        let newAccount = creatorRef.createNewAccount(
             signer: signer,
             initialFundingAmount: fundingAmt,
-            childAccountInfo: info
+            originatingPublicKey: pubKey
         )
 
         /* --- Set up GamePieceNFT.Collection --- */
