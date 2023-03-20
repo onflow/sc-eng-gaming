@@ -49,13 +49,7 @@ transaction(
         let creatorRef = signer.borrow<&AccountCreator.Creator>(
                 from: AccountCreator.CreatorStoragePath
             ) ?? panic("No AccountCreator in signer's account!")
-        // Construct the AccountInfo metadata struct
-        let info = LinkedAccountMetadataViews.AccountInfo(
-                name: childAccountName,
-                description: childAccountDescription,
-                thumbnail: MetadataViews.HTTPFile(url: clientIconURL),
-                externalURL: MetadataViews.ExternalURL(clientExternalURL)
-            )
+
         // Create the account
         let newAccount = creatorRef.createNewAccount(
             signer: signer,
