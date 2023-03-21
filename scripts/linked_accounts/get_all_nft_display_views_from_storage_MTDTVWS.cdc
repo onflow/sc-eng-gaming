@@ -18,7 +18,8 @@ pub fun getAllViewsFromAddress(_ address: Address): [MetadataViews.NFTView] {
     // Iterate over each public path
     account.forEachStored(fun (path: StoragePath, type: Type): Bool {
         // Check if it's a Collection we're interested in, if so, get a reference
-        if (type.isSubtype(of: collectionType)) {
+        // TODO: Will need to fix how LinkedAccounts contract resolves Collection Metadata since NFT.CollectionPublic is not public atm
+        if type.isSubtype(of: collectionType) && !type.isSubtype(of: Type<@LinkedAccounts.Collection>()) {
             if let collectionRef = account.borrow<
                 &{NonFungibleToken.CollectionPublic, MetadataViews.ResolverCollection}
             >(from: path) {
