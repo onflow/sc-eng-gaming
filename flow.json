@@ -61,13 +61,15 @@
 		"LinkedAccountMetadataViews": {
 			"source": "./contracts/LinkedAccountMetadataViews.cdc",
 			"aliases": {
-				"emulator": "0xf8d6e0586b0a20c7"
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x1b655847a90e644a"
 			}
 		},
 		"LinkedAccounts": {
 			"source": "./contracts/LinkedAccounts.cdc",
 			"aliases": {
-				"emulator": "0xf8d6e0586b0a20c7"
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x1b655847a90e644a"
 			}
 		},
 		"MetadataViews": {
