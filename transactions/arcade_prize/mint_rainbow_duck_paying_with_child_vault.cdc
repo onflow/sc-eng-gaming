@@ -70,7 +70,7 @@ transaction(fundingChildAddress: Address, minterAddress: Address) {
                 from: LinkedAccounts.CollectionStoragePath
             ) ?? panic("Could not borrow reference to LinkedAccounts.Collection in signer's account at expected path!")
         // Borrow a reference to the signer's specified child account
-        let childAccount: &AuthAccount = collectionRef.getAuthAcctRef(address: fundingChildAddress)
+        let childAccount: &AuthAccount = collectionRef.getChildAccountRef(address: fundingChildAddress)
         // Get a reference to the child account's TicketToken Vault
         let vaultRef: &TicketToken.Vault = childAccount.borrow<&TicketToken.Vault>(
                 from: TicketToken.VaultStoragePath
