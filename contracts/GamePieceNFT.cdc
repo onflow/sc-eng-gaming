@@ -217,7 +217,7 @@ pub contract GamePieceNFT: NonFungibleToken {
                         self.id
                     )
                 case Type<MetadataViews.ExternalURL>():
-                    return MetadataViews.ExternalURL("https://REPLACE_WITH_MONSTER_ARCADE_URL/".concat(self.id.toString()))
+                    return MetadataViews.ExternalURL("https://walletless-arcade-game.vercel.app/".concat(self.id.toString()))
                 // TODO: Confirm returned types
                 case Type<MetadataViews.NFTCollectionData>():
                     return MetadataViews.NFTCollectionData(
@@ -248,7 +248,7 @@ pub contract GamePieceNFT: NonFungibleToken {
                     return MetadataViews.NFTCollectionDisplay(
                         name: "The MonsterMaker GamePieceNFT Collection",
                         description: "This collection is used as an example to help you develop your next Flow NFT.",
-                        externalURL: MetadataViews.ExternalURL("https://REPLACE_WITH_MONSTER_ARCADE_URL/"),
+                        externalURL: MetadataViews.ExternalURL("https://walletless-arcade-game.vercel.app/"),
                         squareImage: media,
                         bannerImage: bannerMedia,
                         socials: {}
