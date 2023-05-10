@@ -14,7 +14,8 @@ transaction {
         }
         // Ensure public Capability is linked
         if !signer.getCapability<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
-            AccountCreator.CreatorPublicPath).check() {
+                AccountCreator.CreatorPublicPath
+            ).check() {
             // Link the public Capability
             signer.unlink(AccountCreator.CreatorPublicPath)
             signer.link<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
