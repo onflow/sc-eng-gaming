@@ -1,7 +1,7 @@
-import NonFungibleToken from "../contracts/utility/NonFungibleToken.cdc"
-import MetadataViews from "../contracts/utility/MetadataViews.cdc"
-import LinkedAccountMetadataViews from "../contracts/LinkedAccountMetadataViews.cdc"
-import LinkedAccounts from "../contracts/LinkedAccounts.cdc"
+import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
+import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
+import LinkedAccountMetadataViews from "../../contracts/LinkedAccountMetadataViews.cdc"
+import LinkedAccounts from "../../contracts/LinkedAccounts.cdc"
 
 pub struct LinkedAccountData {
     pub let address: Address
