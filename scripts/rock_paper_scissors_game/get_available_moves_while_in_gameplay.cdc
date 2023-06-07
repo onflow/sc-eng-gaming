@@ -1,5 +1,4 @@
 import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
-import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
 
 /// Returns an array with the moves available for a GamePlayer in the given Match.id

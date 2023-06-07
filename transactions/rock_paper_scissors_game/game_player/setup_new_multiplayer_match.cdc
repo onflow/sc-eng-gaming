@@ -22,20 +22,23 @@ transaction(submittingNFTID: UInt64, playerTwoAddr: Address, matchTimeLimitInMin
         // Get the second player's account
         let playerTwoAccount = getAccount(playerTwoAddr)
         // Get the second player's GamePlayerPublic reference
-        self.gamePlayerTwoPublicRef = playerTwoAccount
-            .getCapability<&AnyResource{RockPaperScissorsGame.GamePlayerPublic}>(
+        self.gamePlayerTwoPublicRef = playerTwoAccount.getCapability<
+                &AnyResource{RockPaperScissorsGame.GamePlayerPublic}
+            >(
                 RockPaperScissorsGame.GamePlayerPublicPath
             ).borrow()
             ?? panic("GamePlayerPublic not accessible at address ".concat(playerTwoAddr.toString()))
         
-        let receiverCap = acct.getCapability<&
-                AnyResource{NonFungibleToken.Receiver}
-            >(GamePieceNFT.CollectionPublicPath)
+        let receiverCap = acct.getCapability<
+                &GamePieceNFT.Collection{NonFungibleToken.Receiver}
+            >(
+                GamePieceNFT.CollectionPublicPath
+            )
         
         // Get a reference to the account's Provider
-        let providerRef = acct.borrow<&{
-                NonFungibleToken.Provider
-            }>(
+        let providerRef = acct.borrow<
+                &{NonFungibleToken.Provider}
+            >(
                 from: GamePieceNFT.CollectionStoragePath
             ) ?? panic("Could not borrow reference to account's Provider")
         // Withdraw the desired NFT
@@ -45,7 +48,7 @@ transaction(submittingNFTID: UInt64, playerTwoAddr: Address, matchTimeLimitInMin
         self.newMatchID = self.gamePlayerRef
             .createMatch(
                 multiPlayer: true,
-                matchTimeLimit: UFix64(matchTimeLimitInMinutes) * UFix64(60000),
+                matchTimeLimit: UFix64(matchTimeLimitInMinutes) * 60000.0,
                 nft: <-submittingNFT,
                 receiverCap: receiverCap
             )

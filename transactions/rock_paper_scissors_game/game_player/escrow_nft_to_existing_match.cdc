@@ -15,16 +15,16 @@ transaction(matchID: UInt64, escrowNFTID: UInt64) {
             ) ?? panic("Could not borrow GamePlayer reference!")
 
         // Get the account's Receiver Capability
-        let receiverCap = acct
-            .getCapability<&
-                AnyResource{NonFungibleToken.Receiver}
-            >(GamePieceNFT.CollectionPublicPath)
+        let receiverCap = acct.getCapability<
+                &{NonFungibleToken.Receiver}
+            >(
+                GamePieceNFT.CollectionPublicPath
+            )
         
         // Get a reference to the account's Provider
-        let providerRef = acct
-            .borrow<&{
-                NonFungibleToken.Provider
-            }>(
+        let providerRef = acct.borrow<
+                &{NonFungibleToken.Provider}
+            >(
                 from: GamePieceNFT.CollectionStoragePath
             ) ?? panic("Could not borrow reference to account's Provider")
         // Withdraw the desired NFT

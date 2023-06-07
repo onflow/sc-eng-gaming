@@ -28,10 +28,9 @@ transaction(matchID: UInt64) {
             ?? panic("Could not borrow Reference to MatchPlayerActions Capability!")
 
         // Get the signer's Receiver Capability
-        self.receiverCap = acct
-            .getCapability<&
-                AnyResource{NonFungibleToken.Receiver}
-            >(GamePieceNFT.CollectionPublicPath)
+        self.receiverCap = acct.getCapability<&{NonFungibleToken.Receiver}>(
+                GamePieceNFT.CollectionPublicPath
+            )
     }
 
     execute {

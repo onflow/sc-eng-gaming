@@ -15,14 +15,12 @@ pub fun main(address: Address, id: UInt64): GamingMetadataViews.BasicWinLoss? {
 
     // Get the NFT reference if it exists in the reference collection
     if let nftRef = collectionPublicRef.borrowGamePieceNFT(id: id) {
-        // Get the RPSAssignedMoves attachment
-        if let winLossRef = nftRef[RockPaperScissorsGame.RPSWinLossRetriever] {
-            // Resolve the BasicWinLoss view on the RPSWinLossRetriever attachment
-            return winLossRef
-                .resolveView(
-                    Type<GamingMetadataViews.BasicWinLoss>()
-                ) as! GamingMetadataViews.BasicWinLoss?
-        }
+        // Resolve the BasicWinLoss view on the RPSWinLossRetriever attachment
+        return nftRef
+            .resolveAttachmentView(
+                attachmentType: Type<@RockPaperScissorsGame.RPSWinLossRetriever>(),
+                view: Type<GamingMetadataViews.BasicWinLoss>()
+            ) as! GamingMetadataViews.BasicWinLoss?
     }
 
     // Otherwise return nil

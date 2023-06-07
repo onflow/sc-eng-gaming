@@ -1,11 +1,114 @@
 {
 	"contracts": {
-		"FungibleToken": "./contracts/utility/FungibleToken.cdc",
-		"GamePieceNFT": "./contracts/GamePieceNFT.cdc",
-		"GamingMetadataViews": "./contracts/GamingMetadataViews.cdc",
-		"MetadataViews": "./contracts/utility/MetadataViews.cdc",
-		"NonFungibleToken": "./contracts/utility/NonFungibleToken.cdc",
-		"RockPaperScissorsGame": "./contracts/RockPaperScissorsGame.cdc"
+		"AccountCreator": {
+			"source": "./contracts/utility/AccountCreator.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x917b2b1dafdcfa58"
+			}
+		},
+		"ArcadePrize": {
+			"source": "./contracts/ArcadePrize.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x917b2b1dafdcfa58"
+			}
+		},
+		"DynamicNFT": {
+			"source": "./contracts/DynamicNFT.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x917b2b1dafdcfa58"
+			}
+		},
+		"FlowToken": {
+			"source": "./contracts/utility/FlowToken.cdc",
+			"aliases": {
+				"emulator": "0x0ae53cb6e3f42a79",
+				"testnet": "0x7e60df042a9c0868"
+			}
+		},
+		"FungibleToken": {
+			"source": "./contracts/utility/FungibleToken.cdc",
+			"aliases": {
+				"emulator": "0xee82856bf20e2aa6",
+				"mainnet": "0xf233dcee88fe0abe",
+				"testnet": "0x9a0766d93b6608b7"
+			}
+		},
+		"FungibleTokenMetadataViews": {
+			"source": "./contracts/utility/FungibleTokenMetadataViews.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"mainnet": "0xf233dcee88fe0abe",
+				"testnet": "0x9a0766d93b6608b7"
+			}
+		},
+		"GamePieceNFT": {
+			"source": "./contracts/GamePieceNFT.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x917b2b1dafdcfa58"
+			}
+		},
+		"GamingMetadataViews": {
+			"source": "./contracts/GamingMetadataViews.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x917b2b1dafdcfa58"
+			}
+		},
+		"LinkedAccountMetadataViews": {
+			"source": "./contracts/LinkedAccountMetadataViews.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x1b655847a90e644a"
+			}
+		},
+		"LinkedAccounts": {
+			"source": "./contracts/LinkedAccounts.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x1b655847a90e644a"
+			}
+		},
+		"MetadataViews": {
+			"source": "./contracts/utility/MetadataViews.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"mainnet": "0x1d7e57aa55817448",
+				"testnet": "0x631e88ae7f1d7c20"
+			}
+		},
+		"NonFungibleToken": {
+			"source": "./contracts/utility/NonFungibleToken.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"mainnet": "0x1d7e57aa55817448",
+				"testnet": "0x631e88ae7f1d7c20"
+			}
+		},
+		"RockPaperScissorsGame": {
+			"source": "./contracts/RockPaperScissorsGame.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x917b2b1dafdcfa58"
+			}
+		},
+		"TicketToken": {
+			"source": "./contracts/TicketToken.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x917b2b1dafdcfa58"
+			}
+		},
+		"ViewResolver": {
+			"source": "./contracts/utility/ViewResolver.cdc",
+			"aliases": {
+				"emulator": "0xf8d6e0586b0a20c7",
+				"testnet": "0x631e88ae7f1d7c20"
+			}
+		}
 	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",
@@ -16,17 +119,32 @@
 		"emulator-account": {
 			"address": "f8d6e0586b0a20c7",
 			"key": "83c4da8100a5bb0086fd0835e0b48dbdf507ca4aa15dab56edccee06c82eb110"
+		},
+		"game-account": {
+			"address": "917b2b1dafdcfa58",
+			"key": "$GAME_ACCOUNT"
+		},
+		"linked-accounts": {
+			"address": "1b655847a90e644a",
+			"key": "$LINKED_ACCOUNTS"
 		}
 	},
 	"deployments": {
 		"emulator": {
 			"emulator-account": [
-				"FungibleToken",
 				"NonFungibleToken",
 				"MetadataViews",
+				"FungibleTokenMetadataViews",
+				"LinkedAccountMetadataViews",
+				"ViewResolver",
+				"LinkedAccounts",
 				"GamingMetadataViews",
+				"DynamicNFT",
 				"GamePieceNFT",
-				"RockPaperScissorsGame"
+				"TicketToken",
+				"ArcadePrize",
+				"RockPaperScissorsGame",
+				"AccountCreator"
 			]
 		}
 	}

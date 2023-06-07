@@ -6,12 +6,21 @@
 		}
 	},
 	"contracts": {
+		"AccountCreator": "../../../contracts/utility/AccountCreator.cdc",
+		"ArcadePrize": "../../../contracts/ArcadePrize.cdc",
+		"DynamicNFT": "../../../contracts/DynamicNFT.cdc",
+		"FlowToken": "../../../contracts/utility/FlowToken.cdc",
 		"FungibleToken": "../../../contracts/utility/FungibleToken.cdc",
+		"FungibleTokenMetadataViews": "../../../contracts/utility/FungibleTokenMetadataViews.cdc",
 		"GamePieceNFT": "../../../contracts/GamePieceNFT.cdc",
 		"GamingMetadataViews": "../../../contracts/GamingMetadataViews.cdc",
+		"LinkedAccountMetadataViews": "../../../contracts/LinkedAccountMetadataViews.cdc",
+		"LinkedAccounts": "../../../contracts/LinkedAccounts.cdc",
 		"MetadataViews": "../../../contracts/utility/MetadataViews.cdc",
 		"NonFungibleToken": "../../../contracts/utility/NonFungibleToken.cdc",
-		"RockPaperScissorsGame": "../../../contracts/RockPaperScissorsGame.cdc"
+		"RockPaperScissorsGame": "../../../contracts/RockPaperScissorsGame.cdc",
+		"TicketToken": "../../../contracts/TicketToken.cdc",
+		"ViewResolver": "../../../contracts/utility/ViewResolver.cdc"
 	},
 	"networks": {
 		"emulator": "127.0.0.1:3569",

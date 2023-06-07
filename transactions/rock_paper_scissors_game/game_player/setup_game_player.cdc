@@ -1,5 +1,3 @@
-import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
-import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 
 /// Transaction that sets up GamePlayer resource in signing account
@@ -9,29 +7,32 @@ import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
 ///
 transaction {
 
-    prepare(acct: AuthAccount) {
-        // Do nothing if the resource exists at the expected path
-        if acct.borrow<&{RockPaperScissorsGame.GamePlayerPublic}>(from: RockPaperScissorsGame.GamePlayerStoragePath) != nil {
-            return
+    prepare(signer: AuthAccount) {
+        if signer.borrow<&{RockPaperScissorsGame.GamePlayerPublic}>(from: RockPaperScissorsGame.GamePlayerStoragePath) == nil {
+            // Create & save GamePlayer resource
+            signer.save(<-RockPaperScissorsGame.createGamePlayer(), to: RockPaperScissorsGame.GamePlayerStoragePath)
         }
-        // Create GamePlayer resource
-        let gamePlayer <- RockPaperScissorsGame.createGamePlayer()
-        // Save it
-        acct.save(<-gamePlayer, to: RockPaperScissorsGame.GamePlayerStoragePath)
         // Link GamePlayerPublic Capability so player can be added to Matches
-        acct.link<&{
-            RockPaperScissorsGame.GamePlayerPublic
-        }>(
-            RockPaperScissorsGame.GamePlayerPublicPath,
-            target: RockPaperScissorsGame.GamePlayerStoragePath
-        )
-        // Link GamePlayerID Capability
-        acct.link<&{
-            RockPaperScissorsGame.GamePlayerID
-        }>(
-            RockPaperScissorsGame.GamePlayerPrivatePath,
-            target: RockPaperScissorsGame.GamePlayerStoragePath
-        )
+        if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerPublic}>(RockPaperScissorsGame.GamePlayerPublicPath).check() {
+            signer.unlink(RockPaperScissorsGame.GamePlayerPublicPath)
+            signer.link<&
+                {RockPaperScissorsGame.GamePlayerPublic}
+            >(
+                RockPaperScissorsGame.GamePlayerPublicPath,
+                target: RockPaperScissorsGame.GamePlayerStoragePath
+            )
+        }
+        // Link GamePlayerID & DelegatedGamePlayer Capability
+        if !signer.getCapability<&{RockPaperScissorsGame.GamePlayerID}>(RockPaperScissorsGame.GamePlayerPrivatePath).check() {
+            signer.unlink(RockPaperScissorsGame.GamePlayerPrivatePath)
+            signer.link<&{
+                RockPaperScissorsGame.DelegatedGamePlayer,
+                RockPaperScissorsGame.GamePlayerID
+            }>(
+                RockPaperScissorsGame.GamePlayerPrivatePath,
+                target: RockPaperScissorsGame.GamePlayerStoragePath
+            )
+        }
     }
 
 }

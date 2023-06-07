@@ -14,9 +14,11 @@ transaction(submittingNFTID: UInt64, matchTimeLimitInMinutes: UInt) {
                 from: RockPaperScissorsGame.GamePlayerStoragePath
             ) ?? panic("Could not borrow GamePlayer reference!")
         
-        let receiverCap = acct.getCapability<&
-                AnyResource{NonFungibleToken.Receiver}
-            >(GamePieceNFT.CollectionPublicPath)
+        let receiverCap = acct.getCapability<
+                &{NonFungibleToken.Receiver}
+            >(
+                GamePieceNFT.CollectionPublicPath
+            )
         
         // Get a reference to the account's Provider
         let providerRef = acct.borrow<&{
