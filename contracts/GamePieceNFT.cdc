@@ -444,6 +444,8 @@ pub contract GamePieceNFT: NonFungibleToken {
         )
     }
 
+    /// Public facing interface enabling for public minting of an NFT
+    ///
     pub resource interface MinterPublic {
         pub fun mintingAllowed(): Bool
         pub fun mintNFT(
@@ -452,7 +454,11 @@ pub contract GamePieceNFT: NonFungibleToken {
         )
     }
 
+    /// Resource allowing for minting of GamePieceNFT.NFT with helper methods for
+    /// an admin to set metadata, allow/disallow minting
+    ///
     pub resource Minter : MinterAdmin, MinterPublic {
+        /// Boolean defining whether minting is/is not allowed
         access(self) var allowMinting: Bool
         
         init() {

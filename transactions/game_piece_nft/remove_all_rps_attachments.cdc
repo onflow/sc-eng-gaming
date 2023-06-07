@@ -9,10 +9,7 @@ transaction(fromNFT: UInt64) {
     prepare(signer: AuthAccount) {
 
         // Get a reference to the signer's GamePieceNFT.Collection
-        let collectionRef = signer
-            .borrow<
-                &GamePieceNFT.Collection
-            >(
+        let collectionRef = signer.borrow<&GamePieceNFT.Collection>(
                 from: GamePieceNFT.CollectionStoragePath
             ) ?? panic("Could now borrow reference to user's Collection!")
 

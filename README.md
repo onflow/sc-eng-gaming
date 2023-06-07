@@ -100,6 +100,10 @@ This small use case unlocks a whole world of possibilities, merging walled garde
 ## Composition
 Taking a look at `RockPaperScissorsGame`, you'll see that it stands on its own - a user with any `DynamicNFT` can engage with the game to play single and multiplayer matches. The same goes for `TicketToken` and `GamePieceNFT` contracts in that they are independent components not necessarily designed to be used together. We created each set of contracts as composable building blocks and put them together to create a unique dApp experience, incorporating ChildAccounts as a middle layer abstracting user identity from a single account to a network of associated accounts. 
 
+One more consideration comes from the contract's acceptance of any NFT. While this maximizes openness, it also means that NFTs with the same ID cause collisions in the win/loss record mapping indexed on escrowed NFT IDs. This shouldn't be an issue for NFTs that assign ids on UUIDs, but users could experience a case where they effectively share a win/loss record with another NFT of the same ID. This could be handled by indexing on the hash of an NFT's ID along with its Type which should yield a unique value or alternatively, the NFTs UUID. The latter would be a harder ask as it's unlikely a requestor would have the NFT's UUID on hand if it's not already the equivalent to its ID.
+
+A bit of a note on best practices...it's evident that defining on-chain game logic must involve some degree of adversarial thinking. For example, we could have (and did at one point) include `returnPlayerNFTs()` in `resolveMatch()` to remove the need for an additional call. However, we discovered that a malicious `Receiver` could `panic` on `deposit()` which would prevent `Match` resolution. This along with the revelation that I could assure game outcomes with the afforementioned post-condition on results led us to the commit-resolve pattern you see in the contracts & transactions.
+
 ___
 
 # User Walkthrough

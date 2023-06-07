@@ -46,16 +46,12 @@ transaction(matchID: UInt64, escrowNFTID: UInt64) {
             )
         }
         // Get the GamePlayer reference from the signing account's storage
-        self.gamePlayerRef = signer.borrow<
-                &RockPaperScissorsGame.GamePlayer
-            >(
+        self.gamePlayerRef = signer.borrow<&RockPaperScissorsGame.GamePlayer>(
                 from: RockPaperScissorsGame.GamePlayerStoragePath
             )!
         
         // Get the account's Receiver Capability
-        self.receiverCap = signer.getCapability<
-                &GamePieceNFT.Collection{NonFungibleToken.Receiver}
-            >(
+        self.receiverCap = signer.getCapability<&GamePieceNFT.Collection{NonFungibleToken.Receiver}>(
                 GamePieceNFT.CollectionPublicPath
             )
         // Get a reference to the account's Provider
