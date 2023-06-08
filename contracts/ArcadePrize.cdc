@@ -383,14 +383,9 @@ pub contract ArcadePrize: NonFungibleToken {
 
     /// Contract helper method, returning a reference to the contract's Vault
     access(contract) fun borrowVaultRef(): &FungibleToken.Vault {
-        // let fromVault <- from as! @TicketTokens.Vault
-        let vaultRef = self.account
-            .borrow<
-                &FungibleToken.Vault
-            >(
-                from: self.VaultStoragePath
-            ) ?? panic("Could not borrow reference to contract's Vault!")
-        return vaultRef
+        return self.account
+            .borrow<&FungibleToken.Vault>(from: self.VaultStoragePath)
+            ?? panic("Could not borrow reference to contract's Vault!")
     }
 
     init() {
