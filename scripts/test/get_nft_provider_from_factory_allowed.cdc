@@ -20,7 +20,8 @@ pub fun main(address: Address): Bool {
     let factory = factoryManager.getFactory(Type<&{NonFungibleToken.Provider}>())
         ?? panic("No factory for NFT Provider found")
 
-    let provider = factory.getCapability(acct: ref, path: GamePieceNFT.ProviderPrivatePath) as! Capability<&{NonFungibleToken.Provider}>
+    let d = GamePieceNFT.resolveView(Type<MetadataViews.NFTCollectionData>())! as! MetadataViews.NFTCollectionData
+    let provider = factory.getCapability(acct: ref, path: d.providerPath) as! Capability<&{NonFungibleToken.Provider}>
 
     let filter = acct.borrow<&CapabilityFilter.AllowlistFilter>(from: CapabilityFilter.StoragePath)
         ?? panic("Problem borrowing CapabilityFilter AllowlistFilter")
