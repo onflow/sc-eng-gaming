@@ -1,8 +1,8 @@
-import FungibleToken from "./utility/FungibleToken.cdc"
-import NonFungibleToken from "./utility/NonFungibleToken.cdc"
-import MetadataViews from "./utility/MetadataViews.cdc"
-import GamingMetadataViews from "./GamingMetadataViews.cdc"
-import DynamicNFT from "./DynamicNFT.cdc"
+import "FungibleToken"
+import "NonFungibleToken"
+import "MetadataViews"
+import "GamingMetadataViews"
+import "DynamicNFT"
 
 /// GamePieceNFT
 ///

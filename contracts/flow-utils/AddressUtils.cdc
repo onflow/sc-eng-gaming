@@ -1,4 +1,4 @@
-import StringUtils from "StringUtils"
+import "StringUtils"
 
 pub contract AddressUtils {
 

@@ -1,4 +1,4 @@
-import ArrayUtils from "ArrayUtils"
+import "ArrayUtils"
 
 pub contract StringUtils {
    

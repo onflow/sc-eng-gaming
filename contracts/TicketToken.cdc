@@ -1,6 +1,6 @@
-import FungibleToken from "./utility/FungibleToken.cdc"
-import MetadataViews from "./utility/MetadataViews.cdc"
-import FungibleTokenMetadataViews from "./utility/FungibleTokenMetadataViews.cdc"
+import "FungibleToken"
+import "MetadataViews"
+import "FungibleTokenMetadataViews"
 
 pub contract TicketToken : FungibleToken {
 

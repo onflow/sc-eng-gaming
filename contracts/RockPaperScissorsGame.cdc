@@ -1,8 +1,8 @@
-import MetadataViews from "./utility/MetadataViews.cdc"
-import GamingMetadataViews from "./GamingMetadataViews.cdc"
-import NonFungibleToken from "./utility/NonFungibleToken.cdc"
-import GamePieceNFT from "./GamePieceNFT.cdc"
-import DynamicNFT from "./DynamicNFT.cdc"
+import "MetadataViews"
+import "GamingMetadataViews"
+import "NonFungibleToken"
+import "GamePieceNFT"
+import "DynamicNFT"
 
 /// RockPaperScissorsGame
 ///
