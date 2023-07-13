@@ -14,12 +14,14 @@ pub let gamingMetadataViews = "GamingMetadataViews"
 pub let gamePieceNFT = "GamePieceNFT"
 pub let ticketToken = "TicketToken"
 pub let rockPaperScissorsGame = "RockPaperScissorsGame"
+pub let arcadePrize = "ArcadePrize"
 
 pub let capabilityFilter = "CapabilityFilter"
 
 pub let FilterKindAllowList = "allowlist"
 
 pub let gamePieceNFTPublicIdentifier = "GamePieceNFTCollection"
+pub let arcadePrizePublicIdentifier = "ArcadePrizeCollection"
 
 // --------------- Test cases ---------------
 
@@ -27,10 +29,14 @@ pub fun testSetupFilterAndFactory() {
     let tmp = blockchain.createAccount()
 
     setupFilterAndFactoryManager(tmp)
-    setupNFTCollection(tmp)
+    setupNFTCollection(tmp, collection: gamePieceNFT)
+    setupTicketTokenVault(tmp)
 
-    // scriptExecutor("test/get_nft_provider_from_factory.cdc", [tmp.address])
-    scriptExecutor("test/get_nft_provider_from_factory_allowed.cdc", [tmp.address])
+    let nftProviderAllowed = scriptExecutor("test/get_nft_provider_from_factory_allowed.cdc", [tmp.address])! as! Bool
+    let ftProviderAllowed: Bool = scriptExecutor("test/get_ft_provider_from_factory_allowed.cdc", [tmp.address, PrivatePath(identifier: "TicketTokenProvider")!])! as! Bool
+
+    Test.assertEqual(true, nftProviderAllowed)
+    Test.assertEqual(true, ftProviderAllowed)
 }
 
 // --------------- Transaction wrapper functions ---------------
@@ -45,8 +51,17 @@ pub fun setupFilterAndFactoryManager(_ acct: Test.Account) {
     )
 }
 
-pub fun setupNFTCollection(_ acct: Test.Account) {
-    txExecutor("game_piece_nft/setup_account.cdc", [acct], [], nil, nil)
+pub fun setupNFTCollection(_ acct: Test.Account, collection: String) {
+    switch collection {
+        case gamePieceNFT:
+            txExecutor("game_piece_nft/setup_account.cdc", [acct], [], nil, nil)
+        case ticketToken:
+            txExecutor("ticket_token/setup_account.cdc", [acct], [], nil, nil)
+    }
+}
+
+pub fun setupTicketTokenVault(_ acct: Test.Account) {
+    txExecutor("ticket_token/setup_account.cdc", [acct], [], nil, nil)
 }
 
 pub fun mintNFTRandomPublic(_ acct: Test.Account) {
@@ -57,6 +72,11 @@ pub fun mintNFTRandomPublic(_ acct: Test.Account) {
 // ---------------- End Transaction wrapper functions
 
 // ---------------- Begin script wrapper functions
+
+pub fun getFTProviderAllowed(forAddress: Address, identifier: String): Bool {
+    let privatePath = PrivatePath(identifier: identifier) ?? panic("Invalid private path identifier provided!")
+    return scriptExecutor("test/get_ft_provider_from_factory_allowed.cdc", [forAddress, privatePath])! as! Bool
+}
 
 pub fun getParentStatusesForChild(_ child: Test.Account): {Address: Bool} {
     return scriptExecutor("hybrid-custody/get_parents_from_child.cdc", [child.address])! as! {Address: Bool}
@@ -226,6 +246,7 @@ pub fun setup() {
     let gamePieceNFT = blockchain.createAccount()
     let ticketToken = blockchain.createAccount()
     let rockPaperScissorsGame = blockchain.createAccount()
+    let arcadePrize = blockchain.createAccount()
     
     // actual test accounts
     let parent = blockchain.createAccount()
@@ -254,6 +275,7 @@ pub fun setup() {
         "GamePieceNFT": gamePieceNFT,
         "TicketToken": ticketToken,
         "RockPaperScissorsGame": rockPaperScissorsGame,
+        "ArcadePrize": arcadePrize,
         "parent": parent,
         "child1": child1,
         "child2": child2,
@@ -283,7 +305,8 @@ pub fun setup() {
         "DynamicNFT": accounts["DynamicNFT"]!.address,
         "GamePieceNFT": accounts["GamePieceNFT"]!.address,
         "TicketToken": accounts["TicketToken"]!.address,
-        "RockPaperScissorsGame": accounts["RockPaperScissorsGame"]!.address
+        "RockPaperScissorsGame": accounts["RockPaperScissorsGame"]!.address,
+        "ArcadePrize": accounts["ArcadePrize"]!.address
     }))
 
     // deploy standard libs first
@@ -303,6 +326,7 @@ pub fun setup() {
     deploy("GamePieceNFT", accounts["GamePieceNFT"]!, "../contracts/GamePieceNFT.cdc")
     deploy("TicketToken", accounts["TicketToken"]!, "../contracts/TicketToken.cdc")
     deploy("RockPaperScissorsGame", accounts["RockPaperScissorsGame"]!, "../contracts/RockPaperScissorsGame.cdc")
+    deploy("ArcadePrize", accounts["ArcadePrize"]!, "../contracts/ArcadePrize.cdc")
 
     // our main contract is last
     deploy("CapabilityDelegator", accounts["CapabilityDelegator"]!, "../contracts/hybrid-custody/CapabilityDelegator.cdc")

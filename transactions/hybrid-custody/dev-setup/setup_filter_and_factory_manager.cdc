@@ -76,6 +76,7 @@ transaction(nftContractAddress: Address, nftContractName: String, ftContractAddr
         factoryManager.updateFactory(Type<&{NonFungibleToken.CollectionPublic}>(), NFTCollectionPublicFactory.Factory())
         factoryManager.updateFactory(Type<&{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>(), NFTProviderAndCollectionFactory.Factory())
         factoryManager.updateFactory(Type<&{NonFungibleToken.Provider}>(), NFTProviderFactory.Factory())
+        factoryManager.updateFactory(Type<&{FungibleToken.Provider}>(), FTAllFactory.Factory())
         factoryManager.updateFactory(Type<&{FungibleToken.Provider, FungibleToken.Receiver, FungibleToken.Balance}>(), FTAllFactory.Factory())
 
         /* --- AllowlistFilter configuration --- */
