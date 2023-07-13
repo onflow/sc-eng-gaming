@@ -5,7 +5,6 @@ import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
 import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
 import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
 import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
-import AccountCreator from "../../contracts/utility/AccountCreator.cdc"
 import LinkedAccountMetadataViews from "../../contracts/LinkedAccountMetadataViews.cdc"
 import LinkedAccounts from "../../contracts/LinkedAccounts.cdc"
 import TicketToken from "../../contracts/TicketToken.cdc"
@@ -36,33 +35,31 @@ transaction(
     prepare(parent: AuthAccount, client: AuthAccount) {
         /* --- Create a new account --- */
         //
-        // Ensure resource is saved where expected
-        if client.type(at: AccountCreator.CreatorStoragePath) == nil {
-            client.save(
-                <-AccountCreator.createNewCreator(),
-                to: AccountCreator.CreatorStoragePath
+        // Create the new account
+        let child = AuthAccount(payer: client)
+        // Create a public key for the proxy account from the passed in string
+        let key = PublicKey(
+                publicKey: pubKey.decodeHex(),
+                signatureAlgorithm: SignatureAlgorithm.ECDSA_P256
             )
-        }
-        // Ensure public Capability is linked
-        if !client.getCapability<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
-            AccountCreator.CreatorPublicPath).check() {
-            // Link the public Capability
-            client.unlink(AccountCreator.CreatorPublicPath)
-            client.link<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
-                AccountCreator.CreatorPublicPath,
-                target: AccountCreator.CreatorStoragePath
-            )
-        }
-        // Get a reference to the client's AccountCreator.Creator
-        let creatorRef = client.borrow<&AccountCreator.Creator>(
-                from: AccountCreator.CreatorStoragePath
-            ) ?? panic("No AccountCreator in client's account!")
-        // Create the account
-        let child = creatorRef.createNewAccount(
-            signer: client,
-            initialFundingAmount: fundingAmt,
-            originatingPublicKey: pubKey
+        // Add the given key to the new account
+        child.keys.add(
+            publicKey: key,
+            hashAlgorithm: HashAlgorithm.SHA3_256,
+            weight: 1000.0
         )
+        // Fund the account if so specified
+        if fundingAmt > 0.0 {
+            // Add some initial funds to the new account, pulled from the signing account.  Amount determined by initialFundingAmount
+            let fundingVault <- client.borrow<&{FungibleToken.Provider}>(
+                    from: /storage/flowTokenVault
+                )!.withdraw(
+                    amount: fundingAmt
+                )
+            child.getCapability<&{FungibleToken.Receiver}>(/public/flowTokenReceiver).borrow()!.deposit(
+                from: <- fundingVault
+            )
+        }
         // Link AuthAccountCapability & assign
         // **NOTE:** You'll want to consider adding the AuthAccount Capability path suffix as a transaction arg
         let authAccountCapPrivatePath: PrivatePath = PrivatePath(identifier: "RPSAuthAccountCapability")

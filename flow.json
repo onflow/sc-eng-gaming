@@ -1,12 +1,5 @@
 {
 	"contracts": {
-		"AccountCreator": {
-			"source": "./contracts/utility/AccountCreator.cdc",
-			"aliases": {
-				"emulator": "f8d6e0586b0a20c7",
-				"testnet": "917b2b1dafdcfa58"
-			}
-		},
 		"AddressUtils": {
 			"source": "./contracts/flow-utils/AddressUtils.cdc",
 			"aliases": {
@@ -112,7 +105,7 @@
 		"HybridCustody": {
 			"source": "./contracts/hybrid-custody/HybridCustody.cdc",
 			"aliases": {
-				"emulator": "01cf0e2f2f715450",
+				"emulator": "045a1763c93006ca",
 				"testnet": "294e44e1ec6993c6"
 			}
 		},
@@ -141,21 +134,21 @@
 		"NFTCollectionPublicFactory": {
 			"source": "./contracts/hybrid-custody/factories/NFTCollectionPublicFactory.cdc",
 			"aliases": {
-				"emulator": "01cf0e2f2f715450",
+				"emulator": "045a1763c93006ca",
 				"testnet": "294e44e1ec6993c6"
 			}
 		},
 		"NFTProviderAndCollectionFactory": {
 			"source": "./contracts/hybrid-custody/factories/NFTProviderAndCollectionFactory.cdc",
 			"aliases": {
-				"emulator": "01cf0e2f2f715450",
+				"emulator": "045a1763c93006ca",
 				"testnet": "294e44e1ec6993c6"
 			}
 		},
 		"NFTProviderFactory": {
 			"source": "./contracts/hybrid-custody/factories/NFTProviderFactory.cdc",
 			"aliases": {
-				"emulator": "01cf0e2f2f715450",
+				"emulator": "045a1763c93006ca",
 				"testnet": "294e44e1ec6993c6"
 			}
 		},
@@ -214,14 +207,6 @@
 		"hybrid-custody-emulator": {
 			"address": "045a1763c93006ca",
 			"key": "5ac3ff33301ea50d9a48cab45969447f2391b941aa4289ac06a4e77a7ab7e74a"
-		},
-		"game-account": {
-			"address": "917b2b1dafdcfa58",
-			"key": "$GAME_ACCOUNT"
-		},
-		"linked-accounts": {
-			"address": "1b655847a90e644a",
-			"key": "$LINKED_ACCOUNTS"
 		}
 	},
 	"deployments": {
@@ -238,8 +223,7 @@
 				"GamePieceNFT",
 				"TicketToken",
 				"ArcadePrize",
-				"RockPaperScissorsGame",
-				"AccountCreator"
+				"RockPaperScissorsGame"
 			],
 			"flow-utils-emulator": [
 				"AddressUtils",
