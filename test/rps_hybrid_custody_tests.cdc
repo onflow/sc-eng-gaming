@@ -43,7 +43,7 @@ pub fun testSetupFilterAndFactory() {
 
 pub fun testWalletlessOnboarding() {
     // Problem - I don't know the address of the created account!
-    walletlessOnboarding(accounts["GamePieceNFT"]!)
+    walletlessOnboarding(accounts["GamePieceNFT"]!, fundingAmout: 1.0)
     // TODO: Can't query against account since I don't know what the address is
 }
 
@@ -81,10 +81,60 @@ pub fun testSetupOwnedAccountAndPublish() {
     // Publish the player account for parent account
     setupOwnedAccountAndPublish(child, parent: parent.address, factoryAddress: dev.address, filterAddress: dev.address)
 
-    // Validate ChildAccount & OwnedAccount configured at publishing child account
+    // Validate ChildAccount & OwnedAccount configured at publishing child account but not yet redeemed by parent
     let isParent = scriptExecutor("hybrid_custody/is_parent.cdc", [child.address, parent.address]) as! Bool?
         ?? panic("Problem configuring HybridCustody resources in publishing child account!")
+    let isRedeemed = scriptExecutor("hybrid_custody/is_redeemed.cdc", [child.address, parent.address]) as! Bool?
+        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
     Test.assertEqual(true, isParent)
+    Test.assertEqual(false, isRedeemed)
+}
+
+pub fun testRedeemPublishedAccount() {
+    // Dev sets up Filter and Factory Manager (one-time setup pre-req for Hybrid Custody)
+    let dev = blockchain.createAccount()
+    setupFilterAndFactoryManager(dev)
+    
+    // Onboard the player - must do self-custody for testing reasons - can't detect walletless address
+    let child = blockchain.createAccount()
+    selfCustodyOnboarding(child)
+
+    // Player creates their own wallet-managed account
+    let parent = blockchain.createAccount()
+    // Publish the player account for parent account
+    setupOwnedAccountAndPublish(child, parent: parent.address, factoryAddress: dev.address, filterAddress: dev.address)
+
+    // Redeem the published account
+    redeemPublishedAccount(parent, childAddress: child.address)
+    
+    // Validate ChildAccount & OwnedAccount configured at publishing child account but not yet redeemed by parent
+    let isParent = scriptExecutor("hybrid_custody/is_parent.cdc", [child.address, parent.address]) as! Bool?
+        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
+    let isRedeemed = scriptExecutor("hybrid_custody/is_redeemed.cdc", [child.address, parent.address]) as! Bool?
+        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
+    Test.assertEqual(true, isParent)
+    Test.assertEqual(true, isRedeemed)
+    
+    // Validate the parent has the child account added to its Manager
+    let isChild = scriptExecutor("hybrid_custody/has_address_as_child.cdc", [parent.address, child.address]) as! Bool?
+        ?? panic("Problem configuring HybridCustody Manager in parent account!")
+    Test.assertEqual(true, isChild)
+
+    // Validate child IDs are accessible from parent
+    let expectedChildIDs = (scriptExecutor("game_piece_nft/get_collection_ids.cdc", [child.address]) as! [UInt64]?)!
+    let expectedParentIDs: [UInt64] = []
+    let expectedAddressToIDs: {Address: [UInt64]} = {child.address: expectedChildIDs, parent.address: expectedParentIDs}
+
+    // Test we have capabilities to access the minted NFTs
+    scriptExecutor("test/test_get_accessible_child_nfts.cdc", [
+        parent.address,
+        {child.address: expectedChildIDs}
+    ])
+
+    // Validate parent account configured with TicketToken Vault
+    let parentTicketTokenBalanace = scriptExecutor("ticket_token/get_balance.cdc", [parent.address]) as! UFix64?
+        ?? panic("Problem setting up parent's TicketToken Vault!")
+    Test.assertEqual(0.0, parentTicketTokenBalanace)
 }
 
 // --------------- Transaction wrapper functions ---------------
@@ -99,17 +149,23 @@ pub fun setupFilterAndFactoryManager(_ acct: Test.Account) {
     )
 }
 
-pub fun transferFlow(_ acct: Test.Account, amount: UFix64, to: Address) {
-    txExecutor(
-        "flow_token/transfer_flow.cdc",
-        [acct],
-        [amount, to],
-        nil,
-        nil
+pub fun transferFlow(amount: UFix64, to: Test.Account) {
+    let account = blockchain.serviceAccount()
+
+    let code = loadCode("flow_token/transfer_flow.cdc", "transactions")
+    let tx = Test.Transaction(
+        code: code,
+        authorizers: [account.address],
+        signers: [],
+        arguments: [to.address, amount]
     )
+
+    // Act
+    let result = blockchain.executeTransaction(tx)
+    Test.assert(result.status == Test.ResultStatus.succeeded)
 }
 
-pub fun walletlessOnboarding(_ acct: Test.Account) {
+pub fun walletlessOnboarding(_ acct: Test.Account, fundingAmout: UFix64) {
     txExecutor(
         "onboarding/walletless_onboarding.cdc",
         [acct],
@@ -139,6 +195,16 @@ pub fun setupOwnedAccountAndPublish(
         "hybrid-custody/setup_owned_account_and_publish_to_parent.cdc",
         [acct],
         [parent, factoryAddress, filterAddress],
+        nil,
+        nil
+    )
+}
+
+pub fun redeemPublishedAccount(_ acct: Test.Account, childAddress: Address) {
+    txExecutor(
+        "hybrid-custody/redeem_account.cdc",
+        [acct],
+        [childAddress],
         nil,
         nil
     )
@@ -531,4 +597,3 @@ pub fun withoutPrefix(_ input: String): String{
     }
     return address
 }
- 
