@@ -1,9 +1,9 @@
-import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
-import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
-import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
-import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
-import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
-import TicketToken from "../../contracts/TicketToken.cdc"
+import "FungibleToken"
+import "NonFungibleToken"
+import "MetadataViews"
+import "GamePieceNFT"
+import "RockPaperScissorsGame"
+import "TicketToken"
 
 /// This transaction sets up the following in a signer's account
 /// - GamePieceNFT.Collection

@@ -23,6 +23,8 @@ pub let FilterKindAllowList = "allowlist"
 pub let gamePieceNFTPublicIdentifier = "GamePieceNFTCollection"
 pub let arcadePrizePublicIdentifier = "ArcadePrizeCollection"
 
+pub let pubKey = "af45946342ac9fcc3f909c6f710d3a0c05be903fead0edf77da0bffa572c7a47bfce69218dc54998cdb86f3996fdbfb360be30854f462783188372861549409f"
+
 // --------------- Test cases ---------------
 
 pub fun testSetupFilterAndFactory() {
@@ -39,6 +41,32 @@ pub fun testSetupFilterAndFactory() {
     Test.assertEqual(true, ftProviderAllowed)
 }
 
+pub fun testWalletlessOnboarding() {
+    // Problem - I don't know the address of the created account!
+    walletlessOnboarding(accounts["GamePieceNFT"]!)
+    // TODO: Can't query against account since I don't know what the address is
+}
+
+pub fun testSelfCustodyOnboarding() {
+    // Onboard the player - must do self-custody for testing reasons - can't detect walletless address
+    let player = blockchain.createAccount()
+    selfCustodyOnboarding(player)
+    
+    // Query NFT ID
+    let nftIDs = scriptExecutor("game_piece_nft/get_collection_ids.cdc", [player.address]) as! [UInt64]?
+        ?? panic("Problem getting GamePiece NFT IDs!")
+    Test.assertEqual(1, nftIDs.length)
+    
+    // Make sure GamePlayer was configured
+    let playerID = scriptExecutor("rock_paper_scissors_game/get_game_player_id.cdc", [player.address]) as! UInt64?
+        ?? panic("GamePlayer was not configured correctly!")
+
+    // Make sure TicketToken Vault was configured
+    let balance = scriptExecutor("ticket_token/get_balance.cdc", [player.address]) as! UFix64?
+        ?? panic("TicketToken Vault was not configured correctly!")
+    Test.assertEqual(0.0, balance)
+}
+
 // --------------- Transaction wrapper functions ---------------
 
 pub fun setupFilterAndFactoryManager(_ acct: Test.Account) {
@@ -51,17 +79,44 @@ pub fun setupFilterAndFactoryManager(_ acct: Test.Account) {
     )
 }
 
+pub fun walletlessOnboarding(_ acct: Test.Account) {
+    txExecutor(
+        "onboarding/walletless_onboarding.cdc",
+        [acct],
+        [pubKey, 0.0, 1, 1, 1, 1],
+        nil,
+        nil
+    )
+}
+
+pub fun selfCustodyOnboarding(_ acct: Test.Account) {
+    txExecutor(
+        "onboarding/self_custody_onboarding.cdc",
+        [acct],
+        [accounts[gamePieceNFT]!.address],
+        nil,
+        nil
+    )
+}
+
 pub fun setupNFTCollection(_ acct: Test.Account, collection: String) {
+    var success: Bool = false
     switch collection {
         case gamePieceNFT:
-            txExecutor("game_piece_nft/setup_account.cdc", [acct], [], nil, nil)
+            success = txExecutor("game_piece_nft/setup_account.cdc", [acct], [], nil, nil)
         case ticketToken:
-            txExecutor("ticket_token/setup_account.cdc", [acct], [], nil, nil)
+            success = txExecutor("ticket_token/setup_account.cdc", [acct], [], nil, nil)
+    }
+    if !success {
+        panic("Failed to setup NFT collection!")
     }
 }
 
 pub fun setupTicketTokenVault(_ acct: Test.Account) {
-    txExecutor("ticket_token/setup_account.cdc", [acct], [], nil, nil)
+    let success = txExecutor("ticket_token/setup_account.cdc", [acct], [], nil, nil)
+    if !success {
+        panic("Failed to setup TicketToken Vault!")
+    }
 }
 
 pub fun mintNFTRandomPublic(_ acct: Test.Account) {

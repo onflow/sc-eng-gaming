@@ -1,9 +1,9 @@
-import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
-import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
-import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
-import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
-import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
-import TicketToken from "../../contracts/TicketToken.cdc"
+import "MetadataViews"
+import "FungibleToken"
+import "NonFungibleToken"
+import "GamePieceNFT"
+import "RockPaperScissorsGame"
+import "TicketToken"
 
 /// This transaction creates a signer-funded account, adding the given public key. The new account is additionally funded
 /// with specified amount of Flow from the signer's account. The newly created account is then configured with resources

@@ -1,7 +1,6 @@
 import "FungibleToken"
 import "NonFungibleToken"
 import "MetadataViews"
-import "FungibleTokenMetadataViews"
 import "ViewResolver"
 
 import "GamingMetadataViews"
