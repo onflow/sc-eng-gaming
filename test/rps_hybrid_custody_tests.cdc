@@ -67,6 +67,26 @@ pub fun testSelfCustodyOnboarding() {
     Test.assertEqual(0.0, balance)
 }
 
+pub fun testSetupOwnedAccountAndPublish() {
+    // Dev sets up Filter and Factory Manager (one-time setup pre-req for Hybrid Custody)
+    let dev = blockchain.createAccount()
+    setupFilterAndFactoryManager(dev)
+    
+    // Onboard the player - must do self-custody for testing reasons - can't detect walletless address
+    let child = blockchain.createAccount()
+    selfCustodyOnboarding(child)
+
+    // Player creates their own wallet-managed account
+    let parent = blockchain.createAccount()
+    // Publish the player account for parent account
+    setupOwnedAccountAndPublish(child, parent: parent.address, factoryAddress: dev.address, filterAddress: dev.address)
+
+    // Validate ChildAccount & OwnedAccount configured at publishing child account
+    let isParent = scriptExecutor("hybrid_custody/is_parent.cdc", [child.address, parent.address]) as! Bool?
+        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
+    Test.assertEqual(true, isParent)
+}
+
 // --------------- Transaction wrapper functions ---------------
 
 pub fun setupFilterAndFactoryManager(_ acct: Test.Account) {
@@ -104,6 +124,21 @@ pub fun selfCustodyOnboarding(_ acct: Test.Account) {
         "onboarding/self_custody_onboarding.cdc",
         [acct],
         [accounts[gamePieceNFT]!.address],
+        nil,
+        nil
+    )
+}
+
+pub fun setupOwnedAccountAndPublish(
+    _ acct: Test.Account,
+    parent: Address,
+    factoryAddress: Address,
+    filterAddress: Address
+) {
+    txExecutor(
+        "hybrid-custody/setup_owned_account_and_publish_to_parent.cdc",
+        [acct],
+        [parent, factoryAddress, filterAddress],
         nil,
         nil
     )
@@ -480,5 +515,20 @@ pub fun range(_ start: Int, _ end: Int): [Int]{
         res.append(i)
     })
     return res
+}
+
+pub fun withoutPrefix(_ input: String): String{
+    var address=input
+
+    //get rid of 0x
+    if address.length>1 && address.utf8[1] == 120 {
+        address = address.slice(from: 2, upTo: address.length)
+    }
+
+    //ensure even length
+    if address.length%2==1{
+        address="0".concat(address)
+    }
+    return address
 }
  
