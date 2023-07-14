@@ -6,20 +6,18 @@ on:
 
 jobs:
   build:
+    name: Flow CLI Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: 'npm'
-          cache-dependency-path: lib/js/test/package-lock.json
-      - name: Install Flow CLI
-        run: sh -ci “$(curl -fsSL https://raw.githubusercontent.com/onflow/flow-cli/master/install.sh)” -- v0.43.0-cadence-attachments-2
-      - name: Flow cli Version
-        run: flow version
-      - name: Update PATH
-        run: echo "/root/.local/bin" >> $GITHUB_PATH
-      - name: Install dependencies
-        run: cd lib/js/test && npm ci
-      - run: make ci
+    - uses: actions/checkout@v3
+      with:
+        submodules: "true"
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18
+    - name: Install Flow CLI
+      run: bash -ci "$(curl -fsSL https://raw.githubusercontent.com/onflow/flow-cli/master/install.sh)" -- v1.3.0
+    - name: Run tests
+      run: make ci
  
