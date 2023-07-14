@@ -187,11 +187,63 @@ pub fun testBlockchainNativeOnboarding() {
     Test.assertEqual(0.0, parentTicketTokenBalanace)
 }
 
+pub fun testAddAccountMultiSign() {
+    // Dev sets up Filter and Factory Manager (one-time setup pre-req for Hybrid Custody)
+    let filterAndFactory = blockchain.createAccount()
+    setupFilterAndFactoryManager(filterAndFactory)
+
+    // Setup child account
+    let child = blockchain.createAccount()
+    selfCustodyOnboarding(child)
+
+    let parent = blockchain.createAccount()
+    
+    addAccountMultiSign(
+        parent: parent,
+        child: child,
+        childAccountFactoryAddress: filterAndFactory.address,
+        childAccountFilterAddress: filterAndFactory.address
+    )
+    
+    // Get child account address created in blockchain-native onboarding flow
+    let childAddresses = getChildAccountAddresses(parent: parent)
+    let childAddress = childAddresses[0]
+
+    // Validate ChildAccount & OwnedAccount configured at publishing child account but not yet redeemed by parent
+    let isParent = scriptExecutor("hybrid_custody/is_parent.cdc", [childAddress, parent.address]) as! Bool?
+        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
+    let isRedeemed = scriptExecutor("hybrid_custody/is_redeemed.cdc", [childAddress, parent.address]) as! Bool?
+        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
+    Test.assertEqual(true, isParent)
+    Test.assertEqual(true, isRedeemed)
+    
+    // Validate the parent has the child account added to its Manager
+    let isChild = scriptExecutor("hybrid_custody/has_address_as_child.cdc", [parent.address, childAddress]) as! Bool?
+        ?? panic("Problem configuring HybridCustody Manager in parent account!")
+    Test.assertEqual(true, isChild)
+
+    // Validate child NFT IDs are accessible from parent
+    let expectedChildIDs = (scriptExecutor("game_piece_nft/get_collection_ids.cdc", [childAddress]) as! [UInt64]?)!
+    let expectedParentIDs: [UInt64] = []
+    let expectedAddressToIDs: {Address: [UInt64]} = {childAddress: expectedChildIDs, parent.address: expectedParentIDs}
+
+    // Test we have capabilities to access the minted NFTs
+    scriptExecutor("test/test_get_accessible_child_nfts.cdc", [
+        parent.address,
+        {childAddress: expectedChildIDs}
+    ])
+
+    // Validate parent account configured with TicketToken Vault
+    let parentTicketTokenBalanace = scriptExecutor("ticket_token/get_balance.cdc", [parent.address]) as! UFix64?
+        ?? panic("Problem setting up parent's TicketToken Vault!")
+    Test.assertEqual(0.0, parentTicketTokenBalanace)
+}
+
 // --------------- Transaction wrapper functions ---------------
 
 pub fun setupFilterAndFactoryManager(_ acct: Test.Account) {
     txExecutor(
-        "hybrid-custody/dev-setup/setup_filter_and_factory_manager.cdc",
+        "hybrid_custody/dev-setup/setup_filter_and_factory_manager.cdc",
         [acct],
         [accounts[gamePieceNFT]!.address, gamePieceNFT, accounts[ticketToken]!.address, ticketToken],
         nil,
@@ -241,6 +293,21 @@ pub fun blockchainNativeOnboarding(
     )
 }
 
+pub fun addAccountMultiSign (
+    parent: Test.Account,
+    child: Test.Account,
+    childAccountFactoryAddress: Address,
+    childAccountFilterAddress: Address
+) {
+    txExecutor(
+        "hybrid_custody/add_account_multi_sign.cdc",
+        [parent, child],
+        [childAccountFactoryAddress, childAccountFilterAddress],
+        nil,
+        nil
+    )
+}
+
 pub fun selfCustodyOnboarding(_ acct: Test.Account) {
     txExecutor(
         "onboarding/self_custody_onboarding.cdc",
@@ -258,7 +325,7 @@ pub fun setupOwnedAccountAndPublish(
     filterAddress: Address
 ) {
     txExecutor(
-        "hybrid-custody/setup_owned_account_and_publish_to_parent.cdc",
+        "hybrid_custody/setup_owned_account_and_publish_to_parent.cdc",
         [acct],
         [parent, factoryAddress, filterAddress],
         nil,
@@ -268,7 +335,7 @@ pub fun setupOwnedAccountAndPublish(
 
 pub fun redeemPublishedAccount(_ acct: Test.Account, childAddress: Address) {
     txExecutor(
-        "hybrid-custody/redeem_account.cdc",
+        "hybrid_custody/redeem_account.cdc",
         [acct],
         [childAddress],
         nil,
@@ -311,11 +378,11 @@ pub fun getFTProviderAllowed(forAddress: Address, identifier: String): Bool {
 }
 
 pub fun getParentStatusesForChild(_ child: Test.Account): {Address: Bool} {
-    return scriptExecutor("hybrid-custody/get_parents_from_child.cdc", [child.address])! as! {Address: Bool}
+    return scriptExecutor("hybrid_custody/get_parents_from_child.cdc", [child.address])! as! {Address: Bool}
 }
 
 pub fun isParent(child: Test.Account, parent: Test.Account): Bool {
-    return scriptExecutor("hybrid-custody/is_parent.cdc", [child.address, parent.address])! as! Bool
+    return scriptExecutor("hybrid_custody/is_parent.cdc", [child.address, parent.address])! as! Bool
 }
 
 pub fun getChildAccountAddresses(parent: Test.Account): [Address] {
@@ -323,15 +390,15 @@ pub fun getChildAccountAddresses(parent: Test.Account): [Address] {
 }
 
 pub fun checkIsRedeemed(child: Test.Account, parent: Test.Account): Bool {
-    return scriptExecutor("hybrid-custody/is_redeemed.cdc", [child.address, parent.address])! as! Bool
+    return scriptExecutor("hybrid_custody/is_redeemed.cdc", [child.address, parent.address])! as! Bool
 }
 
 pub fun checkAuthAccountDefaultCap(account: Test.Account): Bool {
-    return scriptExecutor("hybrid-custody/check_default_auth_acct_linked_path.cdc", [account.address])! as! Bool
+    return scriptExecutor("hybrid_custody/check_default_auth_acct_linked_path.cdc", [account.address])! as! Bool
 }
 
 pub fun getOwner(child: Test.Account): Address? {
-    let res = scriptExecutor("hybrid-custody/get_owner_of_child.cdc", [child.address])
+    let res = scriptExecutor("hybrid_custody/get_owner_of_child.cdc", [child.address])
     if res == nil {
         return nil
     }
@@ -340,16 +407,16 @@ pub fun getOwner(child: Test.Account): Address? {
 }
 
 pub fun getPendingOwner(child: Test.Account): Address? {
-    let res = scriptExecutor("hybrid-custody/get_pending_owner_of_child.cdc", [child.address])
+    let res = scriptExecutor("hybrid_custody/get_pending_owner_of_child.cdc", [child.address])
 
     return res as! Address?
 }
 
 pub fun checkForAddresses(child: Test.Account, parent: Test.Account): Bool {
-    let childAddressResult: [Address]? = (scriptExecutor("hybrid-custody/get_child_addresses.cdc", [parent.address])) as! [Address]?
+    let childAddressResult: [Address]? = (scriptExecutor("hybrid_custody/get_child_addresses.cdc", [parent.address])) as! [Address]?
     assert(childAddressResult?.contains(child.address) == true, message: "child address not found")
 
-    let parentAddressResult: [Address]? = (scriptExecutor("hybrid-custody/get_parent_addresses.cdc", [child.address])) as! [Address]?
+    let parentAddressResult: [Address]? = (scriptExecutor("hybrid_custody/get_parent_addresses.cdc", [child.address])) as! [Address]?
     assert(parentAddressResult?.contains(parent.address) == true, message: "parent address not found")
     return true
 }
