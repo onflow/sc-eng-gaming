@@ -79,6 +79,16 @@ pub fun setupFilterAndFactoryManager(_ acct: Test.Account) {
     )
 }
 
+pub fun transferFlow(_ acct: Test.Account, amount: UFix64, to: Address) {
+    txExecutor(
+        "flow_token/transfer_flow.cdc",
+        [acct],
+        [amount, to],
+        nil,
+        nil
+    )
+}
+
 pub fun walletlessOnboarding(_ acct: Test.Account) {
     txExecutor(
         "onboarding/walletless_onboarding.cdc",
