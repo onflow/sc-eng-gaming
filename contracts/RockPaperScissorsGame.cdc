@@ -772,7 +772,7 @@ pub contract RockPaperScissorsGame {
         pub let id: UInt64
         pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
         pub fun getGamePlayerIDRef(): &{GamePlayerID}
-        pub fun getAvailableMoves(matchID: UInt64): [Moves]
+        pub fun getAvailableMoves(matchID: UInt64): [Moves]?
         pub fun getMatchesInLobby(): [UInt64]
         pub fun getMatchesInPlay(): [UInt64]
         pub fun getMatchLobbyCaps(): {UInt64: Capability<&{MatchLobbyActions}>}
@@ -782,7 +782,7 @@ pub contract RockPaperScissorsGame {
         pub fun createMatch(
             multiPlayer: Bool,
             matchTimeLimit: UFix64,
-            nft: @AnyResource{NonFungibleToken.INFT},
+            nft: @AnyResource{NonFungibleToken.INFT, DynamicNFT.Dynamic},
             receiverCap: Capability<&{NonFungibleToken.Receiver}>
         ): UInt64
         pub fun signUpForMatch(matchID: UInt64)
@@ -803,13 +803,15 @@ pub contract RockPaperScissorsGame {
     /// Players can add themselves to games or be added if they expose GamePlayerPublic
     /// capability
     ///
-    pub resource GamePlayer : GamePlayerID, GamePlayerPublic {
+    pub resource GamePlayer : GamePlayerID, GamePlayerPublic, DelegatedGamePlayer {
         pub let id: UInt64
+        pub let gameContractInfo: GamingMetadataViews.GameContractMetadata
         access(self) let matchLobbyCapabilities: {UInt64: Capability<&{MatchLobbyActions}>}
         access(self) let matchPlayerCapabilities: {UInt64: Capability<&{MatchPlayerActions}>}
 
         init() {
             self.id = self.uuid
+            self.gameContractInfo = RockPaperScissorsGame.info
             self.matchPlayerCapabilities = {}
             self.matchLobbyCapabilities = {}
         }
