@@ -1,9 +1,11 @@
-import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
-import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
-import ArcadePrize from "../../contracts/ArcadePrize.cdc"
-import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
-import TicketToken from "../../contracts/TicketToken.cdc"
-import LinkedAccounts from "../../contracts/LinkedAccounts.cdc"
+import "FungibleToken"
+import "NonFungibleToken"
+import "MetadataViews"
+
+import "HybridCustody"
+
+import "ArcadePrize"
+import "TicketToken"
 
 /// Transaction to mint ArcadePrize.NFT to recipient's Collection, paying
 /// with the TicketToken.Vault in the signer's child account
@@ -65,16 +67,18 @@ transaction(fundingChildAddress: Address, minterAddress: Address) {
             ).borrow()
             ?? panic("Could not get receiver reference to the NFT Collection")
 
-        // Get a reference to the signer's LinkedAccounts.Collection from storage
-        let collectionRef: &LinkedAccounts.Collection = signer.borrow<&LinkedAccounts.Collection>(
-                from: LinkedAccounts.CollectionStoragePath
-            ) ?? panic("Could not borrow reference to LinkedAccounts.Collection in signer's account at expected path!")
+        // Get a reference to the signer's HybridCustody.Manager from storage
+        let manager: &HybridCustody.Manager = signer.borrow<&HybridCustody.Manager>(
+                from: HybridCustody.ManagerStoragePath
+            ) ?? panic("Could not borrow reference to HybridCustody.Manager in signer's account at expected path!")
         // Borrow a reference to the signer's specified child account
-        let childAccount: &AuthAccount = collectionRef.getChildAccountRef(address: fundingChildAddress)
+        let childAccount: &AuthAccount = collectionRef.borrowAccount(addr: fundingChildAddress)
             ?? panic("Signer does not have access to specified account")
+        // TODO BELOW
         // Get a reference to the child account's TicketToken Vault
-        let vaultRef: &TicketToken.Vault = childAccount.borrow<&TicketToken.Vault>(
-                from: TicketToken.VaultStoragePath
+        let vaultRef: &TicketToken.Vault = childAccount.getCapability(
+            path: TicketToken.ProviderPrivatePath,
+            type: Type<@TicketToken.Vault>
             ) ?? panic("Could not borrow a reference to the child account's TicketToken Vault at expected path!")
         // Withdraw payment in the form of TicketToken
         self.paymentVault <-vaultRef.withdraw(amount: ArcadePrize.prizePrices[ArcadePrize.PrizeType.RAINBOWDUCK]!)
