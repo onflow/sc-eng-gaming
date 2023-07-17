@@ -16,7 +16,7 @@ import "TicketToken"
 
 /// This transaction creates a new account, funding creation with the signed app account and configuring it with a
 /// GamePieceNFT Collection & NFT, RockPaperScissorsGame GamePlayer, and TicketToken Vault. The parent account is
-/// configured with a GamePieceNFT Collection, TicketToken Vault, and LinkedAccounts.Collection. Lastly, the new 
+/// configured with a GamePieceNFT Collection, TicketToken Vault, and HybridCustody.Manager. Lastly, the new 
 /// account is then linked to the signing parent account, establishing it as a linked account of the parent account.
 ///
 transaction(
@@ -273,7 +273,7 @@ transaction(
             description: info.description,
             thumbnail: info.thumbnail
         )
-        // Add the child account to the LinkedAccounts.Collection so its AuthAccountCapability can be maintained
+        // Add the child account to the HybridCustody.Manager so its AuthAccountCapability can be maintained
         self.managerRef.addAccount(cap: self.childAccountCapability)
         self.managerRef.setChildAccountDisplay(address: self.childAddress, display)
         // Finally, set the owner display as well
