@@ -1,8 +1,9 @@
 import "FungibleToken"
 import "MetadataViews"
 import "FungibleTokenMetadataViews"
+import "ViewResolver"
 
-pub contract TicketToken : FungibleToken {
+pub contract TicketToken : FungibleToken, ViewResolver {
 
     /// Total supply of TicketTokens in existence
     pub var totalSupply: UFix64
