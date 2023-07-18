@@ -21,6 +21,7 @@ pub fun main(address: Address): Bool {
 
     let d = GamePieceNFT.resolveView(Type<MetadataViews.NFTCollectionData>())! as! MetadataViews.NFTCollectionData
     let provider = factory.getCapability(acct: ref, path: d.providerPath) as! Capability<&{NonFungibleToken.Provider}>
+    assert(provider.borrow() != nil, message: "Invalid NonFungibleToken Provider Capability retrieved")
 
     let filter = acct.borrow<&CapabilityFilter.AllowlistFilter>(from: CapabilityFilter.StoragePath)
         ?? panic("Problem borrowing CapabilityFilter AllowlistFilter")

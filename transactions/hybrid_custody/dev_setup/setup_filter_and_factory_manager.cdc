@@ -3,10 +3,13 @@ import "CapabilityFactory"
 import "NFTCollectionPublicFactory"
 import "NFTProviderAndCollectionFactory"
 import "NFTProviderFactory"
+import "FTProviderFactory"
 import "FTAllFactory"
 
 import "NonFungibleToken"
 import "FungibleToken"
+
+import "TicketToken"
 
 /* --- Helper Methods --- */
 //
@@ -76,7 +79,7 @@ transaction(nftContractAddress: Address, nftContractName: String, ftContractAddr
         factoryManager.updateFactory(Type<&{NonFungibleToken.CollectionPublic}>(), NFTCollectionPublicFactory.Factory())
         factoryManager.updateFactory(Type<&{NonFungibleToken.Provider, NonFungibleToken.CollectionPublic}>(), NFTProviderAndCollectionFactory.Factory())
         factoryManager.updateFactory(Type<&{NonFungibleToken.Provider}>(), NFTProviderFactory.Factory())
-        factoryManager.updateFactory(Type<&{FungibleToken.Provider}>(), FTAllFactory.Factory())
+        factoryManager.updateFactory(Type<&{FungibleToken.Provider}>(), FTProviderFactory.Factory())
         factoryManager.updateFactory(Type<&{FungibleToken.Provider, FungibleToken.Receiver, FungibleToken.Balance}>(), FTAllFactory.Factory())
 
         /* --- AllowlistFilter configuration --- */

@@ -14,27 +14,27 @@ transaction {
             signer.save(<-TicketToken.createEmptyVault(), to: TicketToken.VaultStoragePath)
         }
 
-        if !signer.getCapability<&{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
+        if !signer.getCapability<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
             TicketToken.ReceiverPublicPath
         ).check() {
             // Unlink any capability that may exist there
             signer.unlink(TicketToken.ReceiverPublicPath)
             // Create a public capability to the Vault that only exposes the deposit function
             // & balance field through the Receiver & Balance interface
-            signer.link<&{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
+            signer.link<&TicketToken.Vault{FungibleToken.Receiver, FungibleToken.Balance, MetadataViews.Resolver}>(
                 TicketToken.ReceiverPublicPath,
                 target: TicketToken.VaultStoragePath
             )
         }
 
-        if !signer.getCapability<&{FungibleToken.Provider, FungibleToken.Receiver, FungibleToken.Balance}>(
+        if !signer.getCapability<&TicketToken.Vault{FungibleToken.Provider}>(
             TicketToken.ProviderPrivatePath
         ).check() {
             // Unlink any capability that may exist there
             signer.unlink(TicketToken.ProviderPrivatePath)
             // Create a private capability to the Vault that only exposes the withdraw function
             // through the Provider interface
-            signer.link<&{FungibleToken.Provider, FungibleToken.Receiver, FungibleToken.Balance}>(
+            signer.link<&TicketToken.Vault{FungibleToken.Provider}>(
                 TicketToken.ProviderPrivatePath,
                 target: TicketToken.VaultStoragePath
             )

@@ -3,7 +3,6 @@ import "FungibleToken"
 
 import "CapabilityFilter"
 import "CapabilityFactory"
-import "FTProviderFactory"
 
 import "TicketToken"
 
@@ -17,6 +16,7 @@ pub fun main(address: Address, providerPath: PrivatePath): Bool {
         ?? panic("No factory for FungibleToken Provider Factory found")
 
     let provider = factory.getCapability(acct: ref, path: providerPath) as! Capability<&{FungibleToken.Provider}>
+    assert(provider.borrow() != nil, message: "Invalid FungibleToken Provider Capability retrieved")
 
     let filter = acct.borrow<&CapabilityFilter.AllowlistFilter>(from: CapabilityFilter.StoragePath)
         ?? panic("Problem borrowing CapabilityFilter AllowlistFilter")

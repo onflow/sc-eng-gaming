@@ -27,280 +27,49 @@ pub let pubKey = "af45946342ac9fcc3f909c6f710d3a0c05be903fead0edf77da0bffa572c7a
 
 // --------------- Test cases ---------------
 
-pub fun testSetupFilterAndFactory() {
-    let tmp = blockchain.createAccount()
+// TODO
+pub fun testMintGamePieceNFT() {
 
-    setupFilterAndFactoryManager(tmp)
-    setupNFTCollection(tmp, collection: gamePieceNFT)
-    setupTicketTokenVault(tmp)
-
-    let nftProviderAllowed = scriptExecutor("test/get_nft_provider_from_factory_allowed.cdc", [tmp.address])! as! Bool
-    let ftProviderAllowed: Bool = scriptExecutor("test/get_ft_provider_from_factory_allowed.cdc", [tmp.address, PrivatePath(identifier: "TicketTokenProvider")!])! as! Bool
-
-    Test.assertEqual(true, nftProviderAllowed)
-    Test.assertEqual(true, ftProviderAllowed)
 }
+// TODO
+pub fun testCreateGamePlayer() {
 
-pub fun testWalletlessOnboarding() {
-    // Problem - I don't know the address of the created account!
-    walletlessOnboarding(accounts["GamePieceNFT"]!, fundingAmout: 1.0)
-    // TODO: Can't query against account since I don't know what the address is
 }
+// TODO
+pub fun testGameOnboarding() {
 
-pub fun testSelfCustodyOnboarding() {
-    // Onboard the player - must do self-custody for testing reasons - can't detect walletless address
-    let player = blockchain.createAccount()
-    selfCustodyOnboarding(player)
-    
-    // Query NFT ID
-    let nftIDs = scriptExecutor("game_piece_nft/get_collection_ids.cdc", [player.address]) as! [UInt64]?
-        ?? panic("Problem getting GamePiece NFT IDs!")
-    Test.assertEqual(1, nftIDs.length)
-    
-    // Make sure GamePlayer was configured
-    let playerID = scriptExecutor("rock_paper_scissors_game/get_game_player_id.cdc", [player.address]) as! UInt64?
-        ?? panic("GamePlayer was not configured correctly!")
-
-    // Make sure TicketToken Vault was configured
-    let balance = scriptExecutor("ticket_token/get_balance.cdc", [player.address]) as! UFix64?
-        ?? panic("TicketToken Vault was not configured correctly!")
-    Test.assertEqual(0.0, balance)
 }
+// TODO
+pub fun testCreateSinglePlayerMatch() {
 
-pub fun testSetupOwnedAccountAndPublish() {
-    // Dev sets up Filter and Factory Manager (one-time setup pre-req for Hybrid Custody)
-    let dev = blockchain.createAccount()
-    setupFilterAndFactoryManager(dev)
-    
-    // Onboard the player - must do self-custody for testing reasons - can't detect walletless address
-    let child = blockchain.createAccount()
-    selfCustodyOnboarding(child)
-
-    // Player creates their own wallet-managed account
-    let parent = blockchain.createAccount()
-    // Publish the player account for parent account
-    setupOwnedAccountAndPublish(child, parent: parent.address, factoryAddress: dev.address, filterAddress: dev.address)
-
-    // Validate ChildAccount & OwnedAccount configured at publishing child account but not yet redeemed by parent
-    let isParent = scriptExecutor("hybrid_custody/is_parent.cdc", [child.address, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    let isRedeemed = scriptExecutor("hybrid_custody/is_redeemed.cdc", [child.address, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    Test.assertEqual(true, isParent)
-    Test.assertEqual(false, isRedeemed)
 }
+// TODO
+pub fun testSubmitSinglePlayerMove() {
 
-pub fun testRedeemPublishedAccount() {
-    // Dev sets up Filter and Factory Manager (one-time setup pre-req for Hybrid Custody)
-    let dev = blockchain.createAccount()
-    setupFilterAndFactoryManager(dev)
-    
-    // Onboard the player - must do self-custody for testing reasons - can't detect walletless address
-    let child = blockchain.createAccount()
-    selfCustodyOnboarding(child)
-
-    // Player creates their own wallet-managed account
-    let parent = blockchain.createAccount()
-    // Publish the player account for parent account
-    setupOwnedAccountAndPublish(child, parent: parent.address, factoryAddress: dev.address, filterAddress: dev.address)
-
-    // Redeem the published account
-    redeemPublishedAccount(parent, childAddress: child.address)
-    
-    // Validate ChildAccount & OwnedAccount configured at publishing child account but not yet redeemed by parent
-    let isParent = scriptExecutor("hybrid_custody/is_parent.cdc", [child.address, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    let isRedeemed = scriptExecutor("hybrid_custody/is_redeemed.cdc", [child.address, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    Test.assertEqual(true, isParent)
-    Test.assertEqual(true, isRedeemed)
-    
-    // Validate the parent has the child account added to its Manager
-    let isChild = scriptExecutor("hybrid_custody/has_address_as_child.cdc", [parent.address, child.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody Manager in parent account!")
-    Test.assertEqual(true, isChild)
-
-    // Validate child NFT IDs are accessible from parent
-    let expectedChildIDs = (scriptExecutor("game_piece_nft/get_collection_ids.cdc", [child.address]) as! [UInt64]?)!
-    let expectedParentIDs: [UInt64] = []
-    let expectedAddressToIDs: {Address: [UInt64]} = {child.address: expectedChildIDs, parent.address: expectedParentIDs}
-
-    // Test we have capabilities to access the minted NFTs
-    scriptExecutor("test/test_get_accessible_child_nfts.cdc", [
-        parent.address,
-        {child.address: expectedChildIDs}
-    ])
-
-    // Validate parent account configured with TicketToken Vault
-    let parentTicketTokenBalanace = scriptExecutor("ticket_token/get_balance.cdc", [parent.address]) as! UFix64?
-        ?? panic("Problem setting up parent's TicketToken Vault!")
-    Test.assertEqual(0.0, parentTicketTokenBalanace)
 }
+// TODO
+pub fun testSubmitAutomatedPlayerMove() {
 
-pub fun testBlockchainNativeOnboarding() {
-    // Dev sets up Filter and Factory Manager (one-time setup pre-req for Hybrid Custody)
-    let filterAndFactory = blockchain.createAccount()
-    setupFilterAndFactoryManager(filterAndFactory)
-
-    let dev = blockchain.createAccount()
-    let parent = blockchain.createAccount()
-    
-    blockchainNativeOnboarding(
-        parent: parent,
-        dev: dev,
-        fundingAmout: 0.0,
-        factoryAddress: filterAndFactory.address,
-        filterAddress: filterAndFactory.address
-    )
-    
-    // Get child account address created in blockchain-native onboarding flow
-    let childAddresses = getChildAccountAddresses(parent: parent)
-    let childAddress = childAddresses[0]
-
-    // Validate ChildAccount & OwnedAccount configured at publishing child account but not yet redeemed by parent
-    let isParent = scriptExecutor("hybrid_custody/is_parent.cdc", [childAddress, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    let isRedeemed = scriptExecutor("hybrid_custody/is_redeemed.cdc", [childAddress, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    Test.assertEqual(true, isParent)
-    Test.assertEqual(true, isRedeemed)
-    
-    // Validate the parent has the child account added to its Manager
-    let isChild = scriptExecutor("hybrid_custody/has_address_as_child.cdc", [parent.address, childAddress]) as! Bool?
-        ?? panic("Problem configuring HybridCustody Manager in parent account!")
-    Test.assertEqual(true, isChild)
-
-    // Validate child NFT IDs are accessible from parent
-    let expectedChildIDs = (scriptExecutor("game_piece_nft/get_collection_ids.cdc", [childAddress]) as! [UInt64]?)!
-    let expectedParentIDs: [UInt64] = []
-    let expectedAddressToIDs: {Address: [UInt64]} = {childAddress: expectedChildIDs, parent.address: expectedParentIDs}
-
-    // Test we have capabilities to access the minted NFTs
-    scriptExecutor("test/test_get_accessible_child_nfts.cdc", [
-        parent.address,
-        {childAddress: expectedChildIDs}
-    ])
-
-    // Validate parent account configured with TicketToken Vault
-    let parentTicketTokenBalanace = scriptExecutor("ticket_token/get_balance.cdc", [parent.address]) as! UFix64?
-        ?? panic("Problem setting up parent's TicketToken Vault!")
-    Test.assertEqual(0.0, parentTicketTokenBalanace)
 }
+// TODO
+pub fun testCompleteSinglePlayerMatch() {
 
-pub fun testAddAccountMultiSign() {
-    // Dev sets up Filter and Factory Manager (one-time setup pre-req for Hybrid Custody)
-    let filterAndFactory = blockchain.createAccount()
-    setupFilterAndFactoryManager(filterAndFactory)
-
-    // Setup child account
-    let child = blockchain.createAccount()
-    selfCustodyOnboarding(child)
-
-    let parent = blockchain.createAccount()
-    
-    addAccountMultiSign(
-        parent: parent,
-        child: child,
-        childAccountFactoryAddress: filterAndFactory.address,
-        childAccountFilterAddress: filterAndFactory.address
-    )
-    
-    // Get child account address created in blockchain-native onboarding flow
-    let childAddresses = getChildAccountAddresses(parent: parent)
-    let childAddress = childAddresses[0]
-
-    // Validate ChildAccount & OwnedAccount configured at publishing child account but not yet redeemed by parent
-    let isParent = scriptExecutor("hybrid_custody/is_parent.cdc", [childAddress, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    let isRedeemed = scriptExecutor("hybrid_custody/is_redeemed.cdc", [childAddress, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    Test.assertEqual(true, isParent)
-    Test.assertEqual(true, isRedeemed)
-    
-    // Validate the parent has the child account added to its Manager
-    let isChild = scriptExecutor("hybrid_custody/has_address_as_child.cdc", [parent.address, childAddress]) as! Bool?
-        ?? panic("Problem configuring HybridCustody Manager in parent account!")
-    Test.assertEqual(true, isChild)
-
-    // Validate child NFT IDs are accessible from parent
-    let expectedChildIDs = (scriptExecutor("game_piece_nft/get_collection_ids.cdc", [childAddress]) as! [UInt64]?)!
-    let expectedParentIDs: [UInt64] = []
-    let expectedAddressToIDs: {Address: [UInt64]} = {childAddress: expectedChildIDs, parent.address: expectedParentIDs}
-
-    // Test we have capabilities to access the minted NFTs
-    scriptExecutor("test/test_get_accessible_child_nfts.cdc", [
-        parent.address,
-        {childAddress: expectedChildIDs}
-    ])
-
-    // Validate parent account configured with TicketToken Vault
-    let parentTicketTokenBalanace = scriptExecutor("ticket_token/get_balance.cdc", [parent.address]) as! UFix64?
-        ?? panic("Problem setting up parent's TicketToken Vault!")
-    Test.assertEqual(0.0, parentTicketTokenBalanace)
 }
+// TODO
+pub fun testJoinExistingMultiPlayerMatch() {
 
-pub fun testCrossAccountArcadePrizeNFTMinting() {
-    // Dev sets up Filter and Factory Manager (one-time setup pre-req for Hybrid Custody)
-    let dev = blockchain.createAccount()
-    setupFilterAndFactoryManager(dev)
+}
+// TODO
+pub fun testCompleteMultiPlayerMatch() {
+
+}
+// TODO
+pub fun testCheatingMoveFails() {
+
+}
+// TODO
+pub fun testCheatingResolutionFails() {
     
-    // Onboard the player - must do self-custody for testing reasons - can't detect walletless address
-    let child = blockchain.createAccount()
-    selfCustodyOnboarding(child)
-
-    // Player creates their own wallet-managed account
-    let parent = blockchain.createAccount()
-    // Publish the player account for parent account
-    setupOwnedAccountAndPublish(child, parent: parent.address, factoryAddress: dev.address, filterAddress: dev.address)
-
-    // Redeem the published account
-    redeemPublishedAccount(parent, childAddress: child.address)
-    
-    // Validate ChildAccount & OwnedAccount configured at publishing child account but not yet redeemed by parent
-    let isParent = scriptExecutor("hybrid_custody/is_parent.cdc", [child.address, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    let isRedeemed = scriptExecutor("hybrid_custody/is_redeemed.cdc", [child.address, parent.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody resources in publishing child account!")
-    Test.assertEqual(true, isParent)
-    Test.assertEqual(true, isRedeemed)
-    
-    // Validate the parent has the child account added to its Manager
-    let isChild = scriptExecutor("hybrid_custody/has_address_as_child.cdc", [parent.address, child.address]) as! Bool?
-        ?? panic("Problem configuring HybridCustody Manager in parent account!")
-    Test.assertEqual(true, isChild)
-
-    // Validate child NFT IDs are accessible from parent
-    let expectedChildIDs = (scriptExecutor("game_piece_nft/get_collection_ids.cdc", [child.address]) as! [UInt64]?)!
-    let expectedParentIDs: [UInt64] = []
-    let expectedAddressToIDs: {Address: [UInt64]} = {child.address: expectedChildIDs, parent.address: expectedParentIDs}
-
-    // Test we have capabilities to access the minted NFTs
-    scriptExecutor("test/test_get_accessible_child_nfts.cdc", [
-        parent.address,
-        {child.address: expectedChildIDs}
-    ])
-
-    // Validate parent account configured with TicketToken Vault
-    let parentTicketTokenBalanace = scriptExecutor("ticket_token/get_balance.cdc", [parent.address]) as! UFix64?
-        ?? panic("Problem setting up parent's TicketToken Vault!")
-    Test.assertEqual(0.0, parentTicketTokenBalanace)
-
-    // Mint TicketToken to child account
-    let mintedAmount = 10.0
-    txExecutor("ticket_token/mint_tokens.cdc", [accounts["TicketToken"]!], [child.address, mintedAmount], nil, nil)
-    
-    // Validate child account balance increase by minted amount
-    let childTicketTokenBalanace = scriptExecutor("ticket_token/get_balance.cdc", [child.address]) as! UFix64?
-        ?? panic("Problem minting TicketToken to child account!")
-    Test.assertEqual(mintedAmount, childTicketTokenBalanace)
-
-    // Mint ArcadePrizeNFT to parent, paying with child account's TicketToken balance
-    txExecutor("arcade_prize/mint_rainbow_duck_paying_with_child_vault.cdc", [parent], [child.address, accounts["ArcadePrize"]!.address], nil, nil)
-
-    // Validate parent account has ArcadePrize NFT in its Collection
-    let parentArcadePrizeIDs = scriptExecutor("arcade_prize/get_collection_ids.cdc", [parent.address]) as! [UInt64]?
-        ?? panic("Problem getting parent's ArcadePrize NFT IDs!")
-    Test.assertEqual(1, parentArcadePrizeIDs.length)
 }
 
 // --------------- Transaction wrapper functions ---------------
