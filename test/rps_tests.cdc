@@ -5,10 +5,6 @@ pub var blockchain = Test.newEmulatorBlockchain()
 pub let fungibleTokenAddress: Address = 0xee82856bf20e2aa6
 pub let flowTokenAddress: Address = 0x0ae53cb6e3f42a79
 
-pub let app = "app"
-pub let child = "child"
-pub let nftFactory = "nftFactory"
-
 pub let dynamicNFT = "DynamicNFT"
 pub let gamingMetadataViews = "GamingMetadataViews"
 pub let gamePieceNFT = "GamePieceNFT"
@@ -16,23 +12,28 @@ pub let ticketToken = "TicketToken"
 pub let rockPaperScissorsGame = "RockPaperScissorsGame"
 pub let arcadePrize = "ArcadePrize"
 
-pub let capabilityFilter = "CapabilityFilter"
-
-pub let FilterKindAllowList = "allowlist"
-
 pub let gamePieceNFTPublicIdentifier = "GamePieceNFTCollection"
 pub let arcadePrizePublicIdentifier = "ArcadePrizeCollection"
 
-pub let pubKey = "af45946342ac9fcc3f909c6f710d3a0c05be903fead0edf77da0bffa572c7a47bfce69218dc54998cdb86f3996fdbfb360be30854f462783188372861549409f"
+pub let matchTimeLimit: UInt = 10
+pub let rock: UInt8 = 0
+pub let paper: UInt8 = 1
+pub let scissors: UInt8 = 2
 
 // --------------- Test cases ---------------
 
-// TODO
 pub fun testMintGamePieceNFT() {
+    let receiver = blockchain.createAccount()
+    setupNFTCollection(receiver, collection: gamePieceNFT)
 
+    mintRandomGamePieceNFTPublic(receiver)
+
+    let ids = getCollectionIDs(receiver.address, collection: gamePieceNFT)
+    Test.assertEqual(1, ids.length)
 }
-// TODO
+
 pub fun testCreateGamePlayer() {
+    let player = blockchain.createAccount()
 
 }
 // TODO
@@ -53,7 +54,48 @@ pub fun testSubmitAutomatedPlayerMove() {
 }
 // TODO
 pub fun testCompleteSinglePlayerMatch() {
+    /* --- Onboard Player --- */
+    //
+    // Configure player's account with game resources
+    let player = blockchain.createAccount()
+    selfCustodyOnboarding(player)
 
+    // Query NFT ID
+    let nftIDs = scriptExecutor("game_piece_nft/get_collection_ids.cdc", [player.address]) as! [UInt64]?
+        ?? panic("Problem getting GamePiece NFT IDs!")
+    Test.assertEqual(1, nftIDs.length)
+    let nftID = nftIDs[0]
+
+    // Make sure GamePlayer was configured
+    let playerID = scriptExecutor("rock_paper_scissors_game/get_game_player_id.cdc", [player.address]) as! UInt64?
+        ?? panic("GamePlayer was not configured correctly!")
+
+    // Make sure TicketToken Vault was configured
+    let balance = scriptExecutor("ticket_token/get_balance.cdc", [player.address]) as! UFix64?
+        ?? panic("TicketToken Vault was not configured correctly!")
+    Test.assertEqual(0.0, balance)
+
+    /* --- Create Single-Player Match --- */
+    //
+    // Sign up for match
+    setupSinglePlayerMatch(player, nftID: nftID, matchTimeLimit: matchTimeLimit)
+
+    // // Get the ID of the match just created
+    // let matchIDs = getMatchIDsInPlay(player.address)
+    // Test.assertEqual(1, matchIDs.length)
+    // let matchID = matchIDs[0]
+
+    // /* --- Play the Match --- */
+    // //
+    // submitBothSinglePlayerMoves(player, matchID: matchID, move: rock)
+    // resolveMatch(player, matchID: matchID)
+
+    // /* --- Verify Results --- */
+    // //
+    // let history = getMatchHistoryAsRawValues(matchID: matchID)
+    //     ?? panic("Should have returned valid history, but got nil!")
+    // assert(history.containsKey(playerID))
+    // Test.assertEqual(rock, history[playerID]!)
 }
 // TODO
 pub fun testJoinExistingMultiPlayerMatch() {
@@ -74,16 +116,6 @@ pub fun testCheatingResolutionFails() {
 
 // --------------- Transaction wrapper functions ---------------
 
-pub fun setupFilterAndFactoryManager(_ acct: Test.Account) {
-    txExecutor(
-        "hybrid_custody/dev_setup/setup_filter_and_factory_manager.cdc",
-        [acct],
-        [accounts[gamePieceNFT]!.address, gamePieceNFT, accounts[ticketToken]!.address, ticketToken],
-        nil,
-        nil
-    )
-}
-
 pub fun transferFlow(amount: UFix64, to: Test.Account) {
     let account = blockchain.serviceAccount()
 
@@ -100,89 +132,13 @@ pub fun transferFlow(amount: UFix64, to: Test.Account) {
     Test.assert(result.status == Test.ResultStatus.succeeded)
 }
 
-pub fun walletlessOnboarding(_ acct: Test.Account, fundingAmout: UFix64) {
-    txExecutor(
-        "onboarding/walletless_onboarding.cdc",
-        [acct],
-        [pubKey, 0.0, 1, 1, 1, 1],
-        nil,
-        nil
-    )
-}
-
-pub fun blockchainNativeOnboarding(
-    parent: Test.Account,
-    dev: Test.Account,
-    fundingAmout: UFix64,
-    factoryAddress: Address,
-    filterAddress: Address
-) {
-    txExecutor(
-        "onboarding/blockchain_native_onboarding.cdc",
-        [parent, dev],
-        [pubKey, 0.0, factoryAddress, filterAddress, accounts["GamePieceNFT"]!.address],
-        nil,
-        nil
-    )
-}
-
-pub fun addAccountMultiSign (
-    parent: Test.Account,
-    child: Test.Account,
-    childAccountFactoryAddress: Address,
-    childAccountFilterAddress: Address
-) {
-    txExecutor(
-        "hybrid_custody/add_account_multi_sign.cdc",
-        [parent, child],
-        [childAccountFactoryAddress, childAccountFilterAddress],
-        nil,
-        nil
-    )
-}
-
-pub fun selfCustodyOnboarding(_ acct: Test.Account) {
-    txExecutor(
-        "onboarding/self_custody_onboarding.cdc",
-        [acct],
-        [accounts[gamePieceNFT]!.address],
-        nil,
-        nil
-    )
-}
-
-pub fun setupOwnedAccountAndPublish(
-    _ acct: Test.Account,
-    parent: Address,
-    factoryAddress: Address,
-    filterAddress: Address
-) {
-    txExecutor(
-        "hybrid_custody/setup_owned_account_and_publish_to_parent.cdc",
-        [acct],
-        [parent, factoryAddress, filterAddress],
-        nil,
-        nil
-    )
-}
-
-pub fun redeemPublishedAccount(_ acct: Test.Account, childAddress: Address) {
-    txExecutor(
-        "hybrid_custody/redeem_account.cdc",
-        [acct],
-        [childAddress],
-        nil,
-        nil
-    )
-}
-
 pub fun setupNFTCollection(_ acct: Test.Account, collection: String) {
     var success: Bool = false
     switch collection {
         case gamePieceNFT:
             success = txExecutor("game_piece_nft/setup_account.cdc", [acct], [], nil, nil)
-        case ticketToken:
-            success = txExecutor("ticket_token/setup_account.cdc", [acct], [], nil, nil)
+        case arcadePrize:
+            success = txExecutor("arcade_prize/setup_collection.cdc", [acct], [], nil, nil)
     }
     if !success {
         panic("Failed to setup NFT collection!")
@@ -196,67 +152,92 @@ pub fun setupTicketTokenVault(_ acct: Test.Account) {
     }
 }
 
-pub fun mintNFTRandomPublic(_ acct: Test.Account) {
+pub fun mintGamePieceNFT(_ acct: Test.Account) {
     let filepath: String = "game_piece_nft/mint_nft_random_component_public.cdc"
     txExecutor(filepath, [acct], [accounts[gamePieceNFT]!.address], nil, nil)
+}
+
+pub fun mintRandomGamePieceNFTPublic(_ acct: Test.Account) {
+    let filepath: String = "game_piece_nft/mint_nft_random_component_public.cdc"
+    txExecutor(filepath, [acct], [accounts[gamePieceNFT]!.address], nil, nil)
+}
+
+pub fun selfCustodyOnboarding(_ acct: Test.Account) {
+    txExecutor(
+        "onboarding/self_custody_onboarding.cdc",
+        [acct],
+        [accounts[gamePieceNFT]!.address],
+        nil,
+        nil
+    )
+}
+
+pub fun setupSinglePlayerMatch(_ acct: Test.Account, nftID: UInt64, matchTimeLimit: UInt) {
+    txExecutor(
+        "rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc",
+        [acct],
+        [nftID, matchTimeLimit],
+        nil,
+        nil
+    )
+}
+
+pub fun submitBothSinglePlayerMoves(_ acct: Test.Account, matchID: UInt64, move: UInt8) {
+    txExecutor(
+        "rock_paper_scissors_game/game_player/submit_both_single_player_moves.cdc",
+        [acct],
+        [matchID, move],
+        nil,
+        nil
+    )
+}
+
+pub fun resolveMatch(_ acct: Test.Account, matchID: UInt64) {
+    txExecutor(
+        "rock_paper_scissors_game/game_player/resolve_match.cdc",
+        [acct],
+        [matchID],
+        nil,
+        nil
+    )
+}
+
+pub fun resolveMatchAndReturnNFTs(_ acct: Test.Account, matchID: UInt64) {
+    txExecutor(
+        "rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc",
+        [acct],
+        [matchID],
+        nil,
+        nil
+    )
 }
 
 // ---------------- End Transaction wrapper functions
 
 // ---------------- Begin script wrapper functions
 
-pub fun getFTProviderAllowed(forAddress: Address, identifier: String): Bool {
-    let privatePath = PrivatePath(identifier: identifier) ?? panic("Invalid private path identifier provided!")
-    return scriptExecutor("test/get_ft_provider_from_factory_allowed.cdc", [forAddress, privatePath])! as! Bool
-}
-
-pub fun getParentStatusesForChild(_ child: Test.Account): {Address: Bool} {
-    return scriptExecutor("hybrid_custody/get_parents_from_child.cdc", [child.address])! as! {Address: Bool}
-}
-
-pub fun isParent(child: Test.Account, parent: Test.Account): Bool {
-    return scriptExecutor("hybrid_custody/is_parent.cdc", [child.address, parent.address])! as! Bool
-}
-
-pub fun getChildAccountAddresses(parent: Test.Account): [Address] {
-    return scriptExecutor("hybrid_custody/get_child_addresses.cdc", [parent.address])! as! [Address]
-}
-
-pub fun checkIsRedeemed(child: Test.Account, parent: Test.Account): Bool {
-    return scriptExecutor("hybrid_custody/is_redeemed.cdc", [child.address, parent.address])! as! Bool
-}
-
-pub fun checkAuthAccountDefaultCap(account: Test.Account): Bool {
-    return scriptExecutor("hybrid_custody/check_default_auth_acct_linked_path.cdc", [account.address])! as! Bool
-}
-
-pub fun getOwner(child: Test.Account): Address? {
-    let res = scriptExecutor("hybrid_custody/get_owner_of_child.cdc", [child.address])
-    if res == nil {
-        return nil
-    }
-
-    return res! as! Address
-}
-
-pub fun getPendingOwner(child: Test.Account): Address? {
-    let res = scriptExecutor("hybrid_custody/get_pending_owner_of_child.cdc", [child.address])
-
-    return res as! Address?
-}
-
-pub fun checkForAddresses(child: Test.Account, parent: Test.Account): Bool {
-    let childAddressResult: [Address]? = (scriptExecutor("hybrid_custody/get_child_addresses.cdc", [parent.address])) as! [Address]?
-    assert(childAddressResult?.contains(child.address) == true, message: "child address not found")
-
-    let parentAddressResult: [Address]? = (scriptExecutor("hybrid_custody/get_parent_addresses.cdc", [child.address])) as! [Address]?
-    assert(parentAddressResult?.contains(parent.address) == true, message: "parent address not found")
-    return true
-}
-
 pub fun getBalance(_ acct: Test.Account): UFix64 {
     let balance: UFix64? = (scriptExecutor("ticket_token/get_balance.cdc", [acct.address])! as! UFix64)
     return balance!
+}
+
+pub fun getCollectionIDs(_ addr: Address, collection: String): [UInt64] {
+    let collectionIDs: [UInt64] = []
+    switch collection {
+        case gamePieceNFT:
+            collectionIDs.appendAll((scriptExecutor("game_piece_nft/get_collection_ids.cdc", [addr])! as! [UInt64]))
+        case arcadePrize:
+            collectionIDs.appendAll((scriptExecutor("game_piece_nft/get_collection_ids.cdc", [addr])! as! [UInt64]))
+    }
+    return collectionIDs!
+}
+
+pub fun getMatchIDsInPlay(_ addr: Address): [UInt64] {
+    return scriptExecutor("rock_paper_scissors_game/get_matches_in_play.cdc", [addr])! as! [UInt64]
+}
+
+pub fun getMatchHistoryAsRawValues(matchID: UInt64): {UInt64: UInt8}? {
+    return scriptExecutor("rock_paper_scissors_game/get_match_history_as_raw_values.cdc", [matchID]) as! {UInt64: UInt8}?
 }
 
 // ---------------- End script wrapper functions
@@ -266,12 +247,6 @@ pub fun getBalance(_ acct: Test.Account): UFix64 {
 pub fun buildTypeIdentifier(_ acct: Test.Account, _ contractName: String, _ suffix: String): String {
     let addrString = (acct.address as! Address).toString()
     return "A.".concat(addrString.slice(from: 2, upTo: addrString.length)).concat(".").concat(contractName).concat(".").concat(suffix)
-}
-
-pub fun getCapabilityFilterPath(): String {
-    let filterAcct =  getTestAccount(capabilityFilter)
-
-    return "CapabilityFilter".concat(filterAcct.address.toString())
 }
 
 // ---------------- END General-purpose helper functions
@@ -348,27 +323,6 @@ pub fun txExecutor(_ filePath: String, _ signers: [Test.Account], _ arguments: [
 }
 
 pub fun setup() {
-    // main contract account being tested
-    let linkedAccount: Test.Account = blockchain.createAccount()
-    let hybridCustodyAccount = blockchain.createAccount()
-    let capabilityDelegatorAccount = blockchain.createAccount()
-    let capabilityFilterAccount = blockchain.createAccount()
-    let capabilityFactoryAccount = blockchain.createAccount()
-
-    // factory accounts
-    let cpFactory = blockchain.createAccount()
-    let providerFactory = blockchain.createAccount()
-    let cpAndProviderFactory = blockchain.createAccount()
-    let ftProviderFactory = blockchain.createAccount()
-    let ftAllFactory = blockchain.createAccount()
-
-    // the account to store a factory manager
-    let nftCapFactory = blockchain.createAccount()
-
-    // flow-utils lib contracts
-    let arrayUtils = blockchain.createAccount()
-    let stringUtils = blockchain.createAccount()
-    let addressUtils = blockchain.createAccount()
 
     // standard contracts
     let nonFungibleToken = blockchain.createAccount()
@@ -376,46 +330,25 @@ pub fun setup() {
     let fungibleTokenMetadataViews = blockchain.createAccount()
     let viewResolver = blockchain.createAccount()
     
-    // other contracts used in tests
+    // main contracts
     let gamingMetadataViews: Test.Account = blockchain.createAccount()
     let dynamicNFT: Test.Account = blockchain.createAccount()
     let gamePieceNFT = blockchain.createAccount()
     let ticketToken = blockchain.createAccount()
     let rockPaperScissorsGame = blockchain.createAccount()
     let arcadePrize = blockchain.createAccount()
-    
-    // actual test accounts
-    let parent = blockchain.createAccount()
-    let child1 = blockchain.createAccount()
-    let child2 = blockchain.createAccount()
 
     accounts = {
         "NonFungibleToken": nonFungibleToken,
         "MetadataViews": metadataViews,
         "FungibleTokenMetadataViews": fungibleTokenMetadataViews,
         "ViewResolver": viewResolver,
-        "HybridCustody": hybridCustodyAccount,
-        "CapabilityDelegator": capabilityDelegatorAccount,
-        "CapabilityFilter": capabilityFilterAccount,
-        "CapabilityFactory": capabilityFactoryAccount,
-        "NFTCollectionPublicFactory": cpFactory,
-        "NFTProviderAndCollectionFactory": providerFactory,
-        "NFTProviderFactory": cpAndProviderFactory,
-        "FTProviderFactory": ftProviderFactory,
-        "FTAllFactory": ftAllFactory,
-        "ArrayUtils": arrayUtils,
-        "StringUtils": stringUtils,
-        "AddressUtils": addressUtils,
         "GamingMetadataViews": gamingMetadataViews,
         "DynamicNFT": dynamicNFT,
         "GamePieceNFT": gamePieceNFT,
         "TicketToken": ticketToken,
         "RockPaperScissorsGame": rockPaperScissorsGame,
-        "ArcadePrize": arcadePrize,
-        "parent": parent,
-        "child1": child1,
-        "child2": child2,
-        "nftCapFactory": nftCapFactory
+        "ArcadePrize": arcadePrize
     }
 
     blockchain.useConfiguration(Test.Configuration({
@@ -425,18 +358,6 @@ pub fun setup() {
         "FungibleTokenMetadataViews": accounts["FungibleTokenMetadataViews"]!.address,
         "MetadataViews": accounts["MetadataViews"]!.address,
         "ViewResolver": accounts["ViewResolver"]!.address,
-        "ArrayUtils": accounts["ArrayUtils"]!.address,
-        "StringUtils": accounts["StringUtils"]!.address,
-        "AddressUtils": accounts["AddressUtils"]!.address,
-        "HybridCustody": accounts["HybridCustody"]!.address,
-        "CapabilityDelegator": accounts["CapabilityDelegator"]!.address,
-        "CapabilityFilter": accounts["CapabilityFilter"]!.address,
-        "CapabilityFactory": accounts["CapabilityFactory"]!.address,
-        "NFTCollectionPublicFactory": accounts["NFTCollectionPublicFactory"]!.address,
-        "NFTProviderAndCollectionFactory": accounts["NFTProviderAndCollectionFactory"]!.address,
-        "NFTProviderFactory": accounts["NFTProviderFactory"]!.address,
-        "FTProviderFactory": accounts["FTProviderFactory"]!.address,
-        "FTAllFactory": accounts["FTAllFactory"]!.address,
         "GamingMetadataViews": accounts["GamingMetadataViews"]!.address,
         "DynamicNFT": accounts["DynamicNFT"]!.address,
         "GamePieceNFT": accounts["GamePieceNFT"]!.address,
@@ -451,29 +372,13 @@ pub fun setup() {
     deploy("FungibleTokenMetadataViews", accounts["FungibleTokenMetadataViews"]!, "../contracts/utility/FungibleTokenMetadataViews.cdc")
     deploy("ViewResolver", accounts["ViewResolver"]!, "../contracts/utility/ViewResolver.cdc")
 
-    // helper libs in the order they are imported
-    deploy("ArrayUtils", accounts["ArrayUtils"]!, "../contracts/flow-utils/ArrayUtils.cdc")
-    deploy("StringUtils", accounts["StringUtils"]!, "../contracts/flow-utils/StringUtils.cdc")
-    deploy("AddressUtils", accounts["AddressUtils"]!, "../contracts/flow-utils/AddressUtils.cdc")
-
-    // helper nft contract so we can actually talk to nfts with tests
+    // main contracts we'll be testing
     deploy("GamingMetadataViews", accounts["GamingMetadataViews"]!, "../contracts/GamingMetadataViews.cdc")
     deploy("DynamicNFT", accounts["DynamicNFT"]!, "../contracts/DynamicNFT.cdc")
     deploy("GamePieceNFT", accounts["GamePieceNFT"]!, "../contracts/GamePieceNFT.cdc")
     deploy("TicketToken", accounts["TicketToken"]!, "../contracts/TicketToken.cdc")
     deploy("RockPaperScissorsGame", accounts["RockPaperScissorsGame"]!, "../contracts/RockPaperScissorsGame.cdc")
     deploy("ArcadePrize", accounts["ArcadePrize"]!, "../contracts/ArcadePrize.cdc")
-
-    // our main contract is last
-    deploy("CapabilityDelegator", accounts["CapabilityDelegator"]!, "../contracts/hybrid-custody/CapabilityDelegator.cdc")
-    deploy("CapabilityFilter", accounts["CapabilityFilter"]!, "../contracts/hybrid-custody/CapabilityFilter.cdc")
-    deploy("CapabilityFactory", accounts["CapabilityFactory"]!, "../contracts/hybrid-custody/CapabilityFactory.cdc")
-    deploy("NFTCollectionPublicFactory", accounts["NFTCollectionPublicFactory"]!, "../contracts/hybrid-custody/factories/NFTCollectionPublicFactory.cdc")
-    deploy("NFTProviderAndCollectionFactory", accounts["NFTProviderAndCollectionFactory"]!, "../contracts/hybrid-custody/factories/NFTProviderAndCollectionFactory.cdc")
-    deploy("NFTProviderFactory", accounts["NFTProviderFactory"]!, "../contracts/hybrid-custody/factories/NFTProviderFactory.cdc")
-    deploy("FTProviderFactory", accounts["FTProviderFactory"]!, "../contracts/hybrid-custody/factories/FTProviderFactory.cdc")
-    deploy("FTAllFactory", accounts["FTAllFactory"]!, "../contracts/hybrid-custody/factories/FTAllFactory.cdc")
-    deploy("HybridCustody", accounts["HybridCustody"]!, "../contracts/hybrid-custody/HybridCustody.cdc")
 }
 
 // BEGIN SECTION: Helper functions. All of the following were taken from
@@ -551,19 +456,4 @@ pub fun range(_ start: Int, _ end: Int): [Int]{
         res.append(i)
     })
     return res
-}
-
-pub fun withoutPrefix(_ input: String): String{
-    var address=input
-
-    //get rid of 0x
-    if address.length>1 && address.utf8[1] == 120 {
-        address = address.slice(from: 2, upTo: address.length)
-    }
-
-    //ensure even length
-    if address.length%2==1{
-        address="0".concat(address)
-    }
-    return address
 }
