@@ -63,22 +63,6 @@ pub fun testMintTicketToken() {
     Test.assertEqual(mintAmount, newBalance)
 }
 
-// pub fun testGameOnboarding() {
-
-// }
-// TODO
-// pub fun testCreateSinglePlayerMatch() {
-
-// }
-// TODO
-// pub fun testSubmitSinglePlayerMove() {
-
-// }
-// TODO
-// pub fun testSubmitAutomatedPlayerMove() {
-
-// }
-
 pub fun testCompleteSinglePlayerMatch() {
     /* --- Onboard Player --- */
     //
@@ -167,6 +151,7 @@ pub fun testCompleteMultiPlayerMatch() {
     let playerTwoMatchIDs = getMatchIDsInPlay(playerTwo.address)
     Test.assertEqual(1, playerTwoMatchLobbyIDs.length)
     let playerTwoMatchID = playerTwoMatchIDs[0]
+    Test.assertEqual(playerTwoMatchLobbyID, playerTwoMatchID)
     Test.assertEqual(playerOneMatchID, playerTwoMatchID)
 
     // Player submit their moves
@@ -187,14 +172,113 @@ pub fun testCompleteMultiPlayerMatch() {
     Test.assertEqual(rock, history[playerOneID]!)
     Test.assertEqual(scissors, history[playerTwoID]!)
 }
-// TODO
-// pub fun testCheatingMoveFails() {
 
-// }
-// TODO
-// pub fun testCheatingResolutionFails() {
+pub fun testCheatingMoveFails() {
+    let expectedErrorMessage = "Too soon after move submission to resolve the match!"
     
-// }
+    let playerOne = blockchain.createAccount()
+    let playerTwo = blockchain.createAccount()
+
+    selfCustodyOnboarding(playerOne)
+    selfCustodyOnboarding(playerTwo)
+
+    // Query GamePlayer.ids for each player
+    let playerOneID = getGamePlayerID(playerOne.address)
+    let playerTwoID = getGamePlayerID(playerTwo.address)
+    
+    // Query minted NFT.ids
+    let playerOneIDs = getCollectionIDs(playerOne.address, collection: gamePieceNFT)
+    let playerTwoIDs = getCollectionIDs(playerTwo.address, collection: gamePieceNFT)
+    let playerOneNFTID = playerOneIDs[0]
+    let playerTwoNFTID = playerTwoIDs[0]
+
+    setupNewMultiplayerMatch(playerOne, nftID: playerOneNFTID, playerTwoAddr: playerTwo.address, matchTimeLimit: matchTimeLimit)
+
+    // Get the ID of the match just created
+    let playerOneMatchIDs = getMatchIDsInPlay(playerOne.address)
+    Test.assertEqual(1, playerOneMatchIDs.length)
+    let playerOneMatchID = playerOneMatchIDs[0]
+
+    // Verify playerTwo has the same matchID in their lobby Capabilities
+    let playerTwoMatchLobbyIDs = getMatchIDsInLobby(playerTwo.address)
+    Test.assertEqual(1, playerTwoMatchLobbyIDs.length)
+    let playerTwoMatchLobbyID = playerTwoMatchLobbyIDs[0]
+
+    // Player two joins the match, escrowing an NFT
+    escrowNFTToExistingMatch(playerTwo, matchID: playerTwoMatchLobbyID, nftID: playerTwoNFTID)
+
+    // Verify player two now has the ability to play the match
+    let playerTwoMatchIDs = getMatchIDsInPlay(playerTwo.address)
+    Test.assertEqual(1, playerTwoMatchLobbyIDs.length)
+    let playerTwoMatchID = playerTwoMatchIDs[0]
+
+    // First player submits their move, second player attempts to condition their move on winning and fails
+    submitMove(playerOne, matchID: playerOneMatchID, move: rock)
+    let cheatingFails = txExecutor("test/cheat_multiplayer_submission.cdc", [playerTwo], [playerTwoMatchID, scissors], expectedErrorMessage, ErrorType.TX_PANIC)
+    Test.assert(cheatingFails)
+}
+
+pub fun testCheatingResolutionFails() {
+    let expectedErrorMessage = "Signing game player didn't win!"
+    
+    let playerOne = blockchain.createAccount()
+    let playerTwo = blockchain.createAccount()
+
+    selfCustodyOnboarding(playerOne)
+    selfCustodyOnboarding(playerTwo)
+
+    // Query GamePlayer.ids for each player
+    let playerOneID = getGamePlayerID(playerOne.address)
+    let playerTwoID = getGamePlayerID(playerTwo.address)
+    
+    // Query minted NFT.ids
+    let playerOneIDs = getCollectionIDs(playerOne.address, collection: gamePieceNFT)
+    let playerTwoIDs = getCollectionIDs(playerTwo.address, collection: gamePieceNFT)
+    let playerOneNFTID = playerOneIDs[0]
+    let playerTwoNFTID = playerTwoIDs[0]
+
+    setupNewMultiplayerMatch(playerOne, nftID: playerOneNFTID, playerTwoAddr: playerTwo.address, matchTimeLimit: matchTimeLimit)
+
+    // Get the ID of the match just created
+    let playerOneMatchIDs = getMatchIDsInPlay(playerOne.address)
+    Test.assertEqual(1, playerOneMatchIDs.length)
+    let playerOneMatchID = playerOneMatchIDs[0]
+
+    // Verify playerTwo has the same matchID in their lobby Capabilities
+    let playerTwoMatchLobbyIDs = getMatchIDsInLobby(playerTwo.address)
+    Test.assertEqual(1, playerTwoMatchLobbyIDs.length)
+    let playerTwoMatchLobbyID = playerTwoMatchLobbyIDs[0]
+
+    // Player two joins the match, escrowing an NFT
+    escrowNFTToExistingMatch(playerTwo, matchID: playerTwoMatchLobbyID, nftID: playerTwoNFTID)
+
+    // Verify player two now has the ability to play the match
+    let playerTwoMatchIDs = getMatchIDsInPlay(playerTwo.address)
+    Test.assertEqual(1, playerTwoMatchLobbyIDs.length)
+    let playerTwoMatchID = playerTwoMatchIDs[0]
+
+    // Players submit their moves, player one with winning move
+    submitMove(playerOne, matchID: playerOneMatchID, move: rock)
+    submitMove(playerTwo, matchID: playerTwoMatchID, move: scissors)
+
+    // Player two calls for match resolution, conditioning on them winning the match - post-condition succeeds
+    let cheatingSucceeds = txExecutor("test/cheat_resolution.cdc", [playerTwo], [playerTwoMatchID], expectedErrorMessage, ErrorType.TX_PANIC)
+    Test.assert(cheatingSucceeds)
+
+    // Other player calls for resolution anyway and wins
+    resolveMatch(playerOne, matchID: playerOneMatchID)
+
+    /* --- Verify Match Results --- */
+    //
+    let history = getMatchHistoryAsRawValues(matchID: playerOneMatchID)
+        ?? panic("Should have returned valid history, but got nil!")
+    
+    assert(history.containsKey(playerOneID))
+    assert(history.containsKey(playerTwoID))
+    
+    Test.assertEqual(rock, history[playerOneID]!)
+    Test.assertEqual(scissors, history[playerTwoID]!)
+}
 
 // --------------- Transaction wrapper functions ---------------
 
