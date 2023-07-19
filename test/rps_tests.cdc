@@ -43,8 +43,7 @@ pub fun testSetupGamePlayer() {
     assertGamePlayerConfigured(player.address)
 
     // Ensure we can query GamePlayer.id
-    let playerID = scriptExecutor("rock_paper_scissors_game/get_game_player_id.cdc", [player.address]) as! UInt64?
-        ?? panic("GamePlayer was not configured correctly!")
+    let playerID = getGamePlayerID(player.address)
 }
 
 pub fun testMintTicketToken() {
@@ -55,8 +54,7 @@ pub fun testMintTicketToken() {
     setupTicketTokenVault(receiver)
     assertTicketTokenConfigured(receiver.address)
 
-    let balance = scriptExecutor("ticket_token/get_balance.cdc", [receiver.address]) as! UFix64?
-        ?? panic("TicketToken Vault was not configured correctly!")
+    let balance = getTicketTokenBalance(receiver.address)
     Test.assertEqual(0.0, balance)
 
     // Mint 10 TicketTokens
@@ -65,21 +63,21 @@ pub fun testMintTicketToken() {
     Test.assertEqual(mintAmount, newBalance)
 }
 
-pub fun testGameOnboarding() {
-    
-}
-// TODO
-pub fun testCreateSinglePlayerMatch() {
+// pub fun testGameOnboarding() {
 
-}
+// }
 // TODO
-pub fun testSubmitSinglePlayerMove() {
+// pub fun testCreateSinglePlayerMatch() {
 
-}
+// }
 // TODO
-pub fun testSubmitAutomatedPlayerMove() {
+// pub fun testSubmitSinglePlayerMove() {
 
-}
+// }
+// TODO
+// pub fun testSubmitAutomatedPlayerMove() {
+
+// }
 
 pub fun testCompleteSinglePlayerMatch() {
     /* --- Onboard Player --- */
@@ -94,19 +92,17 @@ pub fun testCompleteSinglePlayerMatch() {
     assertTicketTokenConfigured(player.address)
 
     // Query minted NFT.id
-    let nftIDs = scriptExecutor("game_piece_nft/get_collection_ids.cdc", [player.address]) as! [UInt64]?
-        ?? panic("Problem getting GamePiece NFT IDs!")
+    let nftIDs = getCollectionIDs(player.address, collection: gamePieceNFT)
     Test.assertEqual(1, nftIDs.length)
     let nftID = nftIDs[0]
 
     // Query GamePlayer.id
-    let playerID = scriptExecutor("rock_paper_scissors_game/get_game_player_id.cdc", [player.address]) as! UInt64?
-        ?? panic("GamePlayer was not configured correctly!")
+    let playerID = getGamePlayerID(player.address)
 
     /* --- Create Single-Player Match --- */
     //
     // Sign up for match
-    setupSinglePlayerMatch(player, nftID: nftID, matchTimeLimit: matchTimeLimit)
+    setupNewSingleplayerMatch(player, nftID: nftID, matchTimeLimit: matchTimeLimit)
 
     // Get the ID of the match just created
     let matchIDs = getMatchIDsInPlay(player.address)
@@ -118,29 +114,87 @@ pub fun testCompleteSinglePlayerMatch() {
     submitBothSinglePlayerMoves(player, matchID: matchID, move: rock)
     resolveMatch(player, matchID: matchID)
 
-    /* --- Verify Results --- */
+    /* --- Verify Match Results --- */
     //
     let history = getMatchHistoryAsRawValues(matchID: matchID)
         ?? panic("Should have returned valid history, but got nil!")
     assert(history.containsKey(playerID))
     Test.assertEqual(rock, history[playerID]!)
 }
-// TODO
-pub fun testJoinExistingMultiPlayerMatch() {
 
-}
-// TODO
 pub fun testCompleteMultiPlayerMatch() {
+    let playerOne = blockchain.createAccount()
+    let playerTwo = blockchain.createAccount()
 
-}
-// TODO
-pub fun testCheatingMoveFails() {
+    selfCustodyOnboarding(playerOne)
+    selfCustodyOnboarding(playerTwo)
 
-}
-// TODO
-pub fun testCheatingResolutionFails() {
+    // Ensure all resources & Capabilities configured as expected
+    assertCollectionConfigured(playerOne.address, collection: gamePieceNFT)
+    assertGamePlayerConfigured(playerOne.address)
+    assertTicketTokenConfigured(playerOne.address)
+    assertCollectionConfigured(playerTwo.address, collection: gamePieceNFT)
+    assertGamePlayerConfigured(playerTwo.address)
+    assertTicketTokenConfigured(playerTwo.address)
+
+    // Query GamePlayer.ids for each player
+    let playerOneID = getGamePlayerID(playerOne.address)
+    let playerTwoID = getGamePlayerID(playerTwo.address)
     
+    // Query minted NFT.ids
+    let playerOneIDs = getCollectionIDs(playerOne.address, collection: gamePieceNFT)
+    let playerTwoIDs = getCollectionIDs(playerTwo.address, collection: gamePieceNFT)
+    let playerOneNFTID = playerOneIDs[0]
+    let playerTwoNFTID = playerTwoIDs[0]
+
+    setupNewMultiplayerMatch(playerOne, nftID: playerOneNFTID, playerTwoAddr: playerTwo.address, matchTimeLimit: matchTimeLimit)
+
+    // Get the ID of the match just created
+    let playerOneMatchIDs = getMatchIDsInPlay(playerOne.address)
+    Test.assertEqual(1, playerOneMatchIDs.length)
+    let playerOneMatchID = playerOneMatchIDs[0]
+
+    // Verify playerTwo has the same matchID in their lobby Capabilities
+    let playerTwoMatchLobbyIDs = getMatchIDsInLobby(playerTwo.address)
+    Test.assertEqual(1, playerTwoMatchLobbyIDs.length)
+    let playerTwoMatchLobbyID = playerTwoMatchLobbyIDs[0]
+    Test.assertEqual(playerOneMatchID, playerTwoMatchLobbyID)
+
+    // Player two joins the match, escrowing an NFT
+    escrowNFTToExistingMatch(playerTwo, matchID: playerTwoMatchLobbyID, nftID: playerTwoNFTID)
+
+    // Verify player two now has the ability to play the match
+    let playerTwoMatchIDs = getMatchIDsInPlay(playerTwo.address)
+    Test.assertEqual(1, playerTwoMatchLobbyIDs.length)
+    let playerTwoMatchID = playerTwoMatchIDs[0]
+    Test.assertEqual(playerOneMatchID, playerTwoMatchID)
+
+    // Player submit their moves
+    submitMove(playerOne, matchID: playerOneMatchID, move: rock)
+    submitMove(playerTwo, matchID: playerTwoMatchID, move: scissors)
+
+    // Resolve the match & return escrowed NFTs
+    resolveMatchAndReturnNFTs(playerOne, matchID: playerOneMatchID)
+
+    /* --- Verify Match Results --- */
+    //
+    let history = getMatchHistoryAsRawValues(matchID: playerOneMatchID)
+        ?? panic("Should have returned valid history, but got nil!")
+    
+    assert(history.containsKey(playerOneID))
+    assert(history.containsKey(playerTwoID))
+    
+    Test.assertEqual(rock, history[playerOneID]!)
+    Test.assertEqual(scissors, history[playerTwoID]!)
 }
+// TODO
+// pub fun testCheatingMoveFails() {
+
+// }
+// TODO
+// pub fun testCheatingResolutionFails() {
+    
+// }
 
 // --------------- Transaction wrapper functions ---------------
 
@@ -192,53 +246,91 @@ pub fun mintTicketTokens(to: Address, amount: UFix64) {
 }
 
 pub fun selfCustodyOnboarding(_ acct: Test.Account) {
-    txExecutor(
+    let success = txExecutor(
         "onboarding/self_custody_onboarding.cdc",
         [acct],
         [accounts[gamePieceNFT]!.address],
         nil,
         nil
     )
+    Test.assert(success)
 }
 
-pub fun setupSinglePlayerMatch(_ acct: Test.Account, nftID: UInt64, matchTimeLimit: UInt) {
-    txExecutor(
+pub fun setupNewSingleplayerMatch(_ acct: Test.Account, nftID: UInt64, matchTimeLimit: UInt) {
+    let success = txExecutor(
         "rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc",
         [acct],
         [nftID, matchTimeLimit],
         nil,
         nil
     )
+    Test.assert(success)
+}
+
+pub fun setupNewMultiplayerMatch(_ acct: Test.Account, nftID: UInt64, playerTwoAddr: Address, matchTimeLimit: UInt) {
+    let success = txExecutor(
+        "rock_paper_scissors_game/game_player/setup_new_multiplayer_match.cdc",
+        [acct],
+        [nftID, playerTwoAddr, matchTimeLimit],
+        nil,
+        nil
+    )
+    Test.assert(success)
+}
+
+pub fun escrowNFTToExistingMatch(_ acct: Test.Account, matchID: UInt64, nftID: UInt64) {
+    let success = txExecutor(
+        "rock_paper_scissors_game/game_player/escrow_nft_to_existing_match.cdc",
+        [acct],
+        [matchID, nftID],
+        nil,
+        nil
+    )
+    Test.assert(success)
 }
 
 pub fun submitBothSinglePlayerMoves(_ acct: Test.Account, matchID: UInt64, move: UInt8) {
-    txExecutor(
+    let success = txExecutor(
         "rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc",
         [acct],
         [matchID, move],
         nil,
         nil
     )
+    Test.assert(success)
+}
+
+pub fun submitMove(_ acct: Test.Account, matchID: UInt64, move: UInt8) {
+    let success = txExecutor(
+        "rock_paper_scissors_game/game_player/submit_move.cdc",
+        [acct],
+        [matchID, move],
+        nil,
+        nil
+    )
+    Test.assert(success)
 }
 
 pub fun resolveMatch(_ acct: Test.Account, matchID: UInt64) {
-    txExecutor(
+    let success = txExecutor(
         "rock_paper_scissors_game/game_player/resolve_match.cdc",
         [acct],
         [matchID],
         nil,
         nil
     )
+    Test.assert(success)
 }
 
 pub fun resolveMatchAndReturnNFTs(_ acct: Test.Account, matchID: UInt64) {
-    txExecutor(
+    let success = txExecutor(
         "rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc",
         [acct],
         [matchID],
         nil,
         nil
     )
+    Test.assert(success)
 }
 
 // ---------------- End Transaction wrapper functions
@@ -246,8 +338,11 @@ pub fun resolveMatchAndReturnNFTs(_ acct: Test.Account, matchID: UInt64) {
 // ---------------- Begin script wrapper functions
 
 pub fun getTicketTokenBalance(_ addr: Address): UFix64 {
-    let balance: UFix64? = (scriptExecutor("ticket_token/get_balance.cdc", [addr])! as! UFix64)
-    return balance!
+    return scriptExecutor("ticket_token/get_balance.cdc", [addr])! as! UFix64
+}
+
+pub fun getGamePlayerID(_ addr: Address): UInt64 {
+    return scriptExecutor("rock_paper_scissors_game/get_game_player_id.cdc", [addr])! as! UInt64
 }
 
 pub fun getCollectionIDs(_ addr: Address, collection: String): [UInt64] {
@@ -259,6 +354,10 @@ pub fun getCollectionIDs(_ addr: Address, collection: String): [UInt64] {
             collectionIDs.appendAll((scriptExecutor("game_piece_nft/get_collection_ids.cdc", [addr])! as! [UInt64]))
     }
     return collectionIDs
+}
+
+pub fun getMatchIDsInLobby(_ addr: Address): [UInt64] {
+    return scriptExecutor("rock_paper_scissors_game/get_matches_in_lobby.cdc", [addr])! as! [UInt64]
 }
 
 pub fun getMatchIDsInPlay(_ addr: Address): [UInt64] {
@@ -295,15 +394,6 @@ pub fun assertTicketTokenConfigured(_ address: Address) {
 }
 
 // ---------------- End script wrapper functions
-
-// ---------------- BEGIN General-purpose helper functions
-
-pub fun buildTypeIdentifier(_ acct: Test.Account, _ contractName: String, _ suffix: String): String {
-    let addrString = (acct.address as! Address).toString()
-    return "A.".concat(addrString.slice(from: 2, upTo: addrString.length)).concat(".").concat(contractName).concat(".").concat(suffix)
-}
-
-// ---------------- END General-purpose helper functions
 
 pub fun getTestAccount(_ name: String): Test.Account {
     if accounts[name] == nil {
