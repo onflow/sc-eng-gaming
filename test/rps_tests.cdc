@@ -15,6 +15,8 @@ pub let arcadePrize = "ArcadePrize"
 pub let gamePieceNFTPublicIdentifier = "GamePieceNFTCollection"
 pub let arcadePrizePublicIdentifier = "ArcadePrizeCollection"
 
+pub let pubKey = "af45946342ac9fcc3f909c6f710d3a0c05be903fead0edf77da0bffa572c7a47bfce69218dc54998cdb86f3996fdbfb360be30854f462783188372861549409f"
+
 pub let matchTimeLimit: UInt = 10
 pub let rock: UInt8 = 0
 pub let paper: UInt8 = 1
@@ -298,6 +300,16 @@ pub fun transferFlow(amount: UFix64, to: Test.Account) {
     Test.assert(result.status == Test.ResultStatus.succeeded)
 }
 
+pub fun walletlessOnboarding(_ acct: Test.Account, fundingAmout: UFix64) {
+    txExecutor(
+        "onboarding/walletless_onboarding.cdc",
+        [acct],
+        [pubKey, 0.0, 1, 1, 1, 1],
+        nil,
+        nil
+    )
+}
+
 pub fun setupNFTCollection(_ acct: Test.Account, collection: String) {
     var success: Bool = false
     switch collection {
@@ -559,6 +571,7 @@ pub fun setup() {
     let viewResolver = blockchain.createAccount()
     
     // main contracts
+    let accountCreator = blockchain.createAccount()
     let gamingMetadataViews: Test.Account = blockchain.createAccount()
     let dynamicNFT: Test.Account = blockchain.createAccount()
     let gamePieceNFT = blockchain.createAccount()
@@ -571,6 +584,7 @@ pub fun setup() {
         "MetadataViews": metadataViews,
         "FungibleTokenMetadataViews": fungibleTokenMetadataViews,
         "ViewResolver": viewResolver,
+        "AccountCreator": accountCreator,
         "GamingMetadataViews": gamingMetadataViews,
         "DynamicNFT": dynamicNFT,
         "GamePieceNFT": gamePieceNFT,
@@ -586,6 +600,7 @@ pub fun setup() {
         "FungibleTokenMetadataViews": accounts["FungibleTokenMetadataViews"]!.address,
         "MetadataViews": accounts["MetadataViews"]!.address,
         "ViewResolver": accounts["ViewResolver"]!.address,
+        "AccountCreator": accounts["AccountCreator"]!.address,
         "GamingMetadataViews": accounts["GamingMetadataViews"]!.address,
         "DynamicNFT": accounts["DynamicNFT"]!.address,
         "GamePieceNFT": accounts["GamePieceNFT"]!.address,
@@ -601,6 +616,7 @@ pub fun setup() {
     deploy("ViewResolver", accounts["ViewResolver"]!, "../contracts/utility/ViewResolver.cdc")
 
     // main contracts we'll be testing
+    deploy("AccountCreator", accounts["AccountCreator"]!, "../contracts/utility/AccountCreator.cdc")
     deploy("GamingMetadataViews", accounts["GamingMetadataViews"]!, "../contracts/GamingMetadataViews.cdc")
     deploy("DynamicNFT", accounts["DynamicNFT"]!, "../contracts/DynamicNFT.cdc")
     deploy("GamePieceNFT", accounts["GamePieceNFT"]!, "../contracts/GamePieceNFT.cdc")
