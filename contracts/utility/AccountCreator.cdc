@@ -88,9 +88,7 @@ pub contract AccountCreator {
             newAccount.getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver)
                 .borrow()!
                 .deposit(
-                    from: <- signer.borrow<&{
-                        FungibleToken.Provider
-                    }>(
+                    from: <- signer.borrow<&{FungibleToken.Provider}>(
                         from: /storage/flowTokenVault
                     )!.withdraw(amount: initialFundingAmount)
                 )
@@ -99,6 +97,34 @@ pub contract AccountCreator {
             emit AccountCreated(creatorAddress: self.owner?.address, creatorUUID: self.uuid, newAccount: newAccount.address, originatingPublicKey: originatingPublicKey)
             return newAccount
         }
+    }
+
+    /// Helper method to determine if a public key is active on an account by comparing the given key against all keys
+    /// active on the given account.
+    ///
+    /// @param publicKey: A public key as a string
+    /// @param address: The address of the account to query against
+    ///
+    /// @return Key index if the key is active on the account, nil otherwise (including if the given public key string
+    /// was invalid)
+    ///
+    pub fun isKeyActiveOnAccount(publicKey: String, address: Address): Int? {
+        // Public key strings must have even length
+        if publicKey.length % 2 != 0 {
+            return nil
+        }
+        
+        var keyIndex = 0
+        var matchingKeyIndex: Int? = nil
+        getAccount(address).keys.forEach(fun (key: AccountKey): Bool {
+            // Encode the key as a string and compare
+            if publicKey == String.encodeHex(key.publicKey.publicKey) && !key.isRevoked {
+                matchingKeyIndex = keyIndex
+            }
+            keyIndex = keyIndex + 1
+            return true
+        })
+        return matchingKeyIndex
     }
 
     pub fun createNewCreator(): @Creator {

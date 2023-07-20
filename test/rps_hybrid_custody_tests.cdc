@@ -42,9 +42,12 @@ pub fun testSetupFilterAndFactory() {
 }
 
 pub fun testWalletlessOnboarding() {
-    // Problem - I don't know the address of the created account!
-    walletlessOnboarding(accounts["GamePieceNFT"]!, fundingAmout: 1.0)
-    // TODO: Can't query against account since I don't know what the address is
+    walletlessOnboarding(accounts["GamePieceNFT"]!, pubKey: pubKey, fundingAmout: 1.0)
+
+    let address = scriptExecutor("account_creator/get_address_from_pub_key.cdc", [accounts["GamePieceNFT"]!.address, pubKey])! as! Address
+    let actualKeyIndex = scriptExecutor("account_creator/is_key_active_on_account.cdc", [pubKey, address])! as! Int
+
+    Test.assertEqual(0, actualKeyIndex)
 }
 
 pub fun testSelfCustodyOnboarding() {
@@ -152,6 +155,9 @@ pub fun testBlockchainNativeOnboarding() {
         factoryAddress: filterAndFactory.address,
         filterAddress: filterAndFactory.address
     )
+    let address = scriptExecutor("account_creator/get_address_from_pub_key.cdc", [accounts["GamePieceNFT"]!.address, pubKey])! as! Address
+    let actualKeyIndex = scriptExecutor("account_creator/is_key_active_on_account.cdc", [pubKey, address])! as! Int
+    Test.assertEqual(0, actualKeyIndex)
     
     // Get child account address created in blockchain-native onboarding flow
     let childAddresses = getChildAccountAddresses(parent: parent)
@@ -331,7 +337,7 @@ pub fun transferFlow(amount: UFix64, to: Test.Account) {
     Test.assert(result.status == Test.ResultStatus.succeeded)
 }
 
-pub fun walletlessOnboarding(_ acct: Test.Account, fundingAmout: UFix64) {
+pub fun walletlessOnboarding(_ acct: Test.Account, pubKey: String, fundingAmout: UFix64) {
     txExecutor(
         "onboarding/walletless_onboarding.cdc",
         [acct],

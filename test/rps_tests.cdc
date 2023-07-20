@@ -69,6 +69,8 @@ pub fun testCompleteSinglePlayerMatch() {
     /* --- Onboard Player --- */
     //
     // Configure player's account with game resources
+    // **NOTE:** in the example app, we'd onboard players via walletless onboarding. We're not doing that here because 
+    // we can't sign test transactions without a Test.Account object
     let player = blockchain.createAccount()
     selfCustodyOnboarding(player)
 
@@ -109,6 +111,9 @@ pub fun testCompleteSinglePlayerMatch() {
 }
 
 pub fun testCompleteMultiPlayerMatch() {
+    
+    // **NOTE:** in the example app, we'd onboard players via walletless onboarding. We're not doing that here because 
+    // we can't sign test transactions without a Test.Account object
     let playerOne = blockchain.createAccount()
     let playerTwo = blockchain.createAccount()
 
