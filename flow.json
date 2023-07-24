@@ -3,7 +3,8 @@
 		"AccountCreator": {
 			"source": "./contracts/utility/AccountCreator.cdc",
 			"aliases": {
-				"emulator": "045a1763c93006ca"
+				"emulator": "045a1763c93006ca",
+				"testnet": "a60698727837eccf"
 			}
 		},
 		"AddressUtils": {
@@ -17,7 +18,8 @@
 		"ArcadePrize": {
 			"source": "./contracts/ArcadePrize.cdc",
 			"aliases": {
-				"emulator": "045a1763c93006ca"
+				"emulator": "045a1763c93006ca",
+				"testnet": "a60698727837eccf"
 			}
 		},
 		"ArrayUtils": {
@@ -52,7 +54,8 @@
 		"DynamicNFT": {
 			"source": "./contracts/DynamicNFT.cdc",
 			"aliases": {
-				"emulator": "045a1763c93006ca"
+				"emulator": "045a1763c93006ca",
+				"testnet": "a60698727837eccf"
 			}
 		},
 		"FTAllFactory": {
@@ -95,13 +98,15 @@
 		"GamePieceNFT": {
 			"source": "./contracts/GamePieceNFT.cdc",
 			"aliases": {
-				"emulator": "045a1763c93006ca"
+				"emulator": "045a1763c93006ca",
+				"testnet": "a60698727837eccf"
 			}
 		},
 		"GamingMetadataViews": {
 			"source": "./contracts/GamingMetadataViews.cdc",
 			"aliases": {
-				"emulator": "045a1763c93006ca"
+				"emulator": "045a1763c93006ca",
+				"testnet": "a60698727837eccf"
 			}
 		},
 		"HybridCustody": {
@@ -151,7 +156,8 @@
 		"RockPaperScissorsGame": {
 			"source": "./contracts/RockPaperScissorsGame.cdc",
 			"aliases": {
-				"emulator": "045a1763c93006ca"
+				"emulator": "045a1763c93006ca",
+				"testnet": "a60698727837eccf"
 			}
 		},
 		"StringUtils": {
@@ -165,7 +171,8 @@
 		"TicketToken": {
 			"source": "./contracts/TicketToken.cdc",
 			"aliases": {
-				"emulator": "045a1763c93006ca"
+				"emulator": "045a1763c93006ca",
+				"testnet": "a60698727837eccf"
 			}
 		},
 		"ViewResolver": {
@@ -197,6 +204,13 @@
 		"emulator-hybrid-custody": {
 			"address": "120e725050340cab",
 			"key": "9219adbbe5caca4f2753fbd4fd22f50d5d5f6a8fe7096bbf381cbd55c2f46aab"
+		},
+		"testnet-game": {
+			"address": "a60698727837eccf",
+			"key": {
+				"type": "file",
+				"location": "testnet-game.pkey"
+			}
 		}
 	},
 	"deployments": {
@@ -231,6 +245,17 @@
 				"NFTCollectionPublicFactory",
 				"FTProviderFactory",
 				"FTAllFactory"
+			]
+		},
+		"testnet": {
+			"testnet-game": [
+				"AccountCreator",
+				"GamingMetadataViews",
+				"DynamicNFT",
+				"GamePieceNFT",
+				"TicketToken",
+				"ArcadePrize",
+				"RockPaperScissorsGame"
 			]
 		}
 	}
