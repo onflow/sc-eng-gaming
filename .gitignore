@@ -4,4 +4,4 @@ flowdb/
 .vscode/
 .env
 coverage.json
-testnet-game.pkey
+*.pkey
