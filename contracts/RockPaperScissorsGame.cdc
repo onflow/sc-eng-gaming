@@ -1362,7 +1362,7 @@ pub contract RockPaperScissorsGame {
     init() {
         // Initialize variables
         self.name = "RockPaperScissors"
-        // TODO: Replace with actual values
+        // TODO: Replace images with actual values
         self.info = GamingMetadataViews.GameContractMetadata(
             name: self.name,
             description: "Rock, Paper, Scissors on-chain!",

@@ -219,15 +219,13 @@ pub contract GamePieceNFT: NonFungibleToken, ViewResolver {
                         self.id
                     )
                 case Type<MetadataViews.ExternalURL>():
-                    return MetadataViews.ExternalURL("https://walletless-arcade-game.vercel.app/".concat(self.id.toString()))
-                // TODO: Confirm returned types
+                    return MetadataViews.ExternalURL("https://walletless-arcade-game.vercel.app/")
                 case Type<MetadataViews.NFTCollectionData>():
                     return GamePieceNFT.resolveView(view)
                 case Type<MetadataViews.NFTCollectionDisplay>():
                     return GamePieceNFT.resolveView(view)
                 case Type<MetadataViews.Traits>():
                     let traitsView = MetadataViews.dictToTraits(dict: self.metadata, excludedNames: [])
-
                     return traitsView
                 default:
                     return nil
