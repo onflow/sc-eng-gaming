@@ -1,8 +1,8 @@
-import AccountCreator from "../../contracts/utility/AccountCreator.cdc"
-import LinkedAccounts from "../../contracts/LinkedAccounts.cdc"
+import "AccountCreator"
+import "HybridCustody"
 
 /// Takes the address where a AccountCreator.CreatorPublic Capability lives, a public key as a String, and the address
-/// where a LinkedAccounts.CollectionPublic Capability lives and return whether the given public key is tied to an
+/// where a HybridCustody.ManagerPublic Capability lives and return whether the given public key is tied to an
 /// account that is an active child account of the specified parent address and the given public key is active on the 
 /// account.
 ///
@@ -11,17 +11,17 @@ import LinkedAccounts from "../../contracts/LinkedAccounts.cdc"
 ///
 pub fun main(creatorAddress: Address, pubKey: String, parentAddress: Address): Bool {
     // Get a reference to the CreatorPublic Capability from creatorAddress
-    if let creatorRef = getAccount(creatorAddress).getCapability<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
+    if let creator = getAccount(creatorAddress).getCapability<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
             AccountCreator.CreatorPublicPath
         ).borrow() {
         // Get the child address if it exists
-        if let childAddress = creatorRef.getAddressFromPublicKey(publicKey: pubKey) {
-            // Get a reference to the LinkedAccounts.CollectionPublic Capability from parentAddress
-            if let collectionRef = getAccount(parentAddress).getCapability<
-                    &LinkedAccounts.Collection{LinkedAccounts.CollectionPublic}
-                >(LinkedAccounts.CollectionPublicPath).borrow() {
-                return collectionRef.isLinkActive(onAddress: childAddress) &&
-                    LinkedAccounts.isKeyActiveOnAccount(publicKey: pubKey, address: childAddress)
+        if let childAddress = creator.getAddressFromPublicKey(publicKey: pubKey) {
+            // Get a reference to the HybridCustody.ManagerPublic Capability from parentAddress
+            if let manager = getAccount(parentAddress).getCapability<&HybridCustody.Manager{HybridCustody.ManagerPublic}>(
+                    HybridCustody.ManagerPublicPath
+                ).borrow() {
+                return manager.isLinkActive(onAddress: childAddress) &&
+                    AccountCreator.isKeyActiveOnAccount(publicKey: pubKey, address: childAddress)
             }
         }
     }

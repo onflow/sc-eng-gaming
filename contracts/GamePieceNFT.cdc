@@ -1,8 +1,10 @@
-import FungibleToken from "./utility/FungibleToken.cdc"
-import NonFungibleToken from "./utility/NonFungibleToken.cdc"
-import MetadataViews from "./utility/MetadataViews.cdc"
-import GamingMetadataViews from "./GamingMetadataViews.cdc"
-import DynamicNFT from "./DynamicNFT.cdc"
+import "FungibleToken"
+import "NonFungibleToken"
+import "MetadataViews"
+import "ViewResolver"
+
+import "GamingMetadataViews"
+import "DynamicNFT"
 
 /// GamePieceNFT
 ///
@@ -11,7 +13,7 @@ import DynamicNFT from "./DynamicNFT.cdc"
 /// heavily modeled on MonsterMaker, using images from that NFT collection
 /// as well as many values & methods from that collection.
 ///
-pub contract GamePieceNFT: NonFungibleToken {
+pub contract GamePieceNFT: NonFungibleToken, ViewResolver {
 
     /// Counter to track total circulating supply
     pub var totalSupply: UInt64
@@ -217,45 +219,13 @@ pub contract GamePieceNFT: NonFungibleToken {
                         self.id
                     )
                 case Type<MetadataViews.ExternalURL>():
-                    return MetadataViews.ExternalURL("https://walletless-arcade-game.vercel.app/".concat(self.id.toString()))
-                // TODO: Confirm returned types
+                    return MetadataViews.ExternalURL("https://walletless-arcade-game.vercel.app/")
                 case Type<MetadataViews.NFTCollectionData>():
-                    return MetadataViews.NFTCollectionData(
-                        storagePath: GamePieceNFT.CollectionStoragePath,
-                        publicPath: GamePieceNFT.CollectionPublicPath,
-                        providerPath: GamePieceNFT.ProviderPrivatePath,
-                        publicCollection: Type<&GamePieceNFT.Collection{GamePieceNFT.GamePieceNFTCollectionPublic}>(),
-                        publicLinkedType: Type<&GamePieceNFT.Collection{GamePieceNFT.GamePieceNFTCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
-                        providerLinkedType: Type<&GamePieceNFT.Collection{GamePieceNFT.GamePieceNFTCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Provider, MetadataViews.ResolverCollection}>(),
-                        createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
-                            return <-GamePieceNFT.createEmptyCollection()
-                        })
-                    )
+                    return GamePieceNFT.resolveView(view)
                 case Type<MetadataViews.NFTCollectionDisplay>():
-                    let media = MetadataViews.Media(
-                        file: MetadataViews.HTTPFile(
-                            url: "https://i.imgur.com/UMXsEjt.png"
-                        ),
-                        mediaType: "image/png"
-                    )
-
-                    let bannerMedia = MetadataViews.Media(
-                        file: MetadataViews.HTTPFile(
-                            url: "https://i.imgur.com/NzV9cyo.png"
-                        ),
-                        mediaType: "image/png"
-                    )
-                    return MetadataViews.NFTCollectionDisplay(
-                        name: "The MonsterMaker GamePieceNFT Collection",
-                        description: "This collection is used as an example to help you develop your next Flow NFT.",
-                        externalURL: MetadataViews.ExternalURL("https://walletless-arcade-game.vercel.app/"),
-                        squareImage: media,
-                        bannerImage: bannerMedia,
-                        socials: {}
-                    )
+                    return GamePieceNFT.resolveView(view)
                 case Type<MetadataViews.Traits>():
                     let traitsView = MetadataViews.dictToTraits(dict: self.metadata, excludedNames: [])
-
                     return traitsView
                 default:
                     return nil
@@ -557,6 +527,63 @@ pub contract GamePieceNFT: NonFungibleToken {
             torso: rawComponentArray[2],
             legs: rawComponentArray[3]
         )
+    }
+
+    /// Function that resolves a metadata view for this contract.
+    ///
+    /// @param view: The Type of the desired view.
+    /// @return A structure representing the requested view.
+    ///
+    pub fun resolveView(_ view: Type): AnyStruct? {
+        switch view {
+            case Type<MetadataViews.NFTCollectionData>():
+                return MetadataViews.NFTCollectionData(
+                    storagePath: GamePieceNFT.CollectionStoragePath,
+                    publicPath: GamePieceNFT.CollectionPublicPath,
+                    providerPath: GamePieceNFT.ProviderPrivatePath,
+                    publicCollection: Type<&GamePieceNFT.Collection{GamePieceNFT.GamePieceNFTCollectionPublic}>(),
+                    publicLinkedType: Type<&GamePieceNFT.Collection{GamePieceNFT.GamePieceNFTCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, MetadataViews.ResolverCollection}>(),
+                    providerLinkedType: Type<&GamePieceNFT.Collection{GamePieceNFT.GamePieceNFTCollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Provider, MetadataViews.ResolverCollection}>(),
+                    createEmptyCollectionFunction: (fun (): @NonFungibleToken.Collection {
+                        return <-GamePieceNFT.createEmptyCollection()
+                    })
+                )
+            case Type<MetadataViews.NFTCollectionDisplay>():
+                let media = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://i.imgur.com/UMXsEjt.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+
+                let bannerMedia = MetadataViews.Media(
+                        file: MetadataViews.HTTPFile(
+                            url: "https://i.imgur.com/NzV9cyo.png"
+                        ),
+                        mediaType: "image/png"
+                    )
+                return MetadataViews.NFTCollectionDisplay(
+                    name: "The MonsterMaker GamePieceNFT Collection",
+                    description: "This collection is used as an example to help you develop your next Flow NFT.",
+                    externalURL: MetadataViews.ExternalURL("https://walletless-arcade-game.vercel.app/"),
+                    squareImage: media,
+                    bannerImage: bannerMedia,
+                    socials: {}
+                )
+        }
+        return nil
+    }
+
+    /// Function that returns all the Metadata Views implemented by a Non Fungible Token
+    ///
+    /// @return An array of Types defining the implemented views. This value will be used by
+    ///         developers to know which parameter to pass to the resolveView() method.
+    ///
+    pub fun getViews(): [Type] {
+        return [
+            Type<MetadataViews.NFTCollectionData>(),
+            Type<MetadataViews.NFTCollectionDisplay>()
+        ]
     }
 
     init() {

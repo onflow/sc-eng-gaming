@@ -1,5 +1,5 @@
-import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
-import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
+import "NonFungibleToken"
+import "GamePieceNFT"
 
 /// This transaction moves all RockPaperScissorsGame & GamePieceNFT
 /// assets from the child account to the parent account

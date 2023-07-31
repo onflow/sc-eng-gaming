@@ -1,5 +1,5 @@
-import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
-import TicketToken from "../../contracts/TicketToken.cdc"
+import "FungibleToken"
+import "TicketToken"
 
 /// Returns the balance of TicketToken in the Vault at the standar path
 /// in the specified address

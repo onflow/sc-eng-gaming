@@ -213,12 +213,19 @@ To demo the functionality of this repo, clone it and follow the steps below by e
     
     - In one terminal window, run:
         ```sh
-        flow emulator start
+        flow emulator
         ```
     
-    - In another terminal window deploy the contracts with:
+    - In another terminal window, run the setup script creating our accounts & deploying contracts:
         ```sh
-        flow deploy
+        sh setup.sh
+        ```
+    
+    - Lastly, a HybridCustody pre-requisite includes setting up a Capability `Filter` and Capability Factory `Manager`. These ensure that parent account access is scoped to just the Capabilities they need to interact with the assets we as the developer want them to access. For more info on `CapabilityFilter` & `CapabilityFactory`, read [these docs](https://developers.flow.com/concepts/hybrid-custody/guides/linking-accounts#pre-requisites).
+
+        ```sh
+        flow transactions send ./transactions/hybrid-custody/dev-setup/setup_filter_and_factory_manager.cdc \
+            f8d6e0586b0a20c7 GamePieceNFT f8d6e0586b0a20c7 TicketToken
         ```
 
 ## Walletless Demo Walkthrough

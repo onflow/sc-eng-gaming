@@ -1,6 +1,6 @@
-import NonFungibleToken from "../../../contracts/utility/NonFungibleToken.cdc"
-import RockPaperScissorsGame from "../../../contracts/RockPaperScissorsGame.cdc"
-import GamePieceNFT from "../../../contracts/GamePieceNFT.cdc"
+import "NonFungibleToken"
+import "RockPaperScissorsGame"
+import "GamePieceNFT"
 
 /// ReturnsNFTs from escrow to their owners' Receiver which
 /// is stored in the Match resource itself

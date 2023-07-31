@@ -1,74 +1,86 @@
 #allowAccountLinking
 
-import FungibleToken from "../../contracts/utility/FungibleToken.cdc"
-import NonFungibleToken from "../../contracts/utility/NonFungibleToken.cdc"
-import MetadataViews from "../../contracts/utility/MetadataViews.cdc"
-import GamePieceNFT from "../../contracts/GamePieceNFT.cdc"
-import RockPaperScissorsGame from "../../contracts/RockPaperScissorsGame.cdc"
-import AccountCreator from "../../contracts/utility/AccountCreator.cdc"
-import LinkedAccountMetadataViews from "../../contracts/LinkedAccountMetadataViews.cdc"
-import LinkedAccounts from "../../contracts/LinkedAccounts.cdc"
-import TicketToken from "../../contracts/TicketToken.cdc"
+import "FungibleToken"
+import "NonFungibleToken"
+import "FlowToken"
+import "MetadataViews"
 
-/// This transaction creates a new account, funding creation with the signed client account and configuring it with a
+import "HybridCustody"
+import "CapabilityFactory"
+import "CapabilityFilter"
+import "CapabilityDelegator"
+
+import "AccountCreator"
+
+import "GamePieceNFT"
+import "RockPaperScissorsGame"
+import "TicketToken"
+
+/// This transaction creates a new account, funding creation with the signed app account and configuring it with a
 /// GamePieceNFT Collection & NFT, RockPaperScissorsGame GamePlayer, and TicketToken Vault. The parent account is
-/// configured with a GamePieceNFT Collection, TicketToken Vault, and LinkedAccounts.Collection. Lastly, the new 
+/// configured with a GamePieceNFT Collection, TicketToken Vault, and HybridCustody.Manager. Lastly, the new 
 /// account is then linked to the signing parent account, establishing it as a linked account of the parent account.
 ///
 transaction(
         pubKey: String,
         fundingAmt: UFix64,
-        linkedAccountName: String,
-        linkedAccountDescription: String,
-        clientThumbnailURL: String,
-        clientExternalURL: String,
-        monsterBackground: Int,
-        monsterHead: Int,
-        monsterTorso: Int,
-        monsterLeg: Int
+        factoryAddress: Address,
+        filterAddress: Address,
+        minterAddress: Address
     ) {
 
-    let minterRef: &GamePieceNFT.Minter
+    let childAddress: Address
     let gamePieceCollectionRef: &GamePieceNFT.Collection{NonFungibleToken.CollectionPublic}
-    let linkedAccountsCollectionRef: &LinkedAccounts.Collection
-    let linkedAccountCap: Capability<&AuthAccount>
+    let ownedAccountRef: &HybridCustody.OwnedAccount
+    let managerRef: &HybridCustody.Manager
+    let childAccountCapability: Capability<&HybridCustody.ChildAccount{HybridCustody.AccountPrivate, HybridCustody.AccountPublic, MetadataViews.Resolver}>
 
-    prepare(parent: AuthAccount, client: AuthAccount) {
-        /* --- Create a new account --- */
+    prepare(parent: AuthAccount, app: AuthAccount) {
+        /* --- Create a new account using AccountCreator --- */
+        //
+        // **NOTE:** AccountCreator is used here to keep the demo app client-side & simple and should be replaced by an
+        // an an account creation + database or custodial service in a production environment.
         //
         // Ensure resource is saved where expected
-        if client.type(at: AccountCreator.CreatorStoragePath) == nil {
-            client.save(
+        if app.type(at: AccountCreator.CreatorStoragePath) == nil {
+            app.save(
                 <-AccountCreator.createNewCreator(),
                 to: AccountCreator.CreatorStoragePath
             )
         }
         // Ensure public Capability is linked
-        if !client.getCapability<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
+        if !app.getCapability<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
             AccountCreator.CreatorPublicPath).check() {
             // Link the public Capability
-            client.unlink(AccountCreator.CreatorPublicPath)
-            client.link<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
+            app.unlink(AccountCreator.CreatorPublicPath)
+            app.link<&AccountCreator.Creator{AccountCreator.CreatorPublic}>(
                 AccountCreator.CreatorPublicPath,
                 target: AccountCreator.CreatorStoragePath
             )
         }
         // Get a reference to the client's AccountCreator.Creator
-        let creatorRef = client.borrow<&AccountCreator.Creator>(
+        let creatorRef = app.borrow<&AccountCreator.Creator>(
                 from: AccountCreator.CreatorStoragePath
-            ) ?? panic("No AccountCreator in client's account!")
+            ) ?? panic("No AccountCreator in app's account!")
+
         // Create the account
         let child = creatorRef.createNewAccount(
-            signer: client,
+            signer: app,
             initialFundingAmount: fundingAmt,
             originatingPublicKey: pubKey
         )
-        // Link AuthAccountCapability & assign
-        // **NOTE:** You'll want to consider adding the AuthAccount Capability path suffix as a transaction arg
-        let authAccountCapPrivatePath: PrivatePath = PrivatePath(identifier: "RPSAuthAccountCapability")
-            ?? panic("Couldn't create Private Path from identifier: RPSAuthAccountCapability")
-        self.linkedAccountCap = child.linkAccount(authAccountCapPrivatePath)
-            ?? panic("Problem linking AuthAccount Capability for ".concat(child.address.toString()))
+        self.childAddress = child.address
+
+        /* --- (Optional) Additional Account Funding --- */
+        //
+        // Fund the new account if specified
+        if fundingAmt > 0.0 {
+            // Get a vault to fund the new account
+            let fundingProvider = app.borrow<&FlowToken.Vault{FungibleToken.Provider}>(from: /storage/flowTokenVault)!
+            // Fund the new account with the initialFundingAmount specified
+            child.getCapability<&FlowToken.Vault{FungibleToken.Receiver}>(/public/flowTokenReceiver).borrow()!
+                .deposit(from: <-fundingProvider.withdraw(amount: fundingAmt))
+        }
 
         /* --- Set up GamePieceNFT.Collection --- */
         //
@@ -82,24 +94,14 @@ transaction(
             target: GamePieceNFT.CollectionStoragePath
         )
         // Link the Provider Capability in private storage
-        child.link<
-            &GamePieceNFT.Collection{NonFungibleToken.Provider}
-        >(
+        child.link<&GamePieceNFT.Collection{NonFungibleToken.Provider}>(
             GamePieceNFT.ProviderPrivatePath,
             target: GamePieceNFT.CollectionStoragePath
         )
         // Grab Collection related references & Capabilities
-        self.gamePieceCollectionRef = child.borrow<
-                &GamePieceNFT.Collection{NonFungibleToken.CollectionPublic}
-            >(
+        self.gamePieceCollectionRef = child.borrow<&GamePieceNFT.Collection{NonFungibleToken.CollectionPublic}>(
                 from: GamePieceNFT.CollectionStoragePath
             )!
-        
-        /* --- Make sure child account has a GamePieceNFT.NFT to play with --- */
-        //
-        // Borrow a reference to the Minter Capability in minter account's storage
-        self.minterRef = client.borrow<&GamePieceNFT.Minter>(from: GamePieceNFT.MinterStoragePath)
-            ?? panic("Couldn't borrow reference to Minter Capability in storage at ".concat(GamePieceNFT.MinterStoragePath.toString()))
 
         /* --- Set user up with GamePlayer in child account --- */
         //
@@ -114,7 +116,7 @@ transaction(
         )
         // Link GamePlayerID & DelegatedGamePlayer Capability
         child.link<
-            &RockPaperScissorsGame.GamePlayer{RockPaperScissorsGame.DelegatedGamePlayer,RockPaperScissorsGame.GamePlayerID}
+            &RockPaperScissorsGame.GamePlayer{RockPaperScissorsGame.DelegatedGamePlayer, RockPaperScissorsGame.GamePlayerID}
         >(
             RockPaperScissorsGame.GamePlayerPrivatePath,
             target: RockPaperScissorsGame.GamePlayerStoragePath
@@ -137,6 +139,41 @@ transaction(
             target: TicketToken.VaultStoragePath
         )
 
+        /* --- Configure OwnedAccount in child account --- */
+        //
+        var acctCap = child.linkAccount(HybridCustody.LinkedAccountPrivatePath)
+            ?? panic("problem linking account Capability for new account")
+        
+        // Create an OwnedAccount & link Capabilities
+        let ownedAccount <- HybridCustody.createOwnedAccount(acct: acctCap)
+        child.save(<-ownedAccount, to: HybridCustody.OwnedAccountStoragePath)
+        child
+            .link<&HybridCustody.OwnedAccount{HybridCustody.BorrowableAccount, HybridCustody.OwnedAccountPublic, MetadataViews.Resolver}>(
+                HybridCustody.OwnedAccountPrivatePath,
+                target: HybridCustody.OwnedAccountStoragePath
+            )
+        child
+            .link<&HybridCustody.OwnedAccount{HybridCustody.OwnedAccountPublic, MetadataViews.Resolver}>(
+                HybridCustody.OwnedAccountPublicPath, 
+                target: HybridCustody.OwnedAccountStoragePath
+            )
+        // Get a reference to the OwnedAccount resource
+        self.ownedAccountRef = child.borrow<&HybridCustody.OwnedAccount>(from: HybridCustody.OwnedAccountStoragePath)!
+
+        // Get the CapabilityFactory.Manager Capability
+        let factory = getAccount(factoryAddress)
+            .getCapability<&CapabilityFactory.Manager{CapabilityFactory.Getter}>(
+                CapabilityFactory.PublicPath
+            )
+        assert(factory.check(), message: "factory address is not configured properly")
+
+        // Get the CapabilityFilter.Filter Capability
+        let filter = getAccount(filterAddress).getCapability<&{CapabilityFilter.Filter}>(CapabilityFilter.PublicPath)
+        assert(filter.check(), message: "capability filter is not configured properly")
+
+        // Configure access for the delegatee parent account
+        self.ownedAccountRef.publishToParent(parentAddress: parent.address, factory: factory, filter: filter)
+
         /** --- Setup parent's GamePieceNFT.Collection --- */
         //
         // Set up GamePieceNFT.Collection if it doesn't exist
@@ -149,9 +186,7 @@ transaction(
         // Check for public capabilities
         if !parent.getCapability<
                 &GamePieceNFT.Collection{NonFungibleToken.Receiver, NonFungibleToken.CollectionPublic, GamePieceNFT.GamePieceNFTCollectionPublic, MetadataViews.ResolverCollection}
-            >(
-                GamePieceNFT.CollectionPublicPath
-            ).check() {
+            >(GamePieceNFT.CollectionPublicPath).check() {
             // create a public capability for the collection
             parent.unlink(GamePieceNFT.CollectionPublicPath)
             parent.link<
@@ -165,9 +200,7 @@ transaction(
         if !parent.getCapability<&GamePieceNFT.Collection{NonFungibleToken.Provider}>(GamePieceNFT.ProviderPrivatePath).check() {
             // Link the Provider Capability in private storage
             parent.unlink(GamePieceNFT.ProviderPrivatePath)
-            parent.link<
-                &GamePieceNFT.Collection{NonFungibleToken.Provider}
-            >(
+            parent.link<&GamePieceNFT.Collection{NonFungibleToken.Provider}>(
                 GamePieceNFT.ProviderPrivatePath,
                 target: GamePieceNFT.CollectionStoragePath
             )
@@ -207,69 +240,62 @@ transaction(
             )
         }
 
-        /** --- Set user up with LinkedAccounts.Collection --- */
+        /* --- Configure HybridCustody Manager --- */
         //
-        // Check that Collection is saved in storage
-        if parent.type(at: LinkedAccounts.CollectionStoragePath) == nil {
-            parent.save(
-                <-LinkedAccounts.createEmptyCollection(),
-                to: LinkedAccounts.CollectionStoragePath
-            )
+        // Configure HybridCustody.Manager if needed
+        if parent.borrow<&HybridCustody.Manager>(from: HybridCustody.ManagerStoragePath) == nil {
+            let m <- HybridCustody.createManager(filter: filter)
+            parent.save(<- m, to: HybridCustody.ManagerStoragePath)
         }
-        // Link the public Capability
-        if !parent.getCapability<
-                &LinkedAccounts.Collection{LinkedAccounts.CollectionPublic, MetadataViews.ResolverCollection}
-            >(LinkedAccounts.CollectionPublicPath).check() {
-            parent.unlink(LinkedAccounts.CollectionPublicPath)
-            parent.link<&LinkedAccounts.Collection{LinkedAccounts.CollectionPublic, MetadataViews.ResolverCollection}>(
-                LinkedAccounts.CollectionPublicPath,
-                target: LinkedAccounts.CollectionStoragePath
-            )
-        }
-        // Link the private Capability
-        if !parent.getCapability<
-                &LinkedAccounts.Collection{LinkedAccounts.CollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, NonFungibleToken.Provider, MetadataViews.ResolverCollection}
-            >(LinkedAccounts.CollectionPrivatePath).check() {
-            parent.unlink(LinkedAccounts.CollectionPrivatePath)
-            parent.link<
-                &LinkedAccounts.Collection{LinkedAccounts.CollectionPublic, NonFungibleToken.CollectionPublic, NonFungibleToken.Receiver, NonFungibleToken.Provider, MetadataViews.ResolverCollection}
-            >(
-                LinkedAccounts.CollectionPrivatePath,
-                target: LinkedAccounts.CollectionStoragePath
-            )
-        }
-        // Assign linkedAccountsCollectionRef
-        self.linkedAccountsCollectionRef = parent.borrow<&LinkedAccounts.Collection>(from: LinkedAccounts.CollectionStoragePath)
-            ?? panic("Couldn't get a reference to the parent's LinkedAccounts.Collection")
+
+        // Link Capabilities
+        parent.unlink(HybridCustody.ManagerPublicPath)
+        parent.unlink(HybridCustody.ManagerPrivatePath)
+        parent.link<&HybridCustody.Manager{HybridCustody.ManagerPrivate, HybridCustody.ManagerPublic}>(
+            HybridCustody.ManagerPrivatePath,
+            target: HybridCustody.ManagerStoragePath
+        )
+        parent.link<&HybridCustody.Manager{HybridCustody.ManagerPublic}>(
+            HybridCustody.ManagerPublicPath,
+            target: HybridCustody.ManagerStoragePath
+        )
+
+        // Get a reference to the Manager and add the account
+        self.managerRef = parent.borrow<&HybridCustody.Manager>(from: HybridCustody.ManagerStoragePath)
+            ?? panic("manager no found")
+        // Claim the ChildAccount Capability published earlier in the transaction by the OwnedAccount
+        let inboxName = HybridCustody.getChildAccountIdentifier(parent.address)
+        self.childAccountCapability = parent
+            .inbox
+            .claim<&HybridCustody.ChildAccount{HybridCustody.AccountPrivate, HybridCustody.AccountPublic, MetadataViews.Resolver}>(
+                inboxName,
+                provider: child.address
+            ) ?? panic("child account cap not found")
     }
 
     execute {
-        // Build the MonsterComponent struct from given arguments
-        let componentValue = GamePieceNFT.MonsterComponent(
-                background: monsterBackground,
-                head: monsterHead,
-                torso: monsterTorso,
-                leg: monsterLeg
-            )
+        // Borrow a reference to the MinterPublic
+        let minterPublicRef = getAccount(minterAddress).getCapability<&GamePieceNFT.Minter{GamePieceNFT.MinterPublic}>(
+                GamePieceNFT.MinterPublicPath
+            ).borrow()
+            ?? panic("Couldn't borrow reference to MinterPublic at ".concat(minterAddress.toString()))
         // Mint NFT to child account's Collection
-        self.minterRef.mintNFT(
+        minterPublicRef.mintNFT(
             recipient: self.gamePieceCollectionRef,
-            component: componentValue
+            component: GamePieceNFT.getRandomComponent()
         )
-        // Construct the AccountInfo metadata struct
-        let info = LinkedAccountMetadataViews.AccountInfo(
-                name: childAccountName,
-                description: childAccountDescription,
-                thumbnail: MetadataViews.HTTPFile(url: clientIconURL),
-                externalURL: MetadataViews.ExternalURL(clientExternalURL)
-            )
-        // Add the child account to the LinkedAccounts.Collection so its AuthAccountCapability can be maintained
-        self.linkedAccountsCollectionRef.addAsChildAccount(
-            linkedAccountCap: self.linkedAccountCap,
-            linkedAccountMetadata: self.info,
-            linkedAccountMetadataResolver: nil,
-            handlerPathSuffix: "RockPaperScissorsHandler"
+        // Construct the Display from the game contract info
+        let info = RockPaperScissorsGame.info
+        let display = MetadataViews.Display(
+            name: info.name,
+            description: info.description,
+            thumbnail: info.thumbnail
         )
+        // Add the child account to the HybridCustody.Manager so its AuthAccountCapability can be maintained
+        self.managerRef.addAccount(cap: self.childAccountCapability)
+        self.managerRef.setChildAccountDisplay(address: self.childAddress, display)
+        // Finally, set the owner display as well
+        self.ownedAccountRef.setDisplay(display)
     }
 }
  
