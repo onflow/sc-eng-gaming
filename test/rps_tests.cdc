@@ -132,9 +132,9 @@ pub fun testCompleteSinglePlayerMatchCreatingAndSubmittingMoves() {
     // Query GamePlayer.id
     let playerID = getGamePlayerID(player.address)
 
-    /* --- Create Single-Player Match --- */
+    /* --- Create Single-Player Match & Submit Move --- */
     //
-    // Sign up for match
+    // Creates a match, also subitting move for the new match for both players
     setupNewSingleplayerMatchAndSubmitMoves(player, nftID: nftID, matchTimeLimit: matchTimeLimit, move: rock)
 
     // Get the ID of the match just created
@@ -142,9 +142,8 @@ pub fun testCompleteSinglePlayerMatchCreatingAndSubmittingMoves() {
     Test.assertEqual(1, matchIDs.length)
     let matchID = matchIDs[0]
 
-    /* --- Play the Match --- */
+    /* --- Resolve the Match --- */
     //
-    // submitBothSinglePlayerMoves(player, matchID: matchID, move: rock)
     resolveMatch(player, matchID: matchID)
 
     /* --- Verify Match Results --- */
