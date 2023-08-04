@@ -110,6 +110,51 @@ pub fun testCompleteSinglePlayerMatch() {
     Test.assertEqual(rock, history[playerID]!)
 }
 
+pub fun testCompleteSinglePlayerMatchCreatingAndSubmittingMoves() {
+    /* --- Onboard Player --- */
+    //
+    // Configure player's account with game resources
+    // **NOTE:** in the example app, we'd onboard players via walletless onboarding. We're not doing that here because 
+    // we can't sign test transactions without a Test.Account object
+    let player = blockchain.createAccount()
+    selfCustodyOnboarding(player)
+
+    // Ensure all resources & Capabilities configured as expected
+    assertCollectionConfigured(player.address, collection: gamePieceNFT)
+    assertGamePlayerConfigured(player.address)
+    assertTicketTokenConfigured(player.address)
+
+    // Query minted NFT.id
+    let nftIDs = getCollectionIDs(player.address, collection: gamePieceNFT)
+    Test.assertEqual(1, nftIDs.length)
+    let nftID = nftIDs[0]
+
+    // Query GamePlayer.id
+    let playerID = getGamePlayerID(player.address)
+
+    /* --- Create Single-Player Match --- */
+    //
+    // Sign up for match
+    setupNewSingleplayerMatchAndSubmitMoves(player, nftID: nftID, matchTimeLimit: matchTimeLimit, move: rock)
+
+    // Get the ID of the match just created
+    let matchIDs = getMatchIDsInPlay(player.address)
+    Test.assertEqual(1, matchIDs.length)
+    let matchID = matchIDs[0]
+
+    /* --- Play the Match --- */
+    //
+    // submitBothSinglePlayerMoves(player, matchID: matchID, move: rock)
+    resolveMatch(player, matchID: matchID)
+
+    /* --- Verify Match Results --- */
+    //
+    let history = getMatchHistoryAsRawValues(matchID: matchID)
+        ?? panic("Should have returned valid history, but got nil!")
+    assert(history.containsKey(playerID))
+    Test.assertEqual(rock, history[playerID]!)
+}
+
 pub fun testCompleteMultiPlayerMatch() {
     
     // **NOTE:** in the example app, we'd onboard players via walletless onboarding. We're not doing that here because 
@@ -362,6 +407,17 @@ pub fun setupNewSingleplayerMatch(_ acct: Test.Account, nftID: UInt64, matchTime
         "rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc",
         [acct],
         [nftID, matchTimeLimit],
+        nil,
+        nil
+    )
+    Test.assert(success)
+}
+
+pub fun setupNewSingleplayerMatchAndSubmitMoves(_ acct: Test.Account, nftID: UInt64, matchTimeLimit: UInt, move: UInt8) {
+    let success = txExecutor(
+        "rock_paper_scissors_game/game_player/setup_new_singleplayer_match_and_submit_moves.cdc",
+        [acct],
+        [nftID, matchTimeLimit, move],
         nil,
         nil
     )
