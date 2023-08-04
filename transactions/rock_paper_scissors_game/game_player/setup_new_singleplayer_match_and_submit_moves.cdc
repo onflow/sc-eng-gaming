@@ -2,8 +2,8 @@ import "NonFungibleToken"
 import "GamePieceNFT"
 import "RockPaperScissorsGame"
 
-/// Transaction that creates a new Match in single player mode and 
-/// escrows the specified NFT from the signing account's Collection
+/// Transaction that creates a new Match in single player mode and escrows the specified NFT from the signing account's
+/// Collectio, also submitting the given move for the new match and calling for the automated player's move to be played.
 ///
 transaction(submittingNFTID: UInt64, matchTimeLimitInMinutes: UInt, move: UInt8) {
     
