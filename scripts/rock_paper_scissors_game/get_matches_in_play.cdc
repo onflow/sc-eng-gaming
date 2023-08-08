@@ -7,8 +7,7 @@ pub fun main(address: Address): [UInt64] {
     
     let account = getAccount(address)
 
-    let gamePlayerRef = account
-        .getCapability(RockPaperScissorsGame.GamePlayerPublicPath)
+    let gamePlayerRef = account.getCapability(RockPaperScissorsGame.GamePlayerPublicPath)
         .borrow<&{RockPaperScissorsGame.GamePlayerPublic}>()
         ?? panic("Could not borrow capability from public collection at specified path")
 

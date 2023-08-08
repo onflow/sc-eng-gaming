@@ -9,24 +9,19 @@ import "RockPaperScissorsGame"
 transaction(matchID: UInt64, move: UInt8) {
     
     let gamePlayerRef: &RockPaperScissorsGame.GamePlayer
-    let moveAsEnum: RockPaperScissorsGame.Moves
 
     prepare(acct: AuthAccount) {
         // Get the GamePlayer reference from the signing account's storage
-        self.gamePlayerRef = acct
-            .borrow<&RockPaperScissorsGame.GamePlayer>(
-                from: RockPaperScissorsGame.GamePlayerStoragePath
-            ) ?? panic("Could not borrow GamePlayer reference!")
-        // Construct a legible move from the raw input value
-        self.moveAsEnum = RockPaperScissorsGame
-            .Moves(
-                rawValue: move
-            ) ?? panic("Given move does not map to a legal RockPaperScissorsGame.Moves value!")
+        self.gamePlayerRef = acct.borrow<&RockPaperScissorsGame.GamePlayer>(from: RockPaperScissorsGame.GamePlayerStoragePath)
+            ?? panic("Could not borrow GamePlayer reference!")
     }
 
     execute {
+        // Construct a legible move from the raw input value
+        let moveAsEnum = RockPaperScissorsGame.Moves(rawValue: move)
+            ?? panic("Given move does not map to a legal RockPaperScissorsGame.Moves value!")
         // Submit moves for the game
-        self.gamePlayerRef.submitMoveToMatch(matchID: matchID, move: self.moveAsEnum)
+        self.gamePlayerRef.submitMoveToMatch(matchID: matchID, move: moveAsEnum)
         RockPaperScissorsGame.submitAutomatedPlayerMove(matchID: matchID)
     }
 }
