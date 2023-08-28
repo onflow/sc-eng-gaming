@@ -512,7 +512,7 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
         flow scripts execute scripts/ticket_token/get_balance_of_all_child_accounts.cdc <PARENT_ADDRESS>
         ```
     
-    1. `hybrid_custody/get_all_account_balances_from_storage: {Type: VaultInfo}`
+    1. `hybrid_custody/get_all_vault_bal_from_storage: {Address: {Type: UFix64}}`
         * `address: Address`
         
         ```sh
@@ -537,7 +537,7 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
         ```
     
 2. Query for all publicly accessible NFTs in the connected account & its child accounts
-    * `child_account/get_all_nft_display_views_from_public: [NFTData]`
+    * `hybrid_custody/get_all_nft_display_views_from_storage: [NFTData]`
         * `address: Address`
 
     ```sh
@@ -570,7 +570,7 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
     ```
     
 1. Again query for all publicly accessible NFTs in the connected account & its child accounts to see the NFT that was minted among all of the user’s owned NFTs
-    * `child_account/get_all_nft_display_views_from_public: [NFTData]`
+    * `hybrid_custody/get_all_nft_display_views_from_storage: [NFTData]`
         * `address: Address`
     
     ```bash
