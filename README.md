@@ -211,7 +211,7 @@ ___
 
 # Demo on Emulator
 
-To demo the functionality of this repo, clone it and follow the steps below by entering each command using [Flow CLI](https://github.com/onflow/flow-cli/releases/tag/v0.45.1-cadence-attachments-3) (Attachments/AuthAccount Capability pre-release version) from the package root:
+To demo the functionality of this repo, clone it and follow the steps below by entering each command using [Flow CLI](https://github.com/onflow/flow-cli) from the package root:
 
 ## Pre-Requisites
 
@@ -231,7 +231,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
 
         ```sh
         flow transactions send ./transactions/hybrid_custody/dev_setup/setup_filter_and_factory_manager.cdc \
-            f8d6e0586b0a20c7 GamePieceNFT f8d6e0586b0a20c7 TicketToken
+            045a1763c93006ca GamePieceNFT 045a1763c93006ca TicketToken --signer emulator-game
         ```
 
 ## Walletless Demo Walkthrough
@@ -254,7 +254,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
         1. `monsterLeg: Int`
     
     ```sh
-    flow transactions send transactions/onboarding/walletless_onboarding.cdc <PUBLIC_KEY> <FUNDING_AMT> <BACKGROUND> <HEAD> <TORSO> <LEG>
+    flow transactions send transactions/onboarding/walletless_onboarding.cdc <PUBLIC_KEY> <FUNDING_AMT> <BACKGROUND> <HEAD> <TORSO> <LEG> --signer emulator-game
     ```
     
 3. Query for new account address from public key
@@ -263,7 +263,7 @@ To demo the functionality of this repo, clone it and follow the steps below by e
         2. `pubKey: String`
     
     ```sh
-    flow scripts execute scripts/linked_accounts/get_child_address_from_public_key_on_creator.cdc f8d6e0586b0a20c7 <PUBLIC_KEY>
+    flow scripts execute scripts/account_creator/get_address_from_pub_key.cdc 045a1763c93006ca <PUBLIC_KEY>
     ```
     
 4. Add the child account to your flow.json (assuming following along on flow-cli)
@@ -369,29 +369,61 @@ For both the following transaction, you'll want to create an account if followin
 flow accounts create # account name: parent | network: emulator
 ```
 
-**Multi-Sign**
+> :information_source: Depending on your use case and custodial architecture, you may find it easier to configure publish & claim; however, both linking modalities are included for illustration.
 
-Both accounts sign a transaction, configuring a `HybridCustody.Manager` in the user’s main account and capturing the app account’s `ChildAccount` capability in said `Manager`. The signing parent account is also configured with `GamePieceNFT.Collection` and `TicketToken.Vault` so each asset can be easily transferred between accounts.
+<details>
+<summary>Publish & Claim</summary>
 
-In the end, the two accounts are linked by resource representation onchain and both are configured such that the app has all it needs to play the game on behalf of the player. The user’s main account (AKA parent account) maintains a Capability on the app account (AKA child account) via `HybridCustody` components, allowing the player to access in-app assets while the app maintains signing authority on behalf of the user when playing in-game.
+This process leverages the [account `Inbox`](https://developers.flow.com/cadence/language/accounts#account-inbox) and involves two steps:
+
+1. [Publish](./transactions/hybrid_custody/setup_owned_account_and_publish_to_parent.cdc)
+1. [Claim](./transactions/hybrid_custody/redeem_account.cdc)
+
+The app-custodied account sends the first transaction, configuring itself with `HybridCustody` constructs and publishing a `ChildAccoun` Capability for the specified parent account. The user subsequently sends another transaction, claiming the published Capability and storing it in a `HybridCustody.Manager` (configuring one if needed).
     
-    * `linked_accounts/multisig_add_as_child`
-        1. `linkedAccountName: String`
-        1. `linkedAccountDescription: String`
-        1. `clientThumbnailURL: String`
-        1. `clientExternalURL: String`
+* Configure the app-custodied account as a child account & publish a capability on the account for the given parent account to claim
+    1. `parent: Address`
+    1. `factoryAddress: Address`
+    1. `filterAddress: Address`
+
+    ```sh
+    flow transactions send transactions/hybrid_custody/setup_owned_account_and_publish_to_parent.cdc <PARENT_ADDRESS> 0x045a1763c93006ca 0x045a1763c93006ca --signer child
+    ```
+
+* Claim the published `ChildAccount` Capability & store in the signing parent account's `Manager`
+    - `childAddress: Address`
+
+    ```sh
+    flow transactions send transactions/hybrid_custody/redeem_account.cdc <CHILD_ADDRESS> --signer parent
+    ```
+
+
+</details>
+
+<details>
+<summary>Multi-Sign</summary>
+
+This process condenses the publish & claim path into a single transaction signed by both the parent and child accounts. In this transaction, a `HybridCustody.Manager` is configured in the user’s main account, capturing the app account’s `ChildAccount` capability in said `Manager`. The signing parent account is also configured with `GamePieceNFT.Collection` and `TicketToken.Vault` so each asset can be easily transferred between accounts.
     
-        ```bash
-        flow transactions build transactions/linked_accounts/add_as_child_multisig.cdc <CHILD_ACCOUNT_NAME> <CHILD_ACCOUNT_DESC> <CLIENT_ICON_URL> <CLIENT_EXT_URL> --proposer parent --payer parent --authorizer parent --authorizer child --filter payload --save add_as_child_multisig
-        ```
-        
-        ```bash
-        flow transactions sign add_as_child_multisig --signer parent --signer child --filter payload --save add_as_child_multisig
-        ```
-        
-        ```bash
-        flow transactions send-signed add_as_child_multisig
-        ```
+* Both accounts sign the transaction, linking both accounts as parent-child and accomplishing Hybrid Custody.
+    1. `childAccountFactoryAddress: Address`
+    1. `childAccountFilterAddress: Address`
+
+    ```sh
+    flow transactions build transactions/hybrid_custody/add_account_multi_sign.cdc 0x045a1763c93006ca 0x045a1763c93006ca --proposer parent --payer parent --authorizer parent --authorizer child --filter payload --save add_account_multi_sign.rlp
+    ```
+    
+    ```sh
+    flow transactions sign add_as_child_multisig --signer parent --signer child --filter payload --save add_account_multi_sign.rlp
+    ```
+    
+    ```sh
+    flow transactions send-signed add_account_multi_sign.rlp
+    ```
+
+</details>
+
+At the end of either process, the two accounts are linked by resource representation onchain and both are configured such that the app has all it needs to play the game on behalf of the player. The user’s main account (AKA parent account) maintains a Capability on the app account (AKA child account) via `HybridCustody` components, allowing the player to access in-app assets while the app maintains signing authority on behalf of the user when playing in-game.
 
 ## Blockchain-Native Onboarding Demo
 <aside>
