@@ -197,6 +197,10 @@
 			"address": "e03daebed8ca0615",
 			"key": "f84d8acb8a1efa87e316df886825e0b6acfa795f2599cbb306727084aa45b80d"
 		},
+		"emulator-ft": {
+			"address": "ee82856bf20e2aa6",
+			"key": "686779d775e5fcbf8d2f4a85cb4c53525d02b7ef53230d180fc16f35d9b7d025"
+		},
 		"emulator-game": {
 			"address": "045a1763c93006ca",
 			"key": "884bf6b10358c23a35d272123eabb509be0e7bc895c9bfbaaeccae1b1f9204d3"
@@ -225,6 +229,9 @@
 				"AddressUtils",
 				"StringUtils",
 				"ArrayUtils"
+			],
+			"emulator-ft": [
+				"FungibleToken"
 			],
 			"emulator-game": [
 				"AccountCreator",
