@@ -410,7 +410,10 @@ This process condenses the publish & claim path into a single transaction signed
     1. `childAccountFilterAddress: Address`
 
     ```sh
-    flow transactions build transactions/hybrid_custody/add_account_multi_sign.cdc 0x045a1763c93006ca 0x045a1763c93006ca --proposer parent --payer parent --authorizer parent --authorizer child --filter payload --save add_account_multi_sign.rlp
+    flow transactions build transactions/hybrid_custody/add_account_multi_sign.cdc \
+        0x045a1763c93006ca 0x045a1763c93006ca \
+        --proposer parent --payer parent --authorizer parent --authorizer child \
+        --filter payload --save add_account_multi_sign.rlp
     ```
     
     ```sh
@@ -438,27 +441,40 @@ At the end of either process, the two accounts are linked by resource representa
     flow keys generate
     ```
     
-2. Initialize blockchain-native onboarding
+2. Initialize blockchain-native onboarding, signing as both the authenticated user and the application's backend account.
     * `onboarding/blockchain_native_onboarding`
         1. `pubKey: String`
-        2. `fundingAmt: UFix64`
-        3. `childAccountName: String`
-        4. `childAccountDescription: String`
-        5. `clientIconURL: String`
-        6. `clientExternalURL: String`
-        7. `minterAddress: Address`
+        1. `fundingAmt: UFix64`
+        1. `factoryAddress: Address`
+        1. `filterAddress: Address`
+        1. `minterAddress: Address`
         
         <aside>
         ⚠️ Note: If you’re using `flow-cli`, you’ll want to add the created account as `“child”` to your `flow.json` before continuing. This is similar to the same step in walletless onboarding above
         </aside>
+
+    ```sh
+    flow transactions execute transactions/onboarding/blockchain_native_onboarding.cdc \
+        <PUBLIC_KEY> 0.5 0x045a1763c93006ca 0x045a1763c93006ca 0x045a1763c93006ca \
+        --proposer emulator-game --payer emulator-game --authorizer parent --authorizer emulator-game \
+        --filter payload --save blockchain_native_onboarding.rlp
+    ```
+    
+    ```sh
+    flow transactions sign blockchain_native_onboarding.rlp --signer parent --signer emulator-game --filter payload --save blockchain_native_onboarding.rlp
+    ```
+    
+    ```sh
+    flow transactions send-signed blockchain_native_onboarding.rlp
+    ```
         
 3. Query for new account address from public key 
-    * `child_account/get_child_address_from_public_key_on_creator: Address`
+    * `account_creator/get_address_from_pub_key.cdc`
         1. `creatorAddress: Address`
         2. `pubKey: String`
     
     ```sh
-    flow scripts execute scripts/linked_accounts/get_child_address_from_public_key_on_creator.cdc <CHILD_ADDRESS> <PUBLIC_KEY>
+    flow scripts execute scripts/account_creator/get_address_from_pub_key.cdc 045a1763c93006ca <PUBLIC_KEY>
     ```
     
 
@@ -496,14 +512,14 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
         flow scripts execute scripts/ticket_token/get_balance_of_all_child_accounts.cdc <PARENT_ADDRESS>
         ```
     
-    1. `child_account/get_all_account_balances_from_storage: {Type: VaultInfo}`
+    1. `hybrid_custody/get_all_account_balances_from_storage: {Type: VaultInfo}`
         * `address: Address`
         
         ```sh
-        fse scripts/linked_accounts/get_all_account_balances_from_storage.cdc <PARENT_ADDRESS>
+        flow scripts execute scripts/hybrid_custody/get_all_vault_bal_from_storage.cdc <PARENT_ADDRESS>
         ```
         
-        ```jsx
+        ```cadence
         // Where VaultInfo has the following interface
         pub struct VaultInfo {
             pub let name: String?
@@ -525,10 +541,10 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
         * `address: Address`
 
     ```sh
-    flow scripts execute scripts/linked_accounts/get_all_nft_display_views_from_storage.cdc <PARENT_ADDRESS>
+    flow scripts execute scripts/hybrid_custody/get_all_nft_display_views_from_storage.cdc <PARENT_ADDRESS>
     ```
 
-    ```jsx
+    ```cadence
     // Where NFTData has the following interface
     pub struct NFTData {
         pub let name: String
@@ -550,7 +566,7 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
         2. `minterAddress: Address`
     
     ```sh
-    flow transactions send transactions/arcade_prize/mint_rainbow_duck_paying_with_child_vault.cdc <CHILD_ADDRESS> f8d6e0586b0a20c7 --signer parent
+    flow transactions send transactions/arcade_prize/mint_rainbow_duck_paying_with_child_vault.cdc <CHILD_ADDRESS> 045a1763c93006ca --signer parent
     ```
     
 1. Again query for all publicly accessible NFTs in the connected account & its child accounts to see the NFT that was minted among all of the user’s owned NFTs
@@ -558,7 +574,7 @@ In this section, we’ll use the TicketToken.Vault in the child account to pay f
         * `address: Address`
     
     ```bash
-    flow scripts execute scripts/linked_accounts/get_all_nft_display_views_from_storage.cdc <PARENT_ADDRESS>
+    flow scripts execute scripts/hybrid_custody/get_all_nft_display_views_from_storage.cdc <PARENT_ADDRESS>
     ```
 ___
 
@@ -585,14 +601,14 @@ As for good old fashioned self-custody, while you won't be able to perform Ticke
     flow transactions send transactions/rock_paper_scissors_game/game_player/setup_new_singleplayer_match.cdc <NFT_ID> <MATCH_TIMEOUT> --signer <YOUR_ACCOUNT_NAME> --network testnet
     ```
 1. Submit your move & the randomized second player's move
-    * `/rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc`
+    * `rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc`
         1. `matchID: UInt64`
         1. `move: UInt8` - 0: rock, 1: paper, 2: scissors
     ```
     flow transactions send transactions/rock_paper_scissors_game/game_player/submit_both_singleplayer_moves.cdc <MATCH_ID> <MOVE> --signer <YOUR_ACCOUNT_NAME> --network testnet
     ```
 1. Resolve the Match & return your NFT. Note that resolution needs to occur at least one block from when the last move was submitted.
-    * `/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc`
+    * `rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc`
         * `matchID: UInt64`
     ```
     flow transactions send transactions/rock_paper_scissors_game/game_player/resolve_match_and_return_nfts.cdc <MATCH_ID> --signer <YOUR_ACCOUNT_NAME> --network testnet
