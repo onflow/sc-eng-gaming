@@ -5,3 +5,4 @@ flowdb/
 .env
 coverage.json
 *.pkey
+*.rlp
